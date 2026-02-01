@@ -15,48 +15,27 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { FaWandMagicSparkles } from "react-icons/fa6";
-import { ImageWithLoading } from "@/components/common/ImageWithLoading";
+import { useRef } from "react";
 import { BookCardOverlay } from "@/components/library/BookCardOverlay";
+import { MagicShelfBadge } from "@/components/shelves/MagicShelfBadge";
 import { ReadListBadge } from "@/components/shelves/ReadListBadge";
 import { ShelfCardCheckbox } from "@/components/shelves/ShelfCardCheckbox";
-import { ShelfCardCover } from "@/components/shelves/ShelfCardCover";
 import { ShelfCardEditButton } from "@/components/shelves/ShelfCardEditButton";
 import { ShelfCardMenu } from "@/components/shelves/ShelfCardMenu";
 import { ShelfCardMenuButton } from "@/components/shelves/ShelfCardMenuButton";
 import { ShelfCardMetadata } from "@/components/shelves/ShelfCardMetadata";
+import { ShelfCoverRenderer } from "@/components/shelves/ShelfCoverRenderer";
 import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
 import { useUser } from "@/contexts/UserContext";
 import { useBookCardMenu } from "@/hooks/useBookCardMenu";
 import { useShelfCardAnimation } from "@/hooks/useShelfCardAnimation";
 import { useShelfCardClick } from "@/hooks/useShelfCardClick";
 import { useShelfCardMenuActions } from "@/hooks/useShelfCardMenuActions";
+import { useShelfCover } from "@/hooks/useShelfCover";
 import { useShelfEditModal } from "@/hooks/useShelfEditModal";
 import { cn } from "@/libs/utils";
 import type { Shelf } from "@/types/shelf";
 import { buildShelfPermissionContext } from "@/utils/permissions";
-
-type ShelfBooksPreviewResponse = {
-  book_ids?: number[];
-};
-
-function extractShelfBookIds(data: unknown): number[] {
-  if (Array.isArray(data)) {
-    return data.filter((id): id is number => typeof id === "number");
-  }
-
-  if (typeof data !== "object" || data === null) {
-    return [];
-  }
-
-  const maybe = data as ShelfBooksPreviewResponse;
-  if (!Array.isArray(maybe.book_ids)) {
-    return [];
-  }
-
-  return maybe.book_ids.filter((id): id is number => typeof id === "number");
-}
 
 export interface ShelfCardProps {
   /** Shelf data to display. */
@@ -108,93 +87,7 @@ export function ShelfCard({
 }: ShelfCardProps) {
   const menu = useBookCardMenu();
   const cardRef = useRef<HTMLButtonElement>(null);
-  // API/frontend convention is lowercase, but tolerate uppercase just in case.
-  const shelfType = shelf.shelf_type as unknown as string;
-  const isMagicShelf =
-    shelfType === "magic_shelf" || shelfType === "MAGIC_SHELF";
-  const hasCustomCover = Boolean(shelf.cover_picture);
-
-  const [magicShelfCoverBookIds, setMagicShelfCoverBookIds] = useState<
-    number[]
-  >([]);
-
-  const shouldUseMagicShelfGridCover = isMagicShelf && !hasCustomCover;
-
-  useEffect(() => {
-    if (!shouldUseMagicShelfGridCover) {
-      setMagicShelfCoverBookIds([]);
-      return;
-    }
-
-    const abortController = new AbortController();
-
-    async function loadMagicShelfCoverBooks() {
-      try {
-        const maxCandidates = 50;
-        const tryFetch = async (sortBy: string) => {
-          const queryParams = new URLSearchParams({
-            page: "1",
-            page_size: maxCandidates.toString(),
-            sort_by: sortBy,
-            sort_order: "asc",
-          });
-
-          return fetch(
-            `/api/shelves/${shelf.id}/books?${queryParams.toString()}`,
-            {
-              signal: abortController.signal,
-              cache: "no-store",
-            },
-          );
-        };
-
-        // Prefer backend-driven randomization for Magic Shelf covers.
-        // Fallback to deterministic "order" if the backend doesn't support it.
-        const response = await (async () => {
-          const randomResponse = await tryFetch("random");
-          if (randomResponse.ok) {
-            return randomResponse;
-          }
-          return tryFetch("order");
-        })();
-
-        if (!response.ok) {
-          setMagicShelfCoverBookIds([]);
-          return;
-        }
-
-        const data = (await response.json()) as unknown;
-        const bookIds = extractShelfBookIds(data);
-
-        setMagicShelfCoverBookIds(bookIds.slice(0, 4));
-      } catch (err) {
-        if ((err as { name?: string } | null)?.name === "AbortError") {
-          return;
-        }
-        setMagicShelfCoverBookIds([]);
-      }
-    }
-
-    void loadMagicShelfCoverBooks();
-
-    return () => {
-      abortController.abort();
-    };
-  }, [shouldUseMagicShelfGridCover, shelf.id]);
-
-  const magicShelfCoverUrls = useMemo(() => {
-    return magicShelfCoverBookIds
-      .slice(0, 4)
-      .map((bookId) => `/api/books/${bookId}/cover`);
-  }, [magicShelfCoverBookIds]);
-
-  const magicShelfGridLayout = useMemo(() => {
-    const count = magicShelfCoverUrls.length;
-    if (count <= 1) return "one";
-    if (count === 2) return "two";
-    if (count === 3) return "three";
-    return "four";
-  }, [magicShelfCoverUrls.length]);
+  const shelfCover = useShelfCover({ shelf });
 
   const { isShaking, isGlowing, triggerAnimation } = useShelfCardAnimation();
 
@@ -238,6 +131,8 @@ export function ShelfCard({
   const canEdit = canPerformAction("shelves", "edit", shelfContext);
   const canDelete = canPerformAction("shelves", "delete", shelfContext);
 
+  const shelfMetaId = `shelf-meta-${shelf.id}`;
+
   return (
     <>
       <button
@@ -258,78 +153,14 @@ export function ShelfCard({
         )}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
-        aria-label={`Shelf: ${shelf.name}`}
+        aria-label={`${shelf.name} shelf with ${shelf.book_count} books`}
+        aria-describedby={shelfMetaId}
+        aria-pressed={selected}
         data-shelf-card
       >
         <div className="relative">
-          {hasCustomCover ? (
-            <ShelfCardCover
-              shelfName={shelf.name}
-              shelfId={shelf.id}
-              hasCoverPicture
-            />
-          ) : shouldUseMagicShelfGridCover && magicShelfCoverUrls.length > 0 ? (
-            <div className="relative aspect-[2/3] w-full overflow-hidden">
-              <div
-                className={cn(
-                  "h-full w-full overflow-hidden bg-gradient-to-br from-surface-a20 to-surface-a10",
-                  magicShelfGridLayout === "one" &&
-                    "grid grid-cols-1 grid-rows-1",
-                  magicShelfGridLayout === "two" &&
-                    "grid grid-cols-1 grid-rows-2",
-                  magicShelfGridLayout === "three" &&
-                    "grid grid-cols-2 grid-rows-2",
-                  magicShelfGridLayout === "four" &&
-                    "grid grid-cols-2 grid-rows-2",
-                )}
-              >
-                {magicShelfCoverUrls.map((url, idx) => {
-                  const isThirdInThree =
-                    magicShelfGridLayout === "three" && idx === 2;
-                  return (
-                    <div
-                      key={url}
-                      className={cn(
-                        "relative h-full w-full overflow-hidden",
-                        isThirdInThree && "col-span-2",
-                      )}
-                    >
-                      <ImageWithLoading
-                        src={url}
-                        alt={`Cover preview ${idx + 1} for ${shelf.name}`}
-                        width={200}
-                        height={300}
-                        className="h-full w-full object-cover"
-                        containerClassName="w-full h-full"
-                        unoptimized
-                      />
-                      <div className="absolute inset-0 ring-1 ring-surface-a0/20" />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <ShelfCardCover
-              shelfName={shelf.name}
-              shelfId={shelf.id}
-              hasCoverPicture={false}
-            />
-          )}
-          {isMagicShelf && (
-            <div
-              className={cn(
-                "pointer-events-none absolute top-2 right-2 z-20",
-                "flex h-7 w-7 items-center justify-center rounded-full",
-                "bg-surface-a0/50 text-warning-a10 backdrop-blur-sm",
-              )}
-              title="Magic shelf"
-              aria-hidden="true"
-              data-magic-shelf-icon
-            >
-              <FaWandMagicSparkles className="h-4 w-4" />
-            </div>
-          )}
+          <ShelfCoverRenderer shelf={shelf} coverData={shelfCover} />
+          {shelfCover.isMagicShelf && <MagicShelfBadge />}
           <BookCardOverlay selected={selected}>
             <ShelfCardCheckbox
               shelf={shelf}
@@ -359,6 +190,10 @@ export function ShelfCard({
         />
         <div className="px-3 pb-3">
           <ReadListBadge shelfType={shelf.shelf_type} />
+        </div>
+        <div id={shelfMetaId} className="sr-only">
+          {shelf.is_public ? "Public shelf" : "Private shelf"}
+          {shelfCover.isMagicShelf ? " - Magic shelf" : ""}
         </div>
       </button>
       {canDelete && (
