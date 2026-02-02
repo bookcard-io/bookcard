@@ -35,6 +35,7 @@ import type { CreateShelfOptions } from "@/services/shelfService";
 import type { Book } from "@/types/book";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 import { buildShelfCreatePayload } from "@/utils/shelfPayload";
+import { isMagicShelf } from "@/utils/shelfUtils";
 import { getShelfCoverUrlWithCacheBuster } from "@/utils/shelves";
 
 export interface AddToShelfModalProps {
@@ -97,11 +98,13 @@ export function AddToShelfModal({
 
   // Sort shelves by created_at descending (newest first)
   const sortedShelves = useMemo(() => {
-    return [...shelves].sort((a, b) => {
+    return [...shelves]
+      .filter((shelf) => !isMagicShelf(shelf))
+      .sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
       return dateB - dateA; // Descending order
-    });
+      });
   }, [shelves]);
 
   // Get first book title for input field (for automatic shelf naming)

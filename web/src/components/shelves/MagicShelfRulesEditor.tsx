@@ -32,8 +32,8 @@ import {
 } from "@/types/magicShelf";
 
 interface MagicShelfRulesEditorProps {
-  rootGroup: FilterGroup;
-  onChange: (group: FilterGroup) => void;
+  rootGroup: FilterGroup | null;
+  onChange: (group: FilterGroup | null) => void;
   disabled?: boolean;
 }
 
@@ -42,12 +42,45 @@ export function MagicShelfRulesEditor({
   onChange,
   disabled,
 }: MagicShelfRulesEditorProps) {
+  const handleStartWithRule = useCallback(() => {
+    onChange({
+      join_type: JoinType.AND,
+      rules: [buildDefaultRule()],
+    });
+  }, [onChange]);
+
   const handleUpdate = useCallback(
     (newGroup: FilterGroup) => {
+      if (newGroup.rules.length === 0) {
+        onChange(null);
+        return;
+      }
       onChange(newGroup);
     },
     [onChange],
   );
+
+  if (!rootGroup || rootGroup.rules.length === 0) {
+    return (
+      <div className="flex flex-col gap-3 rounded-md border border-surface-a20 bg-surface-a0 p-4">
+        <p className="m-0 text-sm text-text-a30">
+          No rules yet. Add a rule to make this a Magic Shelf.
+        </p>
+        <div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="small"
+            onClick={handleStartWithRule}
+            disabled={disabled}
+          >
+            <FaPlus />
+            Add rule
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -100,11 +133,7 @@ function RuleGroupEditor({
   };
 
   const handleAddRule = () => {
-    const newRule: FilterRule = {
-      field: RuleField.TITLE,
-      operator: RuleOperator.CONTAINS,
-      value: "",
-    };
+    const newRule = buildDefaultRule();
     onChange({ ...group, rules: [...group.rules, newRule] });
   };
 
@@ -214,7 +243,7 @@ function RuleGroupEditor({
             disabled={disabled}
           >
             <FaPlus />
-            Add Rule
+            Add rule
           </Button>
           <Button
             variant="ghost"
@@ -223,7 +252,7 @@ function RuleGroupEditor({
             disabled={disabled}
           >
             <FaFolderOpen />
-            Add Group
+            Add group
           </Button>
         </div>
       </div>
@@ -405,4 +434,12 @@ function getOperatorsForField(field: RuleField): RuleOperator[] {
     default:
       return [...commonOps, ...stringOps];
   }
+}
+
+function buildDefaultRule(): FilterRule {
+  return {
+    field: RuleField.TITLE,
+    operator: RuleOperator.CONTAINS,
+    value: "",
+  };
 }

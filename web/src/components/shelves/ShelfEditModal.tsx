@@ -34,9 +34,6 @@ import { cn } from "@/libs/utils";
 import { importReadList } from "@/services/shelfService";
 import {
   type FilterGroup,
-  JoinType,
-  RuleField,
-  RuleOperator,
 } from "@/types/magicShelf";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 import {
@@ -72,17 +69,6 @@ export interface ShelfEditModalProps {
 }
 
 type TabId = "rules" | "import";
-
-const DEFAULT_RULES: FilterGroup = {
-  join_type: JoinType.AND,
-  rules: [
-    {
-      field: RuleField.TITLE,
-      operator: RuleOperator.CONTAINS,
-      value: "",
-    },
-  ],
-};
 
 /**
  * Shelf create/edit modal component.
@@ -260,7 +246,7 @@ export function ShelfEditModal({
       const data = prepareShelfData(name, description, isPublic);
 
       // Determine shelf type and attach rules
-      if (filterRules) {
+      if (filterRules && filterRules.rules.length > 0) {
         data.shelf_type = "magic_shelf";
         data.filter_rules = filterRules as unknown as Record<string, unknown>;
       } else if (importFile) {
@@ -309,12 +295,8 @@ export function ShelfEditModal({
   const isFormDisabled = !hasPermission;
   const isActionDisabled = !hasPermission || isSubmitting || isSaving;
 
-  // Initialize rules if empty and switching to rules tab
   const handleTabChange = (tab: TabId) => {
     setActiveTab(tab);
-    if (tab === "rules" && !filterRules) {
-      setFilterRules(DEFAULT_RULES);
-    }
   };
 
   return (
@@ -464,7 +446,7 @@ export function ShelfEditModal({
                     </p>
                     <div className="[&_button]:!h-9 [&_input]:!h-9 [&_select]:!h-9">
                       <MagicShelfRulesEditor
-                        rootGroup={filterRules || DEFAULT_RULES}
+                        rootGroup={filterRules}
                         onChange={setFilterRules}
                         disabled={isFormDisabled}
                       />
