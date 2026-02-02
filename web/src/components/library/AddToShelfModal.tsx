@@ -101,9 +101,9 @@ export function AddToShelfModal({
     return [...shelves]
       .filter((shelf) => !isMagicShelf(shelf))
       .sort((a, b) => {
-      const dateA = new Date(a.created_at).getTime();
-      const dateB = new Date(b.created_at).getTime();
-      return dateB - dateA; // Descending order
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return dateB - dateA; // Descending order
       });
   }, [shelves]);
 

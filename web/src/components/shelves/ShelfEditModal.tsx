@@ -32,9 +32,7 @@ import { useShelfCoverOperations } from "@/hooks/useShelfCoverOperations";
 import { useShelfForm } from "@/hooks/useShelfForm";
 import { cn } from "@/libs/utils";
 import { importReadList } from "@/services/shelfService";
-import {
-  type FilterGroup,
-} from "@/types/magicShelf";
+import type { FilterGroup } from "@/types/magicShelf";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 import {
   comicRackImportStrategy,
