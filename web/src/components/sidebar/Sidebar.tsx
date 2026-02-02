@@ -33,6 +33,7 @@ import {
   createShelf as createShelfApi,
 } from "@/services/shelfService";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
+import { buildShelfCreatePayload } from "@/utils/shelfPayload";
 import { LibrarySection } from "./LibrarySection";
 import { ShelvesSection } from "./ShelvesSection";
 import { SidebarDevicesSection } from "./SidebarDevicesSection";
@@ -87,7 +88,8 @@ export function Sidebar() {
     data: ShelfCreate | ShelfUpdate,
     options?: CreateShelfOptions,
   ): Promise<Shelf> => {
-    const newShelf = await createShelfApi(data as ShelfCreate, options);
+    const payload = buildShelfCreatePayload(data);
+    const newShelf = await createShelfApi(payload, options);
     setShowCreateModal(false);
     await refreshShelvesContext();
     return newShelf;

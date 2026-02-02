@@ -53,6 +53,16 @@ class TestMagicShelfService:
         with pytest.raises(ValueError, match="Shelf 1 not found"):
             service.get_books_for_shelf(1)
 
+    def test_count_books_shelf_not_found(
+        self,
+        service: MagicShelfService,
+        mock_shelf_repo: MagicMock,
+    ) -> None:
+        """Test count error when shelf does not exist."""
+        mock_shelf_repo.get.return_value = None
+        with pytest.raises(ValueError, match="Shelf 1 not found"):
+            service.count_books_for_shelf(1)
+
     def test_get_books_not_magic_shelf(
         self,
         service: MagicShelfService,
@@ -64,6 +74,18 @@ class TestMagicShelfService:
         mock_shelf_repo.get.return_value = shelf
         with pytest.raises(ValueError, match="Shelf 1 is not a Magic Shelf"):
             service.get_books_for_shelf(1)
+
+    def test_count_books_not_magic_shelf(
+        self,
+        service: MagicShelfService,
+        mock_shelf_repo: MagicMock,
+    ) -> None:
+        """Test count error when shelf is not a magic shelf."""
+        shelf = MagicMock(spec=Shelf)
+        shelf.shelf_type = ShelfTypeEnum.SHELF
+        mock_shelf_repo.get.return_value = shelf
+        with pytest.raises(ValueError, match="Shelf 1 is not a Magic Shelf"):
+            service.count_books_for_shelf(1)
 
     def test_get_books_success(
         self,
@@ -78,19 +100,41 @@ class TestMagicShelfService:
         shelf.filter_rules = {"rules": []}  # Valid empty rules
         mock_shelf_repo.get.return_value = shelf
 
-        mock_evaluator.build_filter.return_value = "filter_expr"
-        mock_book_repo.list_books_by_filter.return_value = ["book1"]
-        mock_book_repo.count_books_by_filter.return_value = 1
+        mock_evaluator.build_matching_book_ids_stmt.return_value = "ids_query"
+        mock_book_repo.list_books_by_ids_query.return_value = ["book1"]
+        mock_book_repo.count_books_by_ids_query.return_value = 1
 
         books, count = service.get_books_for_shelf(1)
 
         assert books == ["book1"]
         assert count == 1
-        mock_book_repo.list_books_by_filter.assert_called_once()
-        call_kwargs = mock_book_repo.list_books_by_filter.call_args[1]
-        assert call_kwargs["filter_expression"] == "filter_expr"
+        mock_book_repo.list_books_by_ids_query.assert_called_once()
+        call_args = mock_book_repo.list_books_by_ids_query.call_args
+        assert call_args[0][0] == "ids_query"
+        call_kwargs = call_args[1]
         assert call_kwargs["limit"] == 20
         assert call_kwargs["offset"] == 0
+
+    def test_count_books_success(
+        self,
+        service: MagicShelfService,
+        mock_shelf_repo: MagicMock,
+        mock_book_repo: MagicMock,
+        mock_evaluator: MagicMock,
+    ) -> None:
+        """Test successful counting of books."""
+        shelf = MagicMock(spec=Shelf)
+        shelf.shelf_type = ShelfTypeEnum.MAGIC_SHELF
+        shelf.filter_rules = {"rules": []}  # Valid empty rules
+        mock_shelf_repo.get.return_value = shelf
+
+        mock_evaluator.build_matching_book_ids_stmt.return_value = "ids_query"
+        mock_book_repo.count_books_by_ids_query.return_value = 7
+
+        count = service.count_books_for_shelf(1)
+
+        assert count == 7
+        mock_book_repo.count_books_by_ids_query.assert_called_once_with("ids_query")
 
     def test_get_books_pagination(
         self,
@@ -106,7 +150,7 @@ class TestMagicShelfService:
 
         service.get_books_for_shelf(1, page=2, page_size=10)
 
-        call_kwargs = mock_book_repo.list_books_by_filter.call_args[1]
+        call_kwargs = mock_book_repo.list_books_by_ids_query.call_args[1]
         assert call_kwargs["limit"] == 10
         assert call_kwargs["offset"] == 10  # (2-1) * 10
 
@@ -126,7 +170,24 @@ class TestMagicShelfService:
 
         assert books == []
         assert count == 0
-        mock_book_repo.list_books_by_filter.assert_not_called()
+        mock_book_repo.list_books_by_ids_query.assert_not_called()
+
+    def test_count_books_invalid_rules_returns_zero(
+        self,
+        service: MagicShelfService,
+        mock_shelf_repo: MagicMock,
+        mock_book_repo: MagicMock,
+    ) -> None:
+        """Test that invalid rules result in zero without error."""
+        shelf = MagicMock(spec=Shelf)
+        shelf.shelf_type = ShelfTypeEnum.MAGIC_SHELF
+        shelf.filter_rules = {"invalid": "data", "rules": "not_a_list"}
+        mock_shelf_repo.get.return_value = shelf
+
+        count = service.count_books_for_shelf(1)
+
+        assert count == 0
+        mock_book_repo.count_books_by_ids_query.assert_not_called()
 
     def test_empty_rules_returns_empty_group(
         self,
@@ -144,6 +205,6 @@ class TestMagicShelfService:
         service.get_books_for_shelf(1)
 
         # Should call evaluator with empty GroupRule
-        mock_evaluator.build_filter.assert_called_once()
-        args = mock_evaluator.build_filter.call_args[0]
+        mock_evaluator.build_matching_book_ids_stmt.assert_called_once()
+        args = mock_evaluator.build_matching_book_ids_stmt.call_args[0]
         assert args[0].rules == []

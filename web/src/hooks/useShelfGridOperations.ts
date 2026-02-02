@@ -14,6 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { useCallback } from "react";
+import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import type { CreateShelfOptions } from "@/services/shelfService";
 import {
@@ -22,6 +23,10 @@ import {
   updateShelf as updateShelfApi,
 } from "@/services/shelfService";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
+import {
+  buildShelfLocalPatchFromShelf,
+  buildShelfUpdatePayloadFromShelf,
+} from "@/utils/shelfPayload";
 
 export interface ShelfDataUpdateRef {
   /** Update shelf data in local state. */
@@ -75,24 +80,30 @@ export function useShelfGridOperations(
 ): UseShelfGridOperationsResult {
   const { shelfDataUpdateRef, onShelvesDeleted, onError } = options;
   const { refresh: refreshContext } = useShelvesContext();
+  const { selectedShelfId, setSelectedShelfId } = useSelectedShelf();
 
   const handleShelfUpdate = useCallback(
     async (shelf: Shelf) => {
-      await updateShelfApi(shelf.id, {
-        name: shelf.name,
-        description: shelf.description,
-        is_public: shelf.is_public,
-      });
+      const payload = buildShelfUpdatePayloadFromShelf(shelf);
+      await updateShelfApi(shelf.id, payload);
       // Refresh context to sync with Sidebar and other components
       await refreshContext();
       // Update local state to reflect changes without full refresh
-      shelfDataUpdateRef.current?.updateShelf(shelf.id, {
-        name: shelf.name,
-        description: shelf.description,
-        is_public: shelf.is_public,
-      });
+      shelfDataUpdateRef.current?.updateShelf(
+        shelf.id,
+        buildShelfLocalPatchFromShelf(shelf),
+      );
+
+      // If the shelf is currently selected as a filter, force a re-fetch of
+      // shelf contents by toggling the selection.
+      if (selectedShelfId === shelf.id) {
+        setSelectedShelfId(undefined);
+        setTimeout(() => {
+          setSelectedShelfId(shelf.id);
+        }, 0);
+      }
     },
-    [refreshContext, shelfDataUpdateRef],
+    [refreshContext, shelfDataUpdateRef, selectedShelfId, setSelectedShelfId],
   );
 
   const handleCoverUpdate = useCallback(

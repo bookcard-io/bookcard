@@ -15,6 +15,7 @@
 
 "use client";
 
+import { GiBookshelf } from "react-icons/gi";
 import { Button } from "@/components/forms/Button";
 import { getShelfCoverPictureUrl } from "@/services/shelfService";
 import type { Shelf } from "@/types/shelf";
@@ -71,10 +72,8 @@ export function ShelfCoverSection({
   onCancelDelete,
 }: ShelfCoverSectionProps) {
   return (
-    <div className="space-y-4">
-      <div className="font-medium text-sm text-text-a10">
-        Cover picture (optional)
-      </div>
+    <div className="flex flex-col gap-2">
+      <div className="font-medium text-sm text-text-a10">Cover picture</div>
       {isEditMode && shelf && shelf.cover_picture && !isCoverDeleteStaged ? (
         <div className="space-y-4">
           <img
@@ -132,6 +131,9 @@ export function ShelfCoverSection({
         </div>
       ) : (
         <div className="space-y-4">
+          <div className="flex h-26 w-full items-center justify-center rounded-md border-2 border-surface-a30 border-dashed bg-surface-a20 p-4">
+            <GiBookshelf className="h-full w-full text-text-a40" />
+          </div>
           <input
             ref={fileInputRef}
             type="file"

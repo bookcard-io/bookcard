@@ -30,6 +30,7 @@ import { useShelfActions } from "@/hooks/useShelfActions";
 import { cn } from "@/libs/utils";
 import type { Book } from "@/types/book";
 import { getFlyoutPositionStyle } from "@/utils/flyoutPositionStyle";
+import { isMagicShelf } from "@/utils/shelfUtils";
 import { RecentShelvesSection } from "./RecentShelvesSection";
 
 export interface AddToShelfFlyoutMenuProps {
@@ -92,7 +93,10 @@ export function AddToShelfFlyoutMenu({
   const { shelves, refresh: refreshShelvesContext } = useShelvesContext();
   const { addBook, isProcessing } = useShelfActions();
   const { addRecentShelf } = useRecentShelves();
-  const recentShelves = useRecentCreatedShelves(shelves);
+  const recentShelvesAll = useRecentCreatedShelves(shelves);
+  const recentShelves = useMemo(() => {
+    return recentShelvesAll.filter((shelf) => !isMagicShelf(shelf));
+  }, [recentShelvesAll]);
 
   const { position, direction, menuRef } = useFlyoutPosition({
     isOpen,

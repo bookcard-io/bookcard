@@ -27,6 +27,7 @@ import type {
   ShelfListResponse,
   ShelfUpdate,
 } from "@/types/shelf";
+import { extractShelfBookIds } from "@/utils/shelfUtils";
 
 const API_BASE = "/api/shelves";
 
@@ -113,6 +114,7 @@ export async function listShelves(): Promise<ShelfListResponse> {
   const response = await fetch(API_BASE, {
     method: "GET",
     credentials: "include",
+    cache: "no-store",
   });
 
   if (!response.ok) {
@@ -388,6 +390,7 @@ export async function getShelfBooks(
   const response = await fetch(`${API_BASE}/${shelfId}/books?${params}`, {
     method: "GET",
     credentials: "include",
+    cache: "no-store",
   });
 
   if (!response.ok) {
@@ -398,6 +401,58 @@ export async function getShelfBooks(
   }
 
   return response.json();
+}
+
+/**
+ * Fetch candidate book IDs for a Magic Shelf cover grid.
+ *
+ * Notes
+ * -----
+ * - Prefers backend-driven randomization (sort_by=random) when supported.
+ * - Falls back to deterministic ordering (sort_by=order).
+ * - Tolerates backend response shapes of either `number[]` or `{ book_ids: number[] }`.
+ *
+ * Parameters
+ * ----------
+ * shelfId : number
+ *     Shelf identifier.
+ * signal : AbortSignal, optional
+ *     Optional abort signal to cancel the request.
+ *
+ * Returns
+ * -------
+ * Promise<number[]>
+ *     Candidate book IDs (unsliced; callers may take the first N).
+ */
+export async function fetchMagicShelfCoverBooks(
+  shelfId: number,
+  signal?: AbortSignal,
+): Promise<number[]> {
+  const maxCandidates = 50;
+
+  const tryFetch = async (sortBy: string) => {
+    const params = new URLSearchParams({
+      page: "1",
+      page_size: maxCandidates.toString(),
+      sort_by: sortBy,
+      sort_order: "asc",
+    });
+
+    return fetch(`${API_BASE}/${shelfId}/books?${params.toString()}`, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      signal,
+    });
+  };
+
+  const response = await tryFetch("random").catch(() => tryFetch("order"));
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = (await response.json()) as unknown;
+  return extractShelfBookIds(data);
 }
 
 /**

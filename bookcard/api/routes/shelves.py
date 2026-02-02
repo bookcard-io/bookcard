@@ -34,7 +34,8 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse, Response
-from sqlmodel import Session
+from sqlalchemy import func
+from sqlmodel import Session, select
 
 from bookcard.api.deps import get_current_user, get_db_session
 from bookcard.api.schemas.shelves import (
@@ -48,6 +49,7 @@ from bookcard.api.schemas.shelves import (
     ShelfUpdate,
 )
 from bookcard.models.auth import User
+from bookcard.models.shelves import BookShelfLink, ShelfTypeEnum
 from bookcard.repositories.calibre.repository import CalibreBookRepository
 from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.repositories.shelf_repository import (
@@ -194,12 +196,101 @@ def _build_shelf_permission_context(shelf: Shelf) -> dict[str, object]:
     return context
 
 
+def _read_upload_file_bytes(file: UploadFile) -> bytes:
+    """Read bytes from an UploadFile.
+
+    Parameters
+    ----------
+    file : UploadFile
+        Upload file handle.
+
+    Returns
+    -------
+    bytes
+        File contents.
+
+    Raises
+    ------
+    HTTPException
+        If the file cannot be read.
+    """
+    try:
+        return file.file.read()
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"failed_to_read_file: {exc!s}",
+        ) from exc
+
+
+def _get_shelf_book_count(
+    session: SessionDep,
+    magic_shelf_service: MagicShelfService,
+    shelf: Shelf,
+) -> int:
+    """Compute correct `book_count` for a shelf (including Magic Shelves).
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    magic_shelf_service : MagicShelfService
+        Magic shelf service dependency used to evaluate dynamic shelves.
+    shelf : Shelf
+        Shelf model instance.
+
+    Returns
+    -------
+    int
+        Number of books in the shelf.
+
+    Raises
+    ------
+    HTTPException
+        If the shelf has no ID (500).
+    """
+    shelf_id = _require_shelf_id(shelf)
+
+    if shelf.shelf_type == ShelfTypeEnum.MAGIC_SHELF:
+        return magic_shelf_service.count_books_for_shelf(shelf_id)
+
+    link_repo = BookShelfLinkRepository(session)
+    return len(link_repo.find_by_shelf(shelf_id))
+
+
+def _require_shelf_id(shelf: Shelf) -> int:
+    """Return shelf ID or raise 500 if missing.
+
+    Parameters
+    ----------
+    shelf : Shelf
+        Shelf model instance.
+
+    Returns
+    -------
+    int
+        Shelf ID.
+
+    Raises
+    ------
+    HTTPException
+        If the shelf has no ID (500).
+    """
+    if shelf.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Shelf has no ID",
+        )
+    return shelf.id
+
+
 @router.post("", response_model=ShelfRead, status_code=status.HTTP_201_CREATED)
 def create_shelf(
     shelf_data: ShelfCreate,
     session: SessionDep,
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
+    magic_shelf_service: MagicShelfServiceDep,
     library_id: ActiveLibraryIdDep,
 ) -> ShelfRead:
     """Create a new shelf.
@@ -239,17 +330,21 @@ def create_shelf(
             description=shelf_data.description,
             is_public=shelf_data.is_public,
             shelf_type=shelf_data.shelf_type,
+            filter_rules=shelf_data.filter_rules,
         )
         session.commit()
 
         # Get book count
-        link_repo = BookShelfLinkRepository(session)
         if shelf.id is None:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Shelf has no ID",
             )
-        book_count = len(link_repo.find_by_shelf(shelf.id))
+        if shelf.shelf_type == ShelfTypeEnum.MAGIC_SHELF:
+            book_count = magic_shelf_service.count_books_for_shelf(shelf.id)
+        else:
+            link_repo = BookShelfLinkRepository(session)
+            book_count = len(link_repo.find_by_shelf(shelf.id))
 
         return ShelfRead(
             id=shelf.id,
@@ -281,6 +376,7 @@ def list_shelves(
     session: SessionDep,
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
+    magic_shelf_service: MagicShelfServiceDep,
     library_id: ActiveLibraryIdDep,
 ) -> ShelfListResponse:
     """List shelves accessible to the current user.
@@ -320,7 +416,15 @@ def list_shelves(
     link_repo = BookShelfLinkRepository(session)
     shelf_reads = []
     for shelf in shelves:
-        book_count = len(link_repo.find_by_shelf(shelf.id))  # ty:ignore[invalid-argument-type]
+        if shelf.shelf_type == ShelfTypeEnum.MAGIC_SHELF:
+            if shelf.id is None:
+                book_count = 0
+            else:
+                book_count = magic_shelf_service.count_books_for_shelf(shelf.id)
+        else:
+            book_count = len(
+                link_repo.find_by_shelf(shelf.id)  # ty:ignore[invalid-argument-type]
+            )
         shelf_reads.append(
             ShelfRead(
                 id=shelf.id,  # ty:ignore[invalid-argument-type]
@@ -351,6 +455,7 @@ def get_shelf(
     session: SessionDep,
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
+    magic_shelf_service: MagicShelfServiceDep,
     library_id: ActiveLibraryIdDep,
 ) -> ShelfRead:
     """Get a shelf by ID.
@@ -406,8 +511,11 @@ def get_shelf(
         )
 
     # Get book count
-    link_repo = BookShelfLinkRepository(session)
-    book_count = len(link_repo.find_by_shelf(shelf_id))
+    if shelf.shelf_type == ShelfTypeEnum.MAGIC_SHELF:
+        book_count = magic_shelf_service.count_books_for_shelf(shelf_id)
+    else:
+        link_repo = BookShelfLinkRepository(session)
+        book_count = len(link_repo.find_by_shelf(shelf_id))
 
     if shelf.id is None:
         raise HTTPException(
@@ -441,6 +549,7 @@ def update_shelf(
     session: SessionDep,
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
+    magic_shelf_service: MagicShelfServiceDep,
     library_id: ActiveLibraryIdDep,
 ) -> ShelfRead:
     """Update a shelf.
@@ -497,13 +606,16 @@ def update_shelf(
         session.commit()
 
         # Get book count
-        link_repo = BookShelfLinkRepository(session)
         if shelf.id is None:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Shelf has no ID",
             )
-        book_count = len(link_repo.find_by_shelf(shelf.id))
+        if shelf.shelf_type == ShelfTypeEnum.MAGIC_SHELF:
+            book_count = magic_shelf_service.count_books_for_shelf(shelf.id)
+        else:
+            link_repo = BookShelfLinkRepository(session)
+            book_count = len(link_repo.find_by_shelf(shelf.id))
 
         return ShelfRead(
             id=shelf.id,
@@ -768,7 +880,7 @@ def get_shelf_books(
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
     sort_by: str = Query(
         default="order",
-        description="Sort field: 'order', 'date_added', 'book_id'",
+        description="Sort field: 'order', 'date_added', 'book_id', 'random'",
     ),
     sort_order: str = Query(
         default="asc",
@@ -794,7 +906,7 @@ def get_shelf_books(
     page_size : int
         Number of items per page.
     sort_by : str
-        Sort field: 'order', 'date_added', or 'book_id'.
+        Sort field: 'order', 'date_added', 'book_id', or 'random'.
     sort_order : str
         Sort order: 'asc' or 'desc'.
 
@@ -850,9 +962,22 @@ def get_shelf_books(
             ) from e
 
     link_repo = BookShelfLinkRepository(session)
+    offset = (page - 1) * page_size
+
+    if sort_by == "random":
+        # SQL-level random ordering; ignores sort_order.
+        stmt = (
+            select(BookShelfLink.book_id)
+            .where(BookShelfLink.shelf_id == shelf_id)
+            .order_by(func.random())
+            .offset(offset)
+            .limit(page_size)
+        )
+        return list(session.exec(stmt).all())
+
     links = link_repo.find_by_shelf(shelf_id)
 
-    # Sort links
+    # Sort links (in-memory)
     if sort_by == "order":
         links.sort(key=lambda x: x.order, reverse=(sort_order == "desc"))
     elif sort_by == "date_added":
@@ -860,10 +985,7 @@ def get_shelf_books(
     elif sort_by == "book_id":
         links.sort(key=lambda x: x.book_id, reverse=(sort_order == "desc"))
 
-    # Paginate
-    offset = (page - 1) * page_size
     paginated_links = links[offset : offset + page_size]
-
     return [link.book_id for link in paginated_links]
 
 
@@ -873,6 +995,7 @@ def upload_shelf_cover_picture(
     session: SessionDep,
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
+    magic_shelf_service: MagicShelfServiceDep,
     library_id: ActiveLibraryIdDep,
     file: Annotated[UploadFile, File()],
 ) -> ShelfRead:
@@ -924,13 +1047,7 @@ def upload_shelf_cover_picture(
             detail="filename_required",
         )
 
-    try:
-        file_content = file.file.read()
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"failed_to_read_file: {exc!s}",
-        ) from exc
+    file_content = _read_upload_file_bytes(file)
 
     try:
         shelf = shelf_service.upload_cover_picture(
@@ -941,17 +1058,11 @@ def upload_shelf_cover_picture(
         )
         session.commit()
 
-        # Get book count
-        link_repo = BookShelfLinkRepository(session)
-        if shelf.id is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Shelf has no ID",
-            )
-        book_count = len(link_repo.find_by_shelf(shelf.id))
+        shelf_id_int = _require_shelf_id(shelf)
+        book_count = _get_shelf_book_count(session, magic_shelf_service, shelf)
 
         return ShelfRead(
-            id=shelf.id,
+            id=shelf_id_int,
             uuid=shelf.uuid,
             name=shelf.name,
             description=shelf.description,
@@ -1054,6 +1165,7 @@ def delete_shelf_cover_picture(
     session: SessionDep,
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
+    magic_shelf_service: MagicShelfServiceDep,
     library_id: ActiveLibraryIdDep,
 ) -> ShelfRead:
     """Delete a shelf's cover picture.
@@ -1100,13 +1212,16 @@ def delete_shelf_cover_picture(
         session.commit()
 
         # Get book count
-        link_repo = BookShelfLinkRepository(session)
         if shelf.id is None:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Shelf has no ID",
             )
-        book_count = len(link_repo.find_by_shelf(shelf.id))
+        if shelf.shelf_type == ShelfTypeEnum.MAGIC_SHELF:
+            book_count = magic_shelf_service.count_books_for_shelf(shelf.id)
+        else:
+            link_repo = BookShelfLinkRepository(session)
+            book_count = len(link_repo.find_by_shelf(shelf.id))
 
         return ShelfRead(
             id=shelf.id,

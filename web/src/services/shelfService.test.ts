@@ -216,6 +216,7 @@ describe("shelfService", () => {
       expect(globalThis.fetch).toHaveBeenCalledWith(apiBase, {
         method: "GET",
         credentials: "include",
+        cache: "no-store",
       });
       expect(result).toEqual(mockResponseData);
     });
@@ -652,6 +653,7 @@ describe("shelfService", () => {
       expect(globalThis.fetch).toHaveBeenCalledWith(url, {
         method: "GET",
         credentials: "include",
+        cache: "no-store",
       });
       expect(result).toEqual(mockBookIds);
     });

@@ -262,12 +262,11 @@ def test_blank_isbn(session: Session, sample_data: dict[str, int | None]) -> Non
     rule = Rule(field=RuleField.ISBN, operator=RuleOperator.IS_EMPTY)
     group = GroupRule(rules=[rule])
 
-    filter_expr = evaluator.build_filter(group)
-    stmt = select(Book).where(filter_expr)
-    results = session.exec(stmt).all()
+    ids_stmt = evaluator.build_matching_book_ids_stmt(group)
+    results = session.exec(ids_stmt).all()
 
     assert len(results) == 1
-    assert results[0].id == sample_data["book1"]
+    assert results[0] == sample_data["book1"]
 
 
 def test_genre_horror(session: Session, sample_data: dict[str, int | None]) -> None:
@@ -275,13 +274,12 @@ def test_genre_horror(session: Session, sample_data: dict[str, int | None]) -> N
     rule = Rule(field=RuleField.TAG, operator=RuleOperator.CONTAINS, value="Horror")
     group = GroupRule(rules=[rule])
 
-    filter_expr = evaluator.build_filter(group)
-    stmt = select(Book).where(filter_expr)
-    results = session.exec(stmt).all()
+    ids_stmt = evaluator.build_matching_book_ids_stmt(group)
+    results = session.exec(ids_stmt).all()
 
     # Book 2, Book 11, Book 13 have Horror tag
     assert len(results) == 3
-    ids = {b.id for b in results}
+    ids = set(results)
     assert sample_data["book2"] in ids
     assert sample_data["book11"] in ids
     assert sample_data["book13"] in ids
@@ -307,13 +305,12 @@ def test_highly_rated_recent(
 
     group = GroupRule(rules=[rule_rating, rule_pubdate], join_type=JoinType.AND)
 
-    filter_expr = evaluator.build_filter(group)
-    stmt = select(Book).where(filter_expr)
-    results = session.exec(stmt).all()
+    ids_stmt = evaluator.build_matching_book_ids_stmt(group)
+    results = session.exec(ids_stmt).all()
 
     # Book 3 and Book 10 match
     assert len(results) == 2
-    ids = {b.id for b in results}
+    ids = set(results)
     assert sample_data["book3"] in ids
     assert sample_data["book10"] in ids
 
@@ -331,14 +328,13 @@ def test_title_hash_no_series(
 
     group = GroupRule(rules=[rule_title, rule_series], join_type=JoinType.AND)
 
-    filter_expr = evaluator.build_filter(group)
-    stmt = select(Book).where(filter_expr)
-    results = session.exec(stmt).all()
+    ids_stmt = evaluator.build_matching_book_ids_stmt(group)
+    results = session.exec(ids_stmt).all()
 
     # Should match book4 (Has #, No Series)
     # Should NOT match book5 (Has #, Has Series)
     assert len(results) == 1
-    assert results[0].id == sample_data["book4"]
+    assert results[0] == sample_data["book4"]
 
 
 def test_multiple_authors_or_logic(
@@ -353,13 +349,12 @@ def test_multiple_authors_or_logic(
 
     group = GroupRule(rules=[rule1, rule2], join_type=JoinType.OR)
 
-    filter_expr = evaluator.build_filter(group)
-    stmt = select(Book).where(filter_expr)
-    results = session.exec(stmt).all()
+    ids_stmt = evaluator.build_matching_book_ids_stmt(group)
+    results = session.exec(ids_stmt).all()
 
     # Should match book6 (The Talisman)
     assert len(results) >= 1
-    assert any(b.id == sample_data["book6"] for b in results)
+    assert sample_data["book6"] in set(results)
 
 
 def test_publisher_and_language(
@@ -375,12 +370,11 @@ def test_publisher_and_language(
 
     group = GroupRule(rules=[rule_pub, rule_lang], join_type=JoinType.AND)
 
-    filter_expr = evaluator.build_filter(group)
-    stmt = select(Book).where(filter_expr)
-    results = session.exec(stmt).all()
+    ids_stmt = evaluator.build_matching_book_ids_stmt(group)
+    results = session.exec(ids_stmt).all()
 
     assert len(results) == 1
-    assert results[0].id == sample_data["book7"]
+    assert results[0] == sample_data["book7"]
 
 
 def test_identifier_lookup(
@@ -394,12 +388,11 @@ def test_identifier_lookup(
     )
     group = GroupRule(rules=[rule])
 
-    filter_expr = evaluator.build_filter(group)
-    stmt = select(Book).where(filter_expr)
-    results = session.exec(stmt).all()
+    ids_stmt = evaluator.build_matching_book_ids_stmt(group)
+    results = session.exec(ids_stmt).all()
 
     assert len(results) == 1
-    assert results[0].id == sample_data["book8"]
+    assert results[0] == sample_data["book8"]
 
 
 def test_nested_complex_logic(
@@ -431,14 +424,13 @@ def test_nested_complex_logic(
     # Root: Group 1 OR Group 2
     root = GroupRule(rules=[group1, group2], join_type=JoinType.OR)
 
-    filter_expr = evaluator.build_filter(root)
-    stmt = select(Book).where(filter_expr)
-    results = session.exec(stmt).all()
+    ids_stmt = evaluator.build_matching_book_ids_stmt(root)
+    results = session.exec(ids_stmt).all()
 
     # Should match:
     # Old/Low: Book 9, Book 11, Book 13
     # New/High: Book 3, Book 10
-    ids = {b.id for b in results}
+    ids = set(results)
     assert len(ids) == 5
     assert sample_data["book9"] in ids
     assert sample_data["book11"] in ids
@@ -465,14 +457,14 @@ def test_starts_with_ends_with(
     group2 = GroupRule(rules=[rule2])
 
     # Test Starts With
-    expr1 = evaluator.build_filter(group1)
-    res1 = session.exec(select(Book).where(expr1)).all()
-    assert any(b.id == sample_data["book1"] for b in res1)
+    stmt1 = evaluator.build_matching_book_ids_stmt(group1)
+    res1 = session.exec(stmt1).all()
+    assert sample_data["book1"] in set(res1)
 
     # Test Ends With (Multiple books end with "Book")
-    expr2 = evaluator.build_filter(group2)
-    res2 = session.exec(select(Book).where(expr2)).all()
-    ids = {b.id for b in res2}
+    stmt2 = evaluator.build_matching_book_ids_stmt(group2)
+    res2 = session.exec(stmt2).all()
+    ids = set(res2)
     assert sample_data["book1"] in ids
     assert sample_data["book2"] in ids
     assert sample_data["book3"] in ids
@@ -491,11 +483,10 @@ def test_in_operator(session: Session, sample_data: dict[str, int | None]) -> No
     )
     group = GroupRule(rules=[rule])
 
-    filter_expr = evaluator.build_filter(group)
-    stmt = select(Book).where(filter_expr)
-    results = session.exec(stmt).all()
+    ids_stmt = evaluator.build_matching_book_ids_stmt(group)
+    results = session.exec(ids_stmt).all()
 
-    ids = {b.id for b in results}
+    ids = set(results)
     assert len(ids) == 2
     assert sample_data["book2"] in ids
     assert sample_data["book9"] in ids
@@ -510,12 +501,11 @@ def test_not_empty_related(
     rule = Rule(field=RuleField.SERIES, operator=RuleOperator.IS_NOT_EMPTY)
     group = GroupRule(rules=[rule])
 
-    filter_expr = evaluator.build_filter(group)
-    stmt = select(Book).where(filter_expr)
-    results = session.exec(stmt).all()
+    ids_stmt = evaluator.build_matching_book_ids_stmt(group)
+    results = session.exec(ids_stmt).all()
 
     # Should match book5 (Has Series)
-    ids = {b.id for b in results}
+    ids = set(results)
     assert sample_data["book5"] in ids
     assert sample_data["book4"] not in ids  # No series
 
@@ -531,9 +521,9 @@ def test_not_operators(session: Session, sample_data: dict[str, int | None]) -> 
         value="Blank ISBN Book",
     )
     group1 = GroupRule(rules=[rule1])
-    expr1 = evaluator.build_filter(group1)
-    res1 = session.exec(select(Book).where(expr1)).all()
-    ids1 = {b.id for b in res1}
+    stmt1 = evaluator.build_matching_book_ids_stmt(group1)
+    res1 = session.exec(stmt1).all()
+    ids1 = set(res1)
     assert sample_data["book1"] not in ids1
     assert sample_data["book2"] in ids1
 
@@ -543,21 +533,20 @@ def test_not_operators(session: Session, sample_data: dict[str, int | None]) -> 
         field=RuleField.TITLE, operator=RuleOperator.NOT_CONTAINS, value="Book"
     )
     group2 = GroupRule(rules=[rule2])
-    expr2 = evaluator.build_filter(group2)
-    res2 = session.exec(select(Book).where(expr2)).all()
-    # book6 is "The Talisman"
-    assert any(b.id == sample_data["book6"] for b in res2)
-    # book1 is "Blank ISBN Book"
-    assert not any(b.id == sample_data["book1"] for b in res2)
+    stmt2 = evaluator.build_matching_book_ids_stmt(group2)
+    res2 = session.exec(stmt2).all()
+    ids2 = set(res2)
+    assert sample_data["book6"] in ids2
+    assert sample_data["book1"] not in ids2
 
     # NOT_IN: Title NOT IN ["Horror Book"]
     rule3 = Rule(
         field=RuleField.TITLE, operator=RuleOperator.NOT_IN, value=["Horror Book"]
     )
     group3 = GroupRule(rules=[rule3])
-    expr3 = evaluator.build_filter(group3)
-    res3 = session.exec(select(Book).where(expr3)).all()
-    ids3 = {b.id for b in res3}
+    stmt3 = evaluator.build_matching_book_ids_stmt(group3)
+    res3 = session.exec(stmt3).all()
+    ids3 = set(res3)
     assert sample_data["book2"] not in ids3
     assert sample_data["book1"] in ids3
 
@@ -607,10 +596,9 @@ def test_deeply_nested_logic(
     # Root: Group 1 AND Group 2
     root = GroupRule(rules=[group1, group2], join_type=JoinType.AND)
 
-    filter_expr = evaluator.build_filter(root)
-    stmt = select(Book).where(filter_expr)
-    results = session.exec(stmt).all()
-    ids = {b.id for b in results}
+    ids_stmt = evaluator.build_matching_book_ids_stmt(root)
+    results = session.exec(ids_stmt).all()
+    ids = set(results)
 
     # Expect:
     # Book 10: SciFi, 5, 2025 -> Matches G1(SciFi) AND G2a(High/Recent). -> MATCH
@@ -641,10 +629,9 @@ def test_mixed_direct_and_related_or(
     )
     group = GroupRule(rules=[rule1, rule2], join_type=JoinType.OR)
 
-    filter_expr = evaluator.build_filter(group)
-    stmt = select(Book).where(filter_expr)
-    results = session.exec(stmt).all()
-    ids = {b.id for b in results}
+    ids_stmt = evaluator.build_matching_book_ids_stmt(group)
+    results = session.exec(ids_stmt).all()
+    ids = set(results)
 
     # Book 14: Title="UniqueTitle" -> Match
     # Book 15: Author="SpecificAuthor" -> Match
@@ -668,10 +655,9 @@ def test_in_operator_related_field(
     )
     group = GroupRule(rules=[rule])
 
-    filter_expr = evaluator.build_filter(group)
-    stmt = select(Book).where(filter_expr)
-    results = session.exec(stmt).all()
-    ids = {b.id for b in results}
+    ids_stmt = evaluator.build_matching_book_ids_stmt(group)
+    results = session.exec(ids_stmt).all()
+    ids = set(results)
 
     # Book 6: King & Straub -> Match
     # Book 11: King -> Match
@@ -688,10 +674,8 @@ def test_empty_group_behavior(
     evaluator = BookRuleEvaluator()
     group = GroupRule(rules=[])
 
-    filter_expr = evaluator.build_filter(group)
-    # filter_expr should be True
-    stmt = select(Book).where(filter_expr)
-    results = session.exec(stmt).all()
+    ids_stmt = evaluator.build_matching_book_ids_stmt(group)
+    results = session.exec(ids_stmt).all()
 
     # Should return all books
     assert len(results) == len(sample_data)
@@ -708,9 +692,9 @@ def test_boundary_operators(
         field=RuleField.RATING, operator=RuleOperator.GREATER_THAN_OR_EQUALS, value=5
     )
     group1 = GroupRule(rules=[rule1])
-    expr1 = evaluator.build_filter(group1)
-    res1 = session.exec(select(Book).where(expr1)).all()
-    ids1 = {b.id for b in res1}
+    stmt1 = evaluator.build_matching_book_ids_stmt(group1)
+    res1 = session.exec(stmt1).all()
+    ids1 = set(res1)
     assert sample_data["book3"] in ids1
 
     # Rating <= 1 (Should match book9 with rating 1)
@@ -718,7 +702,7 @@ def test_boundary_operators(
         field=RuleField.RATING, operator=RuleOperator.LESS_THAN_OR_EQUALS, value=1
     )
     group2 = GroupRule(rules=[rule2])
-    expr2 = evaluator.build_filter(group2)
-    res2 = session.exec(select(Book).where(expr2)).all()
-    ids2 = {b.id for b in res2}
+    stmt2 = evaluator.build_matching_book_ids_stmt(group2)
+    res2 = session.exec(stmt2).all()
+    ids2 = set(res2)
     assert sample_data["book9"] in ids2

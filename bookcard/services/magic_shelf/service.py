@@ -50,6 +50,40 @@ class MagicShelfService:
         self._book_repo = book_repo
         self._evaluator = evaluator
 
+    def count_books_for_shelf(self, shelf_id: int) -> int:
+        """Count books matching the rules of a Magic Shelf.
+
+        Parameters
+        ----------
+        shelf_id : int
+            ID of the shelf.
+
+        Returns
+        -------
+        int
+            Total number of books matching the shelf rules.
+
+        Raises
+        ------
+        ValueError
+            If shelf not found or not a magic shelf.
+        """
+        shelf = self._shelf_repo.get(shelf_id)
+        if not shelf:
+            msg = f"Shelf {shelf_id} not found"
+            raise ValueError(msg)
+
+        if shelf.shelf_type != ShelfTypeEnum.MAGIC_SHELF:
+            msg = f"Shelf {shelf_id} is not a Magic Shelf"
+            raise ValueError(msg)
+
+        group_rule = self._parse_rules(shelf.filter_rules, shelf_id)
+        if not group_rule:
+            return 0
+
+        book_ids_query = self._evaluator.build_matching_book_ids_stmt(group_rule)
+        return self._book_repo.count_books_by_ids_query(book_ids_query)
+
     def get_books_for_shelf(
         self,
         shelf_id: int,
@@ -100,14 +134,14 @@ class MagicShelfService:
             return [], 0
 
         # Build filter expression
-        filter_expr = self._evaluator.build_filter(group_rule)
+        book_ids_query = self._evaluator.build_matching_book_ids_stmt(group_rule)
 
         # Calculate offset
         offset = (page - 1) * page_size
 
         # Execute query
-        books = self._book_repo.list_books_by_filter(
-            filter_expression=filter_expr,
+        books = self._book_repo.list_books_by_ids_query(
+            book_ids_query,
             limit=page_size,
             offset=offset,
             sort_by=sort_by,
@@ -115,7 +149,7 @@ class MagicShelfService:
             full=full,
         )
 
-        count = self._book_repo.count_books_by_filter(filter_expression=filter_expr)
+        count = self._book_repo.count_books_by_ids_query(book_ids_query)
 
         return books, count
 

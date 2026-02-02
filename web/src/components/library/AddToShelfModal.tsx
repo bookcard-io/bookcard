@@ -34,6 +34,8 @@ import { cn } from "@/libs/utils";
 import type { CreateShelfOptions } from "@/services/shelfService";
 import type { Book } from "@/types/book";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
+import { buildShelfCreatePayload } from "@/utils/shelfPayload";
+import { isMagicShelf } from "@/utils/shelfUtils";
 import { getShelfCoverUrlWithCacheBuster } from "@/utils/shelves";
 
 export interface AddToShelfModalProps {
@@ -96,11 +98,13 @@ export function AddToShelfModal({
 
   // Sort shelves by created_at descending (newest first)
   const sortedShelves = useMemo(() => {
-    return [...shelves].sort((a, b) => {
-      const dateA = new Date(a.created_at).getTime();
-      const dateB = new Date(b.created_at).getTime();
-      return dateB - dateA; // Descending order
-    });
+    return [...shelves]
+      .filter((shelf) => !isMagicShelf(shelf))
+      .sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return dateB - dateA; // Descending order
+      });
   }, [shelves]);
 
   // Get first book title for input field (for automatic shelf naming)
@@ -262,12 +266,9 @@ export function AddToShelfModal({
       data: ShelfCreate | ShelfUpdate,
       options?: CreateShelfOptions,
     ): Promise<Shelf> => {
-      // If no name is provided in data, use the input field value
-      const shelfData: ShelfCreate = {
-        name: data.name || newShelfName.trim() || "",
-        description: data.description || null,
-        is_public: data.is_public || false,
-      };
+      const shelfData = buildShelfCreatePayload(data, {
+        fallbackName: newShelfName,
+      });
       const newShelf = await createShelf(shelfData, options);
 
       // Automatically add all books to the newly created shelf

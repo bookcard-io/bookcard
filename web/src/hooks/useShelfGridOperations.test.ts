@@ -26,12 +26,17 @@ vi.mock("@/contexts/ShelvesContext", () => ({
   useShelvesContext: vi.fn(),
 }));
 
+vi.mock("@/contexts/SelectedShelfContext", () => ({
+  useSelectedShelf: vi.fn(),
+}));
+
 vi.mock("@/services/shelfService", () => ({
   createShelf: vi.fn(),
   deleteShelf: vi.fn(),
   updateShelf: vi.fn(),
 }));
 
+import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { useShelves } from "@/hooks/useShelves";
 import { createShelf, deleteShelf, updateShelf } from "@/services/shelfService";
@@ -96,6 +101,11 @@ describe("useShelfGridOperations", () => {
       refresh: mockRefreshContext,
     } as ReturnType<typeof useShelvesContext>);
 
+    vi.mocked(useSelectedShelf).mockReturnValue({
+      selectedShelfId: undefined,
+      setSelectedShelfId: vi.fn(),
+    } as ReturnType<typeof useSelectedShelf>);
+
     shelfDataUpdateRef = {
       current: {
         updateShelf: vi.fn(),
@@ -130,12 +140,16 @@ describe("useShelfGridOperations", () => {
       name: "Updated Shelf",
       description: "Updated description",
       is_public: true,
+      shelf_type: "shelf",
+      filter_rules: null,
     });
     expect(mockRefreshContext).toHaveBeenCalled();
     expect(shelfDataUpdateRef.current?.updateShelf).toHaveBeenCalledWith(1, {
       name: "Updated Shelf",
       description: "Updated description",
       is_public: true,
+      shelf_type: "shelf",
+      filter_rules: null,
     });
   });
 

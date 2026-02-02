@@ -17,19 +17,21 @@
 
 import { useRef } from "react";
 import { BookCardOverlay } from "@/components/library/BookCardOverlay";
+import { MagicShelfBadge } from "@/components/shelves/MagicShelfBadge";
 import { ReadListBadge } from "@/components/shelves/ReadListBadge";
 import { ShelfCardCheckbox } from "@/components/shelves/ShelfCardCheckbox";
-import { ShelfCardCover } from "@/components/shelves/ShelfCardCover";
 import { ShelfCardEditButton } from "@/components/shelves/ShelfCardEditButton";
 import { ShelfCardMenu } from "@/components/shelves/ShelfCardMenu";
 import { ShelfCardMenuButton } from "@/components/shelves/ShelfCardMenuButton";
 import { ShelfCardMetadata } from "@/components/shelves/ShelfCardMetadata";
+import { ShelfCoverRenderer } from "@/components/shelves/ShelfCoverRenderer";
 import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
 import { useUser } from "@/contexts/UserContext";
 import { useBookCardMenu } from "@/hooks/useBookCardMenu";
 import { useShelfCardAnimation } from "@/hooks/useShelfCardAnimation";
 import { useShelfCardClick } from "@/hooks/useShelfCardClick";
 import { useShelfCardMenuActions } from "@/hooks/useShelfCardMenuActions";
+import { useShelfCover } from "@/hooks/useShelfCover";
 import { useShelfEditModal } from "@/hooks/useShelfEditModal";
 import { cn } from "@/libs/utils";
 import type { Shelf } from "@/types/shelf";
@@ -85,6 +87,7 @@ export function ShelfCard({
 }: ShelfCardProps) {
   const menu = useBookCardMenu();
   const cardRef = useRef<HTMLButtonElement>(null);
+  const shelfCover = useShelfCover({ shelf });
 
   const { isShaking, isGlowing, triggerAnimation } = useShelfCardAnimation();
 
@@ -128,6 +131,8 @@ export function ShelfCard({
   const canEdit = canPerformAction("shelves", "edit", shelfContext);
   const canDelete = canPerformAction("shelves", "delete", shelfContext);
 
+  const shelfMetaId = `shelf-meta-${shelf.id}`;
+
   return (
     <>
       <button
@@ -148,15 +153,14 @@ export function ShelfCard({
         )}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
-        aria-label={`Shelf: ${shelf.name}`}
+        aria-label={`${shelf.name} shelf with ${shelf.book_count} books`}
+        aria-describedby={shelfMetaId}
+        aria-pressed={selected}
         data-shelf-card
       >
         <div className="relative">
-          <ShelfCardCover
-            shelfName={shelf.name}
-            shelfId={shelf.id}
-            hasCoverPicture={Boolean(shelf.cover_picture)}
-          />
+          <ShelfCoverRenderer shelf={shelf} coverData={shelfCover} />
+          {shelfCover.isMagicShelf && <MagicShelfBadge />}
           <BookCardOverlay selected={selected}>
             <ShelfCardCheckbox
               shelf={shelf}
@@ -186,6 +190,10 @@ export function ShelfCard({
         />
         <div className="px-3 pb-3">
           <ReadListBadge shelfType={shelf.shelf_type} />
+        </div>
+        <div id={shelfMetaId} className="sr-only">
+          {shelf.is_public ? "Public shelf" : "Private shelf"}
+          {shelfCover.isMagicShelf ? " - Magic shelf" : ""}
         </div>
       </button>
       {canDelete && (

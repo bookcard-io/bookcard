@@ -37,9 +37,24 @@ class TestBookRuleEvaluator:
         evaluator._operators = MagicMock()
         return evaluator._operators
 
-    def test_empty_group_returns_true(self, evaluator: BookRuleEvaluator) -> None:
-        """Test that an empty group rule returns True."""
-        assert evaluator.build_filter(GroupRule()) is True
+    @patch("bookcard.services.magic_shelf.evaluator.select")
+    def test_empty_group_returns_select_all_ids(
+        self,
+        mock_select: MagicMock,
+        evaluator: BookRuleEvaluator,
+    ) -> None:
+        """Test that an empty group builds an ID select statement."""
+        mock_stmt = MagicMock()
+        mock_select.return_value = mock_stmt
+        mock_stmt.where.return_value = mock_stmt
+        mock_stmt.distinct.return_value = mock_stmt
+
+        result = evaluator.build_matching_book_ids_stmt(GroupRule())
+
+        assert result == mock_stmt
+        mock_select.assert_called_once()
+        mock_stmt.where.assert_called_once()
+        mock_stmt.distinct.assert_called_once()
 
     @patch("bookcard.services.magic_shelf.evaluator.and_")
     def test_single_direct_rule(
@@ -55,10 +70,17 @@ class TestBookRuleEvaluator:
         mock_registry.apply.return_value = "expr"
         mock_and.return_value = "and_expr"
 
-        result = evaluator.build_filter(group)
+        with patch("bookcard.services.magic_shelf.evaluator.select") as mock_select:
+            mock_stmt = MagicMock()
+            mock_select.return_value = mock_stmt
+            mock_stmt.where.return_value = mock_stmt
+            mock_stmt.distinct.return_value = mock_stmt
 
-        assert result == "and_expr"
+            result = evaluator.build_matching_book_ids_stmt(group)
+
+        assert result == mock_stmt
         mock_registry.apply.assert_called_once()
+        mock_stmt.where.assert_called_once_with("and_expr")
         # Verify arguments to apply are correct (column, operator, value)
         # We can't easily check the column object equality without digging into definitions,
         # but we can check operator and value.
@@ -81,10 +103,17 @@ class TestBookRuleEvaluator:
         mock_registry.apply.side_effect = ["expr1", "expr2"]
         mock_or.return_value = "or_expr"
 
-        result = evaluator.build_filter(group)
+        with patch("bookcard.services.magic_shelf.evaluator.select") as mock_select:
+            mock_stmt = MagicMock()
+            mock_select.return_value = mock_stmt
+            mock_stmt.where.return_value = mock_stmt
+            mock_stmt.distinct.return_value = mock_stmt
 
-        assert result == "or_expr"
+            result = evaluator.build_matching_book_ids_stmt(group)
+
+        assert result == mock_stmt
         mock_or.assert_called_once_with("expr1", "expr2")
+        mock_stmt.where.assert_called_once_with("or_expr")
 
     @patch("bookcard.services.magic_shelf.evaluator.and_")
     def test_nested_groups(
@@ -112,9 +141,16 @@ class TestBookRuleEvaluator:
         mock_registry.apply.side_effect = ["expr_a", "expr_b", "expr_c"]
         mock_and.side_effect = ["inner_and", "outer_and"]
 
-        result = evaluator.build_filter(outer_group)
+        with patch("bookcard.services.magic_shelf.evaluator.select") as mock_select:
+            mock_stmt = MagicMock()
+            mock_select.return_value = mock_stmt
+            mock_stmt.where.return_value = mock_stmt
+            mock_stmt.distinct.return_value = mock_stmt
 
-        assert result == "outer_and"
+            result = evaluator.build_matching_book_ids_stmt(outer_group)
+
+        assert result == mock_stmt
+        mock_stmt.where.assert_called_once_with("outer_and")
         # Verify calls
         # First call to and_ is for inner group
         # Second call to and_ is for outer group
@@ -138,19 +174,26 @@ class TestBookRuleEvaluator:
         mock_registry.apply.return_value = "op_expr"
         mock_exists.return_value = "exists_expr"
 
-        # Mock the chain of select().select_from().join().where()
-        mock_stmt = MagicMock()
-        mock_select.return_value = mock_stmt
-        mock_stmt.select_from.return_value = mock_stmt
-        mock_stmt.join.return_value = mock_stmt
-        mock_stmt.where.return_value = mock_stmt
+        # First select() call is for related EXISTS subquery: select(1)....
+        inner_stmt = MagicMock()
+        inner_stmt.select_from.return_value = inner_stmt
+        inner_stmt.join.return_value = inner_stmt
+        inner_stmt.where.return_value = inner_stmt
+
+        # Second select() call is for outer "select(Book.id)"
+        outer_stmt = MagicMock()
+        outer_stmt.where.return_value = outer_stmt
+        outer_stmt.distinct.return_value = outer_stmt
+
+        mock_select.side_effect = [inner_stmt, outer_stmt]
 
         with patch("bookcard.services.magic_shelf.evaluator.and_") as mock_and:
             mock_and.return_value = "and_expr"
 
-            result = evaluator.build_filter(group)
+            result = evaluator.build_matching_book_ids_stmt(group)
 
-            assert result == "and_expr"
+            assert result == outer_stmt
+            outer_stmt.where.assert_called_once_with("and_expr")
             mock_exists.assert_called_once()
             mock_registry.apply.assert_called_once()
             # Verify we are applying operator to the target column (Author.name)
@@ -174,5 +217,11 @@ class TestBookRuleEvaluator:
         # Then and_(*expressions) is called.
 
         with patch("bookcard.services.magic_shelf.evaluator.and_") as mock_and:
-            evaluator.build_filter(group)
+            with patch("bookcard.services.magic_shelf.evaluator.select") as mock_select:
+                mock_stmt = MagicMock()
+                mock_select.return_value = mock_stmt
+                mock_stmt.where.return_value = mock_stmt
+                mock_stmt.distinct.return_value = mock_stmt
+
+                evaluator.build_matching_book_ids_stmt(group)
             mock_and.assert_called_once_with(False)
