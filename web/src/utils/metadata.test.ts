@@ -74,6 +74,7 @@ describe("metadata utils", () => {
           { type: "isbn", val: "1234567890" },
           { type: "asin", val: "B00TEST" },
         ],
+        isbn: "1234567890",
         language_codes: ["en", "fr"],
         tag_names: ["fiction", "sci-fi"],
         rating_value: 5,

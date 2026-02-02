@@ -706,6 +706,7 @@ class IBookRepository(ABC):
         series_name: str | None = None,
         series_id: int | None = None,
         series_index: float | None = None,
+        isbn: str | None = None,
         tag_names: list[str] | None = None,
         identifiers: list[dict[str, str]] | None = None,
         description: str | None = None,
@@ -736,6 +737,8 @@ class IBookRepository(ABC):
             Series ID to set (if provided, series_name is ignored).
         series_index : float | None
             Series index to update.
+        isbn : str | None
+            ISBN identifier to set (first-class field).
         tag_names : list[str] | None
             List of tag names to set (replaces existing).
         identifiers : list[dict[str, str]] | None

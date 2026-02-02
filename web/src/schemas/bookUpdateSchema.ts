@@ -39,6 +39,12 @@ export const bookUpdateSchema = z.object({
     .min(1, "Title is required")
     .max(1000, "Title must be less than 1000 characters")
     .optional(),
+  isbn: z
+    .string()
+    .max(20, "ISBN must be less than 20 characters")
+    .transform((val) => (val === "" ? null : val))
+    .nullable()
+    .optional(),
   pubdate: z
     .string()
     .refine(
