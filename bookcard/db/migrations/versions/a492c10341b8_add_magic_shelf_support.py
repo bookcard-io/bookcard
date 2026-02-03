@@ -43,14 +43,17 @@ def upgrade() -> None:
     # 2. Update Enum
     bind = op.get_bind()
     if bind.dialect.name == "postgresql":
-        # Postgres: Add value to existing enum type
-        # We need to execute this outside of a transaction block if possible,
-        # but Alembic runs in a transaction.
-        # However, ALTER TYPE ... ADD VALUE cannot run inside a transaction block
-        # in older Postgres versions. In newer ones (12+), it can.
-        # Assuming we are on a reasonably modern Postgres.
-        # If not, we'd need commit() here.
-        op.execute("ALTER TYPE shelftypeenum ADD VALUE 'magic_shelf'")
+        # Postgres: Add value to existing enum type.
+        #
+        # Important: our Alembic env wraps *all* migrations in a single
+        # transaction (`context.begin_transaction()` around `run_migrations()`).
+        # Postgres will reject usage of a newly-added enum value until the
+        # transaction that added it is committed.
+        #
+        # Using an autocommit block forces a commit boundary so subsequent
+        # migrations can safely insert rows with shelf_type='magic_shelf'.
+        with op.get_context().autocommit_block():
+            op.execute("ALTER TYPE shelftypeenum ADD VALUE 'magic_shelf'")
     else:
         # SQLite (and others): Recreate table with new Enum definition
         with op.batch_alter_table("shelves") as batch_op:

@@ -27,6 +27,7 @@ from uuid import uuid4
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.postgresql import ENUM
 
 # revision identifiers, used by Alembic.
 revision: str = "ade158238c51"
@@ -92,6 +93,19 @@ def upgrade() -> None:
 
     now = datetime.now(UTC)
 
+    # PostgreSQL: column is shelftypeenum; use ENUM so INSERT binds correctly.
+    # SQLite: column is stored as text; sa.String is correct.
+    if connection.dialect.name == "postgresql":
+        shelf_type_type = ENUM(
+            "shelf",
+            "read_list",
+            "magic_shelf",
+            name="shelftypeenum",
+            create_type=False,
+        )
+    else:
+        shelf_type_type = sa.String()
+
     shelves_table = sa.table(
         "shelves",
         sa.column("uuid", sa.String),
@@ -100,7 +114,7 @@ def upgrade() -> None:
         sa.column("cover_picture", sa.String),
         sa.column("is_public", sa.Boolean),
         sa.column("is_active", sa.Boolean),
-        sa.column("shelf_type", sa.String),
+        sa.column("shelf_type", shelf_type_type),
         sa.column("read_list_metadata", sa.JSON),
         sa.column("filter_rules", sa.JSON),
         sa.column("user_id", sa.Integer),
@@ -252,10 +266,22 @@ def downgrade() -> None:
     We only delete shelves that still have the `Seeded: ` prefix in the
     description to avoid deleting user-created or user-edited shelves.
     """
+    connection = op.get_bind()
+    if connection.dialect.name == "postgresql":
+        shelf_type_type = ENUM(
+            "shelf",
+            "read_list",
+            "magic_shelf",
+            name="shelftypeenum",
+            create_type=False,
+        )
+    else:
+        shelf_type_type = sa.String()
+
     shelves_table = sa.table(
         "shelves",
         sa.column("description", sa.String),
-        sa.column("shelf_type", sa.String),
+        sa.column("shelf_type", shelf_type_type),
         sa.column("is_public", sa.Boolean),
     )
 
