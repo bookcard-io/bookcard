@@ -679,6 +679,12 @@ def update_book(
 
     permission_helper.check_write_permission(current_user, existing_book)
 
+    isbn_to_set: str | None = None
+    # Pydantic: distinguish omitted field vs explicit null so we can clear ISBN.
+    if "isbn" in update.model_fields_set:
+        # Calibre stores missing ISBN as empty string; response layer maps "" -> null.
+        isbn_to_set = (update.isbn or "").strip()
+
     updated_book = book_service.update_book(
         book_id=book_id,
         title=update.title,
@@ -687,6 +693,7 @@ def update_book(
         series_name=update.series_name,
         series_id=update.series_id,
         series_index=update.series_index,
+        isbn=isbn_to_set,
         tag_names=update.tag_names,
         identifiers=update.identifiers,
         description=update.description,

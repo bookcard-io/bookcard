@@ -332,6 +332,7 @@ class MockBookService:
         series_name: str | None = None,
         series_id: int | None = None,
         series_index: float | None = None,
+        isbn: str | None = None,
         tag_names: list[str] | None = None,
         identifiers: list[dict[str, str]] | None = None,
         description: str | None = None,

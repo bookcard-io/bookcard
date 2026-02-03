@@ -98,6 +98,8 @@ export function useBookForm({
           : null,
       series_name: bookData.series || null,
       series_index: bookData.series_index ?? null,
+      isbn:
+        bookData.isbn && bookData.isbn.trim().length > 0 ? bookData.isbn : null,
       tag_names:
         bookData.tags && bookData.tags.length > 0 ? bookData.tags : null,
       identifiers:
@@ -274,6 +276,21 @@ export function useBookForm({
       ) {
         cleanedPayload.language_codes = null;
       }
+
+      // Derive first-class `isbn` from the identifiers list.
+      // If no ISBN identifier is present, explicitly clear `isbn` to null.
+      const identifiers = cleanedPayload.identifiers ?? null;
+      const isbnFromIdentifiers =
+        identifiers
+          ?.find((id) => {
+            const t = (id.type || "").toLowerCase().trim();
+            const v = (id.val || "").trim();
+            return (
+              v.length > 0 && (t === "isbn" || t === "isbn13" || t === "isbn10")
+            );
+          })
+          ?.val?.trim() ?? null;
+      cleanedPayload.isbn = isbnFromIdentifiers;
 
       try {
         const updated = await updateBook(cleanedPayload);
