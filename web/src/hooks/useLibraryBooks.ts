@@ -20,7 +20,7 @@ import { useBooks } from "@/hooks/useBooks";
 import { useFilteredBooks } from "@/hooks/useFilteredBooks";
 import { useShelfBooks } from "@/hooks/useShelfBooks";
 import type { Book } from "@/types/book";
-import { hasActiveFilters } from "@/utils/filters";
+import { createEmptyFilters, hasActiveFilters } from "@/utils/filters";
 
 export interface UseLibraryBooksOptions {
   /** Filter values for advanced filtering. */
@@ -130,24 +130,44 @@ export function useLibraryBooks(
     full,
   });
 
-  // When shelf filter is active, fetch books and filter by shelf IDs
-  // Note: We disable infinite scroll since we already know the total count from shelf
-  // We fetch enough books to cover the shelf's book count, but use a reasonable max
-  // to avoid fetching too many books unnecessarily
-  const shelfBookCount = shelfBooksResult.total || 0;
-  const initialPageSizeForShelf = Math.max(
-    pageSize,
-    Math.min(shelfBookCount * 2, 100), // Fetch at least 2x shelf count, but max 100
+  /**
+   * When a shelf is selected, the backend returns a list of book IDs for that shelf.
+   *
+   * The previous implementation tried to fetch "enough" books from `/api/books`
+   * (sorted by the user's chosen sort) and then filter those results by shelf IDs.
+   * That fails whenever the shelf's books are not contained in the first N books of
+   * the library listing, resulting in an incorrect empty UI.
+   *
+   * Instead, we fetch the exact books using the `/api/books/filter` endpoint by
+   * supplying `title_ids` (Calibre book IDs). Sorting is handled by the backend via
+   * the normal `sort_by` / `sort_order` parameters.
+   */
+  const shelfIdFilters = useMemo<FilterValues>(
+    () => ({
+      ...createEmptyFilters(),
+      titleIds: shelfBooksResult.bookIds,
+    }),
+    [shelfBooksResult.bookIds],
   );
 
-  const allBooksForShelfResult = useBooks({
-    enabled: hasShelfFilter,
-    infiniteScroll: false, // Disable infinite scroll for shelf filtering
-    search: hasActiveSearch ? searchQuery : undefined,
-    author_id: authorId,
+  const shelfPageSize = useMemo(() => {
+    const min = Math.max(pageSize, shelfBooksResult.bookIds.length);
+    return Math.min(min, 100);
+  }, [pageSize, shelfBooksResult.bookIds.length]);
+
+  const shelfBooksDetailsResult = useFilteredBooks({
+    enabled:
+      hasShelfFilter &&
+      shelfId !== undefined &&
+      shelfId !== 0 &&
+      !shelfBooksResult.isLoading &&
+      !shelfBooksResult.error &&
+      shelfBooksResult.bookIds.length > 0,
+    infiniteScroll: false,
+    filters: shelfIdFilters,
     sort_by: sortBy,
     sort_order: sortOrder,
-    page_size: initialPageSizeForShelf,
+    page_size: shelfPageSize,
     full,
   });
 
@@ -162,18 +182,22 @@ export function useLibraryBooks(
     if (shelfBooksResult.isLoading || shelfBooksResult.error) {
       return [];
     }
-
-    const shelfBookIds = new Set(shelfBooksResult.bookIds);
-    return allBooksForShelfResult.books.filter((book) =>
-      shelfBookIds.has(book.id),
-    );
+    if (shelfBooksResult.bookIds.length === 0) {
+      return [];
+    }
+    if (shelfBooksDetailsResult.isLoading || shelfBooksDetailsResult.error) {
+      return [];
+    }
+    return shelfBooksDetailsResult.books;
   }, [
     hasShelfFilter,
     shelfId,
     shelfBooksResult.bookIds,
     shelfBooksResult.isLoading,
     shelfBooksResult.error,
-    allBooksForShelfResult.books,
+    shelfBooksDetailsResult.books,
+    shelfBooksDetailsResult.isLoading,
+    shelfBooksDetailsResult.error,
   ]);
 
   // Determine which result to use
@@ -182,13 +206,13 @@ export function useLibraryBooks(
         books: shelfFilteredBooks,
         total: shelfBooksResult.total,
         isLoading:
-          shelfBooksResult.isLoading || allBooksForShelfResult.isLoading,
-        error: shelfBooksResult.error || allBooksForShelfResult.error,
+          shelfBooksResult.isLoading || shelfBooksDetailsResult.isLoading,
+        error: shelfBooksResult.error || shelfBooksDetailsResult.error,
         // Disable infinite scroll for shelf filtering since we know the exact count
         loadMore: undefined,
         hasMore: false,
-        removeBook: allBooksForShelfResult.removeBook,
-        addBook: allBooksForShelfResult.addBook,
+        removeBook: shelfBooksDetailsResult.removeBook,
+        addBook: shelfBooksDetailsResult.addBook,
       }
     : baseResult;
 
