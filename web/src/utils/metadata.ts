@@ -28,6 +28,33 @@ import type {
 import type { BookUpdate } from "@/types/book";
 
 /**
+ * Select the best ISBN value from an identifier map.
+ *
+ * Prefers `isbn`, then `isbn13`, then `isbn10` when present and non-empty.
+ *
+ * Parameters
+ * ----------
+ * identifiers : Record<string, string> | undefined
+ *     Identifier map from metadata providers.
+ *
+ * Returns
+ * -------
+ * string | null
+ *     Selected ISBN value, or null if none found.
+ */
+function pickIsbn(
+  identifiers: Record<string, string> | undefined,
+): string | null {
+  if (!identifiers) {
+    return null;
+  }
+  const candidates = [identifiers.isbn, identifiers.isbn13, identifiers.isbn10]
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .filter((v) => v.length > 0);
+  return candidates[0] ?? null;
+}
+
+/**
  * Convert identifiers from Record format to array format.
  *
  * Parameters
@@ -126,6 +153,7 @@ export function convertMetadataRecordToBookUpdate(
   record: MetadataRecord,
 ): BookUpdate {
   const identifiers = convertIdentifiers(record.identifiers);
+  const isbn = pickIsbn(record.identifiers);
   const pubdate = convertPublishedDate(record.published_date);
   const ratingValue = convertRating(record.rating);
 
@@ -166,6 +194,11 @@ export function convertMetadataRecordToBookUpdate(
 
   if (identifiers.length > 0) {
     update.identifiers = identifiers;
+  }
+
+  // Populate first-class ISBN field in addition to identifiers (if present).
+  if (isbn) {
+    update.isbn = isbn;
   }
 
   if (record.languages && record.languages.length > 0) {
@@ -213,6 +246,9 @@ export function applyBookUpdateToForm(
   }
   if (update.series_index !== undefined && update.series_index !== null) {
     handleFieldChange("series_index", update.series_index);
+  }
+  if (update.isbn !== undefined && update.isbn !== null) {
+    handleFieldChange("isbn", update.isbn);
   }
   if (update.description !== undefined && update.description !== null) {
     handleFieldChange("description", update.description);

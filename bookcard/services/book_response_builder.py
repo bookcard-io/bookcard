@@ -84,7 +84,7 @@ class BookResponseBuilder:
             series=book_with_rels.series,
             series_id=getattr(book_with_rels, "series_id", None),
             series_index=book.series_index,
-            isbn=book.isbn,
+            isbn=book.isbn or None,
             uuid=book.uuid or "",
             thumbnail_url=thumbnail_url,
             has_cover=book.has_cover,

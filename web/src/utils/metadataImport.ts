@@ -137,6 +137,9 @@ function convertParsedMetadataToBookUpdate(parsed: ParsedMetadata): BookUpdate {
     }
     update.identifiers.push({ type: "isbn", val: parsed.isbn });
   }
+  if (parsed.isbn) {
+    update.isbn = parsed.isbn;
+  }
 
   if (parsed.languages && parsed.languages.length > 0) {
     update.language_codes = parsed.languages;

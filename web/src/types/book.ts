@@ -108,6 +108,8 @@ export interface BookUpdate {
   series_id?: number | null;
   /** Series index to update. */
   series_index?: number | null;
+  /** ISBN identifier to set (first-class field). */
+  isbn?: string | null;
   /** List of tag names to set (replaces existing). */
   tag_names?: string[] | null;
   /** List of identifiers with 'type' and 'val' keys (replaces existing). */

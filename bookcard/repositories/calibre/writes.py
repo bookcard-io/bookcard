@@ -171,6 +171,7 @@ class BookWriteOperations:
         series_name: str | None = None,
         series_id: int | None = None,
         series_index: float | None = None,
+        isbn: str | None = None,
         tag_names: list[str] | None = None,
         identifiers: list[dict[str, str]] | None = None,
         description: str | None = None,
@@ -239,6 +240,7 @@ class BookWriteOperations:
                     title=title,
                     pubdate=pubdate,
                     series_index=series_index,
+                    isbn=isbn,
                     author_sort=author_sort,
                     title_sort=title_sort,
                 )
@@ -315,6 +317,7 @@ class BookWriteOperations:
         title: str | None = None,
         pubdate: datetime | None = None,
         series_index: float | None = None,
+        isbn: str | None = None,
         author_sort: str | None = None,
         title_sort: str | None = None,
     ) -> None:
@@ -324,6 +327,9 @@ class BookWriteOperations:
             book.pubdate = pubdate
         if series_index is not None:
             book.series_index = series_index
+        if isbn is not None:
+            # Calibre stores missing ISBN as empty string in `books.isbn`.
+            book.isbn = isbn
         if author_sort is not None:
             book.author_sort = author_sort
         if title_sort is not None:
