@@ -625,20 +625,25 @@ describe("shelfService", () => {
         "with default parameters",
         1,
         "order",
-        "page=1&sort_by=order&sort_order=asc",
+        "page=1&page_size=20&sort_by=order&sort_order=asc",
       ],
-      ["with custom page", 2, "order", "page=2&sort_by=order&sort_order=asc"],
+      [
+        "with custom page",
+        2,
+        "order",
+        "page=2&page_size=20&sort_by=order&sort_order=asc",
+      ],
       [
         "with custom sortBy",
         1,
         "date_added",
-        "page=1&sort_by=date_added&sort_order=asc",
+        "page=1&page_size=20&sort_by=date_added&sort_order=asc",
       ],
       [
         "with book_id sortBy",
         1,
         "book_id",
-        "page=1&sort_by=book_id&sort_order=asc",
+        "page=1&page_size=20&sort_by=book_id&sort_order=asc",
       ],
     ])("should get shelf books successfully %s", async (_desc, page, sortBy, expectedParams) => {
       const mockBookIds = [100, 101, 102];

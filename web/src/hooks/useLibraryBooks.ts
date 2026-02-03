@@ -13,14 +13,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import type { FilterValues } from "@/components/library/widgets/FiltersPanel";
 import { useLibraryLoading } from "@/contexts/LibraryLoadingContext";
 import { useBooks } from "@/hooks/useBooks";
 import { useFilteredBooks } from "@/hooks/useFilteredBooks";
-import { useShelfBooks } from "@/hooks/useShelfBooks";
+import { useShelfBooksView } from "@/hooks/useShelfBooksView";
 import type { Book } from "@/types/book";
-import { createEmptyFilters, hasActiveFilters } from "@/utils/filters";
+import { hasActiveFilters } from "@/utils/filters";
 
 export interface UseLibraryBooksOptions {
   /** Filter values for advanced filtering. */
@@ -93,15 +93,6 @@ export function useLibraryBooks(
     full = false,
   } = options;
 
-  // Get shelf book IDs if shelfId is provided
-  // Note: useShelfBooks doesn't support conditional execution, so we pass 0 when shelfId is undefined
-  // and check the result in the useMemo
-  const shelfBooksResult = useShelfBooks({
-    shelfId: shelfId ?? 0,
-    page: 1,
-    sortBy: "order",
-  });
-
   // Determine which filtering mechanism is active
   // Priority: shelf > filters > search > all books
   const filtersActive = hasActiveFilters(filters);
@@ -130,89 +121,30 @@ export function useLibraryBooks(
     full,
   });
 
-  /**
-   * When a shelf is selected, the backend returns a list of book IDs for that shelf.
-   *
-   * The previous implementation tried to fetch "enough" books from `/api/books`
-   * (sorted by the user's chosen sort) and then filter those results by shelf IDs.
-   * That fails whenever the shelf's books are not contained in the first N books of
-   * the library listing, resulting in an incorrect empty UI.
-   *
-   * Instead, we fetch the exact books using the `/api/books/filter` endpoint by
-   * supplying `title_ids` (Calibre book IDs). Sorting is handled by the backend via
-   * the normal `sort_by` / `sort_order` parameters.
-   */
-  const shelfIdFilters = useMemo<FilterValues>(
-    () => ({
-      ...createEmptyFilters(),
-      titleIds: shelfBooksResult.bookIds,
-    }),
-    [shelfBooksResult.bookIds],
-  );
-
-  const shelfPageSize = useMemo(() => {
-    const min = Math.max(pageSize, shelfBooksResult.bookIds.length);
-    return Math.min(min, 100);
-  }, [pageSize, shelfBooksResult.bookIds.length]);
-
-  const shelfBooksDetailsResult = useFilteredBooks({
-    enabled:
-      hasShelfFilter &&
-      shelfId !== undefined &&
-      shelfId !== 0 &&
-      !shelfBooksResult.isLoading &&
-      !shelfBooksResult.error &&
-      shelfBooksResult.bookIds.length > 0,
-    infiniteScroll: false,
-    filters: shelfIdFilters,
-    sort_by: sortBy,
-    sort_order: sortOrder,
-    page_size: shelfPageSize,
+  const shelfBooksViewResult = useShelfBooksView({
+    shelfId: hasShelfFilter ? shelfId : undefined,
+    pageSize,
     full,
+    // Preserve existing shelf endpoint behavior (order asc) for now.
+    // This avoids relying on `/api/books` ordering and supports infinite scroll.
+    shelfSortBy: "order",
+    shelfSortOrder: "asc",
   });
 
   // Base result: use filtered books if filters are active, otherwise use regular books
   const baseResult = filtersActive ? filteredBooksResult : regularBooksResult;
 
-  // If shelf filter is active, filter books by shelf IDs
-  const shelfFilteredBooks = useMemo(() => {
-    if (!hasShelfFilter || shelfId === undefined || shelfId === 0) {
-      return [];
-    }
-    if (shelfBooksResult.isLoading || shelfBooksResult.error) {
-      return [];
-    }
-    if (shelfBooksResult.bookIds.length === 0) {
-      return [];
-    }
-    if (shelfBooksDetailsResult.isLoading || shelfBooksDetailsResult.error) {
-      return [];
-    }
-    return shelfBooksDetailsResult.books;
-  }, [
-    hasShelfFilter,
-    shelfId,
-    shelfBooksResult.bookIds,
-    shelfBooksResult.isLoading,
-    shelfBooksResult.error,
-    shelfBooksDetailsResult.books,
-    shelfBooksDetailsResult.isLoading,
-    shelfBooksDetailsResult.error,
-  ]);
-
   // Determine which result to use
   const result = hasShelfFilter
     ? {
-        books: shelfFilteredBooks,
-        total: shelfBooksResult.total,
-        isLoading:
-          shelfBooksResult.isLoading || shelfBooksDetailsResult.isLoading,
-        error: shelfBooksResult.error || shelfBooksDetailsResult.error,
-        // Disable infinite scroll for shelf filtering since we know the exact count
-        loadMore: undefined,
-        hasMore: false,
-        removeBook: shelfBooksDetailsResult.removeBook,
-        addBook: shelfBooksDetailsResult.addBook,
+        books: shelfBooksViewResult.books,
+        total: shelfBooksViewResult.total,
+        isLoading: shelfBooksViewResult.isLoading,
+        error: shelfBooksViewResult.error,
+        loadMore: shelfBooksViewResult.loadMore,
+        hasMore: shelfBooksViewResult.hasMore,
+        removeBook: shelfBooksViewResult.removeBook,
+        addBook: undefined,
       }
     : baseResult;
 

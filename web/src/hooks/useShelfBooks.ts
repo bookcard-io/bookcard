@@ -64,7 +64,13 @@ interface UseShelfBooksReturn {
 export function useShelfBooks(
   options: UseShelfBooksOptions,
 ): UseShelfBooksReturn {
-  const { shelfId, page = 1, sortBy = "order" } = options;
+  const {
+    shelfId,
+    page = 1,
+    pageSize = 20,
+    sortBy = "order",
+    sortOrder = "asc",
+  } = options;
   const [bookIds, setBookIds] = useState<number[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,7 +85,13 @@ export function useShelfBooks(
     setIsLoading(true);
     setError(null);
     try {
-      const ids = await getShelfBooks(shelfId, page, sortBy);
+      const ids = await getShelfBooks(
+        shelfId,
+        page,
+        sortBy,
+        pageSize,
+        sortOrder,
+      );
       setBookIds(ids);
       // Note: API doesn't return total yet, so we use the length
       // In future, we can enhance the API to return total count
@@ -91,7 +103,7 @@ export function useShelfBooks(
     } finally {
       setIsLoading(false);
     }
-  }, [shelfId, page, sortBy]);
+  }, [shelfId, page, pageSize, sortBy, sortOrder]);
 
   useEffect(() => {
     void loadBooks();

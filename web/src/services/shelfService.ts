@@ -380,11 +380,14 @@ export async function getShelfBooks(
   shelfId: number,
   page: number = 1,
   sortBy: string = "order",
+  pageSize: number = 20,
+  sortOrder: string = "asc",
 ): Promise<number[]> {
   const params = new URLSearchParams({
     page: page.toString(),
+    page_size: pageSize.toString(),
     sort_by: sortBy,
-    sort_order: "asc",
+    sort_order: sortOrder,
   });
 
   const response = await fetch(`${API_BASE}/${shelfId}/books?${params}`, {
