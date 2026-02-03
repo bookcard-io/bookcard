@@ -13,12 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import type { FilterValues } from "@/components/library/widgets/FiltersPanel";
 import { useLibraryLoading } from "@/contexts/LibraryLoadingContext";
 import { useBooks } from "@/hooks/useBooks";
 import { useFilteredBooks } from "@/hooks/useFilteredBooks";
-import { useShelfBooks } from "@/hooks/useShelfBooks";
+import { useShelfBooksView } from "@/hooks/useShelfBooksView";
 import type { Book } from "@/types/book";
 import { hasActiveFilters } from "@/utils/filters";
 
@@ -93,15 +93,6 @@ export function useLibraryBooks(
     full = false,
   } = options;
 
-  // Get shelf book IDs if shelfId is provided
-  // Note: useShelfBooks doesn't support conditional execution, so we pass 0 when shelfId is undefined
-  // and check the result in the useMemo
-  const shelfBooksResult = useShelfBooks({
-    shelfId: shelfId ?? 0,
-    page: 1,
-    sortBy: "order",
-  });
-
   // Determine which filtering mechanism is active
   // Priority: shelf > filters > search > all books
   const filtersActive = hasActiveFilters(filters);
@@ -130,65 +121,30 @@ export function useLibraryBooks(
     full,
   });
 
-  // When shelf filter is active, fetch books and filter by shelf IDs
-  // Note: We disable infinite scroll since we already know the total count from shelf
-  // We fetch enough books to cover the shelf's book count, but use a reasonable max
-  // to avoid fetching too many books unnecessarily
-  const shelfBookCount = shelfBooksResult.total || 0;
-  const initialPageSizeForShelf = Math.max(
+  const shelfBooksViewResult = useShelfBooksView({
+    shelfId: hasShelfFilter ? shelfId : undefined,
     pageSize,
-    Math.min(shelfBookCount * 2, 100), // Fetch at least 2x shelf count, but max 100
-  );
-
-  const allBooksForShelfResult = useBooks({
-    enabled: hasShelfFilter,
-    infiniteScroll: false, // Disable infinite scroll for shelf filtering
-    search: hasActiveSearch ? searchQuery : undefined,
-    author_id: authorId,
-    sort_by: sortBy,
-    sort_order: sortOrder,
-    page_size: initialPageSizeForShelf,
     full,
+    // Preserve existing shelf endpoint behavior (order asc) for now.
+    // This avoids relying on `/api/books` ordering and supports infinite scroll.
+    shelfSortBy: "order",
+    shelfSortOrder: "asc",
   });
 
   // Base result: use filtered books if filters are active, otherwise use regular books
   const baseResult = filtersActive ? filteredBooksResult : regularBooksResult;
 
-  // If shelf filter is active, filter books by shelf IDs
-  const shelfFilteredBooks = useMemo(() => {
-    if (!hasShelfFilter || shelfId === undefined || shelfId === 0) {
-      return [];
-    }
-    if (shelfBooksResult.isLoading || shelfBooksResult.error) {
-      return [];
-    }
-
-    const shelfBookIds = new Set(shelfBooksResult.bookIds);
-    return allBooksForShelfResult.books.filter((book) =>
-      shelfBookIds.has(book.id),
-    );
-  }, [
-    hasShelfFilter,
-    shelfId,
-    shelfBooksResult.bookIds,
-    shelfBooksResult.isLoading,
-    shelfBooksResult.error,
-    allBooksForShelfResult.books,
-  ]);
-
   // Determine which result to use
   const result = hasShelfFilter
     ? {
-        books: shelfFilteredBooks,
-        total: shelfBooksResult.total,
-        isLoading:
-          shelfBooksResult.isLoading || allBooksForShelfResult.isLoading,
-        error: shelfBooksResult.error || allBooksForShelfResult.error,
-        // Disable infinite scroll for shelf filtering since we know the exact count
-        loadMore: undefined,
-        hasMore: false,
-        removeBook: allBooksForShelfResult.removeBook,
-        addBook: allBooksForShelfResult.addBook,
+        books: shelfBooksViewResult.books,
+        total: shelfBooksViewResult.total,
+        isLoading: shelfBooksViewResult.isLoading,
+        error: shelfBooksViewResult.error,
+        loadMore: shelfBooksViewResult.loadMore,
+        hasMore: shelfBooksViewResult.hasMore,
+        removeBook: shelfBooksViewResult.removeBook,
+        addBook: undefined,
       }
     : baseResult;
 

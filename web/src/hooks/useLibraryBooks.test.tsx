@@ -29,13 +29,13 @@ vi.mock("./useBooks", () => ({
   useBooks: vi.fn(),
 }));
 
-vi.mock("./useShelfBooks", () => ({
-  useShelfBooks: vi.fn(),
+vi.mock("./useShelfBooksView", () => ({
+  useShelfBooksView: vi.fn(),
 }));
 
 import { useBooks } from "./useBooks";
 import { useFilteredBooks } from "./useFilteredBooks";
-import { useShelfBooks } from "./useShelfBooks";
+import { useShelfBooksView } from "./useShelfBooksView";
 
 /**
  * Wrapper component with LibraryLoadingProvider for tests.
@@ -55,10 +55,12 @@ describe("useLibraryBooks", () => {
   };
 
   const mockShelfBooksResult = {
-    bookIds: [],
+    books: [],
     total: 0,
     isLoading: false,
     error: null,
+    loadMore: undefined,
+    hasMore: false,
   };
 
   beforeEach(() => {
@@ -66,7 +68,7 @@ describe("useLibraryBooks", () => {
       mockBooksResult,
     );
     (useBooks as ReturnType<typeof vi.fn>).mockReturnValue(mockBooksResult);
-    (useShelfBooks as ReturnType<typeof vi.fn>).mockReturnValue(
+    (useShelfBooksView as ReturnType<typeof vi.fn>).mockReturnValue(
       mockShelfBooksResult,
     );
   });
@@ -160,39 +162,39 @@ describe("useLibraryBooks", () => {
     expect(result.current.books).toEqual(filteredResult.books);
   });
 
-  it("should filter books by shelf IDs when shelf filter is active", () => {
-    const shelfBookIds = [1, 3, 5];
-    const allBooks = [
+  it("should use shelf books view when shelf filter is active", () => {
+    const shelfBooks = [
       { id: 1, title: "Book 1" },
-      { id: 2, title: "Book 2" },
       { id: 3, title: "Book 3" },
-      { id: 4, title: "Book 4" },
       { id: 5, title: "Book 5" },
     ] as typeof mockBooksResult.books;
 
-    (useShelfBooks as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useShelfBooksView as ReturnType<typeof vi.fn>).mockReturnValue({
       ...mockShelfBooksResult,
-      bookIds: shelfBookIds,
-      total: shelfBookIds.length,
+      books: shelfBooks,
+      total: shelfBooks.length,
       isLoading: false,
       error: null,
-    });
-
-    (useBooks as ReturnType<typeof vi.fn>).mockReturnValue({
-      ...mockBooksResult,
-      books: allBooks,
+      hasMore: true,
+      loadMore: vi.fn(),
     });
 
     const { result } = renderHook(() => useLibraryBooks({ shelfId: 1 }), {
       wrapper,
     });
 
-    expect(result.current.books).toHaveLength(3);
-    expect(result.current.books.map((b) => b.id)).toEqual([1, 3, 5]);
+    expect(useShelfBooksView).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shelfId: 1,
+      }),
+    );
+    expect(result.current.books).toEqual(shelfBooks);
+    expect(result.current.hasMore).toBe(true);
+    expect(result.current.loadMore).toBeTypeOf("function");
   });
 
   it("should return empty array when shelf books are loading", () => {
-    (useShelfBooks as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useShelfBooksView as ReturnType<typeof vi.fn>).mockReturnValue({
       ...mockShelfBooksResult,
       isLoading: true,
     });
@@ -205,7 +207,7 @@ describe("useLibraryBooks", () => {
   });
 
   it("should return empty array when shelf books have error", () => {
-    (useShelfBooks as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useShelfBooksView as ReturnType<typeof vi.fn>).mockReturnValue({
       ...mockShelfBooksResult,
       error: "Failed to fetch shelf books",
     });
