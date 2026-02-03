@@ -63,7 +63,7 @@ describe("useShelfBooks", () => {
     expect(result.current.bookIds).toEqual(bookIds);
     expect(result.current.total).toBe(3);
     expect(result.current.error).toBeNull();
-    expect(getShelfBooks).toHaveBeenCalledWith(1, 1, "order");
+    expect(getShelfBooks).toHaveBeenCalledWith(1, 1, "order", 20, "asc");
   });
 
   it("should handle error when loading shelf books", async () => {
@@ -120,7 +120,7 @@ describe("useShelfBooks", () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    expect(getShelfBooks).toHaveBeenCalledWith(1, 1, "order");
+    expect(getShelfBooks).toHaveBeenCalledWith(1, 1, "order", 20, "asc");
   });
 
   it("should reload books when shelfId changes", async () => {
@@ -145,7 +145,7 @@ describe("useShelfBooks", () => {
       expect(result.current.bookIds).toEqual(bookIds2);
     });
 
-    expect(getShelfBooks).toHaveBeenCalledWith(2, 1, "order");
+    expect(getShelfBooks).toHaveBeenCalledWith(2, 1, "order", 20, "asc");
   });
 
   it("should reload books when page changes", async () => {
@@ -170,7 +170,7 @@ describe("useShelfBooks", () => {
       expect(result.current.bookIds).toEqual(bookIds2);
     });
 
-    expect(getShelfBooks).toHaveBeenCalledWith(1, 2, "order");
+    expect(getShelfBooks).toHaveBeenCalledWith(1, 2, "order", 20, "asc");
   });
 
   it("should reload books when sortBy changes", async () => {
@@ -195,7 +195,7 @@ describe("useShelfBooks", () => {
       expect(result.current.bookIds).toEqual(bookIds2);
     });
 
-    expect(getShelfBooks).toHaveBeenCalledWith(1, 1, "date_added");
+    expect(getShelfBooks).toHaveBeenCalledWith(1, 1, "date_added", 20, "asc");
   });
 
   it("should refresh books", async () => {
