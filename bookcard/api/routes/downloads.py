@@ -26,11 +26,15 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlmodel import Session
 
-from bookcard.api.deps import get_data_encryptor, get_db_session
+from bookcard.api.deps import (
+    _resolve_active_library,
+    get_current_user,
+    get_data_encryptor,
+    get_db_session,
+)
 from bookcard.database import EngineSessionFactory
+from bookcard.models.auth import User
 from bookcard.models.pvr import DownloadHistory, DownloadItem, DownloadQueue
-from bookcard.repositories.config_repository import LibraryRepository
-from bookcard.services.config_service import LibraryService
 from bookcard.services.download.client_selector import ProtocolBasedSelector
 from bookcard.services.download.repository import SQLModelDownloadItemRepository
 from bookcard.services.download_client_service import DownloadClientService
@@ -56,11 +60,30 @@ def get_download_service(
 def get_import_service(
     session: Annotated[Session, Depends(get_db_session)],
     request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> PVRImportService:
-    """Get PVR import service instance."""
-    library_repo = LibraryRepository(session)
-    library_service = LibraryService(session, library_repo)
-    active_library = library_service.get_active_library()
+    """Get PVR import service instance.
+
+    Parameters
+    ----------
+    session : Session
+        Database session.
+    request : Request
+        FastAPI request object.
+    current_user : User
+        Authenticated user.
+
+    Returns
+    -------
+    PVRImportService
+        Import service instance.
+
+    Raises
+    ------
+    HTTPException
+        If no active library is configured (409).
+    """
+    active_library = _resolve_active_library(session, current_user.id)
 
     if not active_library:
         raise HTTPException(

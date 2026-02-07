@@ -28,16 +28,14 @@ from fastapi.responses import Response
 from PIL import Image
 from sqlmodel import Session
 
-from bookcard.api.deps import get_current_user, get_db_session
+from bookcard.api.deps import _resolve_active_library, get_current_user, get_db_session
 from bookcard.models.auth import User
-from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.services.book_permission_helper import BookPermissionHelper
 from bookcard.services.book_service import BookService
 from bookcard.services.comic.archive import (
     ComicArchiveError,
     create_comic_archive_service,
 )
-from bookcard.services.config_service import LibraryService
 
 router = APIRouter(prefix="/comic", tags=["comic"])
 
@@ -45,13 +43,18 @@ SessionDep = Annotated[Session, Depends(get_db_session)]
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 
 
-def _get_book_service(session: SessionDep) -> BookService:
-    """Get book service with active library.
+def _get_book_service(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> BookService:
+    """Get book service with the user's active library.
 
     Parameters
     ----------
     session : Session
         Database session.
+    current_user : User
+        Authenticated user.
 
     Returns
     -------
@@ -63,9 +66,7 @@ def _get_book_service(session: SessionDep) -> BookService:
     HTTPException
         If no active library found.
     """
-    library_repo = LibraryRepository(session)
-    library_service = LibraryService(session, library_repo)
-    library = library_service.get_active_library()
+    library = _resolve_active_library(session, current_user.id)
 
     if library is None:
         raise HTTPException(
@@ -270,7 +271,7 @@ def list_comic_pages(
     HTTPException
         If book not found, format not found, or permission denied.
     """
-    book_service = _get_book_service(session)
+    book_service = _get_book_service(session, current_user)
     book_with_rels = book_service.get_book_full(book_id)
 
     if book_with_rels is None:
@@ -356,7 +357,7 @@ def get_comic_page(
     HTTPException
         If book not found, format not found, page not found, or permission denied.
     """
-    book_service = _get_book_service(session)
+    book_service = _get_book_service(session, current_user)
     book_with_rels = book_service.get_book_full(book_id)
 
     if book_with_rels is None:

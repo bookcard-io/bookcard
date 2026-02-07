@@ -68,6 +68,8 @@ def get_data_encryptor(request: Request) -> DataEncryptor:
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
+    from bookcard.models.config import Library
+
 
 def get_db_session(request: Request) -> Iterator[Session]:
     """Yield a request-scoped database session.
@@ -298,15 +300,60 @@ def get_admin_user(
     return current_user
 
 
-def get_active_library_id(
-    session: Annotated[Session, Depends(get_db_session)],
-) -> int:
-    """Get the active library ID.
+def _resolve_active_library(
+    session: Session, user_id: int | None = None
+) -> Library | None:
+    """Resolve the active library for a user, falling back to global.
+
+    When *user_id* is provided the function first checks the
+    ``UserLibrary`` table for the user's active library.  If none is
+    found (or *user_id* is ``None``), it falls back to the legacy
+    global ``Library.is_active`` flag.
 
     Parameters
     ----------
     session : Session
         Database session.
+    user_id : int | None
+        Optional authenticated user ID.
+
+    Returns
+    -------
+    Library | None
+        The resolved library, or ``None`` when no active library exists.
+    """
+    if user_id is not None:
+        from bookcard.repositories.user_library_repository import (
+            UserLibraryRepository,
+        )
+
+        ul_repo = UserLibraryRepository(session)
+        library = ul_repo.get_active_library_for_user(user_id)
+        if library is not None:
+            return library
+
+    # Fallback: global active library
+    library_repo = LibraryRepository(session)
+    library_service = LibraryService(session, library_repo)
+    return library_service.get_active_library()
+
+
+def get_active_library_id(
+    session: Annotated[Session, Depends(get_db_session)],
+    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
+) -> int:
+    """Get the active library ID for the current user.
+
+    Resolves the active library via the per-user ``UserLibrary`` table
+    when an authenticated user is present, falling back to the global
+    ``Library.is_active`` flag otherwise.
+
+    Parameters
+    ----------
+    session : Session
+        Database session.
+    current_user : User | None
+        Optionally-resolved authenticated user.
 
     Returns
     -------
@@ -318,9 +365,8 @@ def get_active_library_id(
     HTTPException
         If no active library is configured.
     """
-    library_repo = LibraryRepository(session)
-    library_service = LibraryService(session, library_repo)
-    library = library_service.get_active_library()
+    user_id = current_user.id if current_user else None
+    library = _resolve_active_library(session, user_id)
 
     if library is None or library.id is None:
         raise HTTPException(
@@ -329,6 +375,35 @@ def get_active_library_id(
         )
 
     return library.id
+
+
+def get_visible_library_ids(
+    session: Annotated[Session, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[int]:
+    """Get IDs of all visible libraries for the authenticated user.
+
+    Parameters
+    ----------
+    session : Session
+        Database session.
+    current_user : User
+        Authenticated user.
+
+    Returns
+    -------
+    list[int]
+        Library IDs the user has marked as visible.
+    """
+    from bookcard.repositories.user_library_repository import (
+        UserLibraryRepository,
+    )
+
+    if current_user.id is None:
+        return []
+    ul_repo = UserLibraryRepository(session)
+    libs = ul_repo.list_visible_for_user(current_user.id)
+    return [ul.library_id for ul in libs]
 
 
 def require_permission(

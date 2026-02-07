@@ -1787,20 +1787,16 @@ def test_get_conversion_orchestration_service_no_library(
     session = DummySession()
     request = DummyRequest()
     mock_service = MockBookService()
+    current_user = _create_mock_user()
 
-    with (
-        patch("bookcard.api.routes.books.LibraryRepository") as mock_repo_class,
-        patch("bookcard.api.routes.books.LibraryService") as mock_service_class,
-    ):
-        mock_repo = MagicMock()
-        mock_repo_class.return_value = mock_repo
-
-        mock_lib_service = MagicMock()
-        mock_lib_service.get_active_library.return_value = None
-        mock_service_class.return_value = mock_lib_service
-
+    with patch("bookcard.api.routes.books._resolve_active_library", return_value=None):
         with pytest.raises(HTTPException) as exc_info:
-            books._get_conversion_orchestration_service(request, session, mock_service)  # type: ignore[arg-type]
+            books._get_conversion_orchestration_service(
+                request,  # type: ignore[arg-type]
+                session,  # type: ignore[arg-type]
+                mock_service,  # type: ignore[arg-type]
+                current_user,
+            )
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "no_active_library"
@@ -1831,6 +1827,7 @@ def test_get_conversion_orchestration_service_success(
     session = DummySession()
     request = DummyRequest()
     mock_service = MockBookService()
+    current_user = _create_mock_user()
     mock_library = Library(
         id=1,
         name="Test Library",
@@ -1839,19 +1836,14 @@ def test_get_conversion_orchestration_service_success(
     )
 
     with (
-        patch("bookcard.api.routes.books.LibraryRepository") as mock_repo_class,
-        patch("bookcard.api.routes.books.LibraryService") as mock_lib_service_class,
+        patch(
+            "bookcard.api.routes.books._resolve_active_library",
+            return_value=mock_library,
+        ),
         patch(
             "bookcard.api.routes.books.BookConversionOrchestrationService"
         ) as mock_orch_class,
     ):
-        mock_repo = MagicMock()
-        mock_repo_class.return_value = mock_repo
-
-        mock_lib_service = MagicMock()
-        mock_lib_service.get_active_library.return_value = mock_library
-        mock_lib_service_class.return_value = mock_lib_service
-
         mock_orch = MagicMock()
         mock_orch_class.return_value = mock_orch
 
@@ -1859,6 +1851,7 @@ def test_get_conversion_orchestration_service_success(
             request,  # type: ignore[arg-type]
             session,  # type: ignore[invalid-argument-type]
             mock_service,  # type: ignore[arg-type]
+            current_user,
         )
 
         assert result is not None

@@ -353,18 +353,11 @@ def test_get_active_library_service_no_active_library() -> None:
     """Test _get_active_library_service raises 404 when no active library."""
     session = DummySession()
 
-    with (
-        patch("bookcard.api.routes.books.LibraryRepository") as mock_repo_class,
-        patch("bookcard.api.routes.books.LibraryService") as mock_service_class,
-    ):
-        mock_repo = MagicMock()
-        mock_repo_class.return_value = mock_repo
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = None
-        mock_service_class.return_value = mock_service
+    with patch("bookcard.api.routes.books._resolve_active_library") as mock_resolve:
+        mock_resolve.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
-            books._get_active_library_service(session)  # type: ignore[invalid-argument-type]
+            books._get_active_library_service(session, current_user=None)  # type: ignore[invalid-argument-type]
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "no_active_library"
@@ -382,19 +375,14 @@ def test_get_active_library_service_success() -> None:
     )
 
     with (
-        patch("bookcard.api.routes.books.LibraryRepository") as mock_repo_class,
-        patch("bookcard.api.routes.books.LibraryService") as mock_service_class,
+        patch("bookcard.api.routes.books._resolve_active_library") as mock_resolve,
         patch("bookcard.api.routes.books.BookService") as mock_book_service_class,
     ):
-        mock_repo = MagicMock()
-        mock_repo_class.return_value = mock_repo
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = library
-        mock_service_class.return_value = mock_service
+        mock_resolve.return_value = library
         mock_book_service = MagicMock()
         mock_book_service_class.return_value = mock_book_service
 
-        result = books._get_active_library_service(session)  # type: ignore[invalid-argument-type]
+        result = books._get_active_library_service(session, current_user=None)  # type: ignore[invalid-argument-type]
         assert result == mock_book_service
         mock_book_service_class.assert_called_once_with(library, session=session)
 

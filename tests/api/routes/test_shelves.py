@@ -258,28 +258,23 @@ def test_shelf_service_dependency() -> None:
 
 
 def test_get_active_library_id_no_library() -> None:
-    """Test _get_active_library_id raises 404 when no active library (covers lines 105-113)."""
+    """Test _get_active_library_id raises 404 when no active library."""
     session = DummySession()
+    user = User(id=1, username="test", email="t@t.com", password_hash="h")
 
-    with (
-        patch("bookcard.api.routes.shelves.LibraryRepository") as mock_repo_class,
-        patch("bookcard.api.routes.shelves.LibraryService") as mock_service_class,
-    ):
-        mock_repo = MagicMock()
-        mock_repo_class.return_value = mock_repo
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = None
-        mock_service_class.return_value = mock_service
+    with patch("bookcard.api.routes.shelves._resolve_active_library") as mock_resolve:
+        mock_resolve.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
-            shelves._get_active_library_id(session)  # type: ignore[arg-type]
+            shelves._get_active_library_id(session, current_user=user)  # type: ignore[arg-type]
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         assert exc_info.value.detail == "no_active_library"
 
 
 def test_get_active_library_id_no_id() -> None:
-    """Test _get_active_library_id raises 404 when library has no ID (covers lines 115-119)."""
+    """Test _get_active_library_id raises 404 when library has no ID."""
     session = DummySession()
+    user = User(id=1, username="test", email="t@t.com", password_hash="h")
     library = Library(
         id=None,
         name="Test Library",
@@ -288,25 +283,19 @@ def test_get_active_library_id_no_id() -> None:
         is_active=True,
     )
 
-    with (
-        patch("bookcard.api.routes.shelves.LibraryRepository") as mock_repo_class,
-        patch("bookcard.api.routes.shelves.LibraryService") as mock_service_class,
-    ):
-        mock_repo = MagicMock()
-        mock_repo_class.return_value = mock_repo
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = library
-        mock_service_class.return_value = mock_service
+    with patch("bookcard.api.routes.shelves._resolve_active_library") as mock_resolve:
+        mock_resolve.return_value = library
 
         with pytest.raises(HTTPException) as exc_info:
-            shelves._get_active_library_id(session)  # type: ignore[arg-type]
+            shelves._get_active_library_id(session, current_user=user)  # type: ignore[arg-type]
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         assert exc_info.value.detail == "no_active_library"
 
 
 def test_get_active_library_id_success() -> None:
-    """Test _get_active_library_id returns library ID (covers line 121)."""
+    """Test _get_active_library_id returns library ID."""
     session = DummySession()
+    user = User(id=1, username="test", email="t@t.com", password_hash="h")
     library = Library(
         id=1,
         name="Test Library",
@@ -315,17 +304,10 @@ def test_get_active_library_id_success() -> None:
         is_active=True,
     )
 
-    with (
-        patch("bookcard.api.routes.shelves.LibraryRepository") as mock_repo_class,
-        patch("bookcard.api.routes.shelves.LibraryService") as mock_service_class,
-    ):
-        mock_repo = MagicMock()
-        mock_repo_class.return_value = mock_repo
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = library
-        mock_service_class.return_value = mock_service
+    with patch("bookcard.api.routes.shelves._resolve_active_library") as mock_resolve:
+        mock_resolve.return_value = library
 
-        result = shelves._get_active_library_id(session)  # type: ignore[arg-type]
+        result = shelves._get_active_library_id(session, current_user=user)  # type: ignore[arg-type]
         assert result == 1
 
 

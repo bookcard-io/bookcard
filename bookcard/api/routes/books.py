@@ -41,6 +41,7 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session
 
 from bookcard.api.deps import (
+    _resolve_active_library,
     get_active_library_id,
     get_current_user,
     get_db_session,
@@ -92,10 +93,7 @@ from bookcard.services.book_permission_helper import BookPermissionHelper
 from bookcard.services.book_read_model_service import BookReadModelService
 from bookcard.services.book_response_builder import BookResponseBuilder
 from bookcard.services.book_service import BookService
-from bookcard.services.config_service import (
-    FileHandlingConfigService,
-    LibraryService,
-)
+from bookcard.services.config_service import FileHandlingConfigService
 from bookcard.services.email_config_service import EmailConfigService
 from bookcard.services.format_metadata_service import FormatMetadataService
 from bookcard.services.metadata_enforcement_trigger_service import (
@@ -202,13 +200,20 @@ def _email_config_service(request: Request, session: Session) -> EmailConfigServ
 
 def _get_active_library_service(
     session: SessionDep,
+    current_user: OptionalUserDep,
 ) -> BookService:
     """Get book service for the active library.
+
+    Resolves the active library via the per-user ``UserLibrary`` table
+    when an authenticated user is present, falling back to the global
+    ``Library.is_active`` flag otherwise.
 
     Parameters
     ----------
     session : SessionDep
         Database session.
+    current_user : OptionalUserDep
+        Optionally-resolved authenticated user.
 
     Returns
     -------
@@ -220,9 +225,8 @@ def _get_active_library_service(
     HTTPException
         If no active library is configured (404).
     """
-    library_repo = LibraryRepository(session)
-    library_service = LibraryService(session, library_repo)
-    library = library_service.get_active_library()
+    user_id = current_user.id if current_user else None
+    library = _resolve_active_library(session, user_id)
 
     if library is None:
         raise HTTPException(
@@ -305,6 +309,7 @@ def _get_cover_service(
 
 def _get_book_merge_service(
     session: SessionDep,
+    current_user: OptionalUserDep,
 ) -> Generator[BookMergeService, None, None]:
     """Get book merge service instance.
 
@@ -312,15 +317,16 @@ def _get_book_merge_service(
     ----------
     session : SessionDep
         Database session.
+    current_user : OptionalUserDep
+        Optionally-resolved authenticated user.
 
     Yields
     ------
     BookMergeService
         Book merge service instance.
     """
-    library_repo = LibraryRepository(session)
-    library_service = LibraryService(session, library_repo)
-    active_library = library_service.get_active_library()
+    user_id = current_user.id if current_user else None
+    active_library = _resolve_active_library(session, user_id)
 
     if not active_library or not active_library.calibre_db_path:
         raise HTTPException(
@@ -356,6 +362,7 @@ def _get_conversion_orchestration_service(
     request: Request,
     session: SessionDep,
     book_service: BookServiceDep,
+    current_user: OptionalUserDep,
 ) -> BookConversionOrchestrationService:
     """Get book conversion orchestration service instance.
 
@@ -367,6 +374,8 @@ def _get_conversion_orchestration_service(
         Database session dependency.
     book_service : BookServiceDep
         Book service dependency.
+    current_user : OptionalUserDep
+        Optionally-resolved authenticated user.
 
     Returns
     -------
@@ -383,10 +392,9 @@ def _get_conversion_orchestration_service(
     if hasattr(request.app.state, "task_runner"):
         task_runner = request.app.state.task_runner
 
-    # Get active library
-    library_repo = LibraryRepository(session)
-    library_service = LibraryService(session, library_repo)
-    library = library_service.get_active_library()
+    # Get active library (user-aware)
+    user_id = current_user.id if current_user else None
+    library = _resolve_active_library(session, user_id)
     if library is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -453,6 +461,71 @@ CoverServiceDep = Annotated[
 ]
 
 
+def _resolve_requested_library(
+    session: Session,
+    current_user: User | None,
+    requested_library_id: int,
+) -> tuple[BookService, BookResponseBuilder, int]:
+    """Build a BookService and ResponseBuilder for an explicitly requested library.
+
+    Validates that the authenticated user has visibility access to the
+    requested library (via the ``UserLibrary`` table).  Anonymous users
+    are denied access.
+
+    Parameters
+    ----------
+    session : Session
+        Database session.
+    current_user : User | None
+        Authenticated user, or ``None`` for anonymous access.
+    requested_library_id : int
+        Library ID requested by the caller.
+
+    Returns
+    -------
+    tuple[BookService, BookResponseBuilder, int]
+        A ``(book_service, response_builder, library_id)`` triple for the
+        requested library.
+
+    Raises
+    ------
+    HTTPException
+        If the user is anonymous (401), has no access (403), or the library
+        does not exist (404).
+    """
+    from bookcard.repositories.user_library_repository import (
+        UserLibraryRepository,
+    )
+
+    if current_user is None or current_user.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="authentication_required",
+        )
+
+    # Check the user has visibility access to the requested library
+    ul_repo = UserLibraryRepository(session)
+    assoc = ul_repo.find_by_user_and_library(current_user.id, requested_library_id)
+    if assoc is None or not assoc.is_visible:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="library_access_denied",
+        )
+
+    # Fetch the actual Library model
+    lib_repo = LibraryRepository(session)
+    library = lib_repo.get(requested_library_id)
+    if library is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="library_not_found",
+        )
+
+    svc = BookService(library, session=session)
+    builder = BookResponseBuilder(svc)
+    return svc, builder, requested_library_id
+
+
 @router.get("", response_model=BookListResponse)
 def list_books(
     current_user: OptionalUserDep,
@@ -476,21 +549,34 @@ def list_books(
             description="Comma-separated list of optional includes (e.g., 'reading_summary')"
         ),
     ] = None,
+    requested_library_id: Annotated[
+        int | None,
+        Query(
+            alias="library_id",
+            description="Optional library ID to list books from a specific library",
+        ),
+    ] = None,
 ) -> BookListResponse:
     """List books with pagination and optional search.
+
+    When *requested_library_id* is supplied (via ``?library_id=``), the
+    endpoint validates that the current user has access to that library
+    and returns books from it instead of the user's active library.
 
     Parameters
     ----------
     session : SessionDep
         Database session dependency.
-    current_user : CurrentUserDep
-        Current authenticated user.
+    current_user : OptionalUserDep
+        Optionally-resolved authenticated user.
     book_service : BookServiceDep
-        Book service instance.
+        Book service instance (active library).
     permission_helper : PermissionHelperDep
         Permission helper instance.
     response_builder : ResponseBuilderDep
         Response builder instance.
+    library_id : ActiveLibraryIdDep
+        Active library ID (resolved automatically).
     page : int
         Page number (1-indexed, default: 1).
     page_size : int
@@ -510,6 +596,8 @@ def list_books(
         Optional month (1-12) to filter books by publication date month.
     pubdate_day : int | None
         Optional day (1-31) to filter books by publication date day.
+    requested_library_id : int | None
+        Optional explicit library ID to fetch books from.
 
     Returns
     -------
@@ -519,10 +607,20 @@ def list_books(
     Raises
     ------
     HTTPException
-        If no active library is configured (404) or permission denied (403).
+        If no active library is configured (404), permission denied (403),
+        or requested library not accessible (403).
     """
     if current_user is not None:
         permission_helper.check_read_permission(current_user)
+
+    # Override book service / response builder when an explicit library is requested
+    effective_book_service = book_service
+    effective_response_builder = response_builder
+    effective_library_id = library_id
+    if requested_library_id is not None and requested_library_id != library_id:
+        effective_book_service, effective_response_builder, effective_library_id = (
+            _resolve_requested_library(session, current_user, requested_library_id)
+        )
 
     if page < 1:
         page = 1
@@ -531,7 +629,7 @@ def list_books(
     if page_size > 100:
         page_size = 100
 
-    books, total = book_service.list_books(
+    books, total = effective_book_service.list_books(
         page=page,
         page_size=page_size,
         search_query=search,
@@ -543,13 +641,13 @@ def list_books(
         pubdate_day=pubdate_day,
     )
 
-    book_reads = response_builder.build_book_read_list(books, full=full)
+    book_reads = effective_response_builder.build_book_read_list(books, full=full)
     read_model_service = BookReadModelService(session)
     read_model_service.apply_includes(
         book_reads=book_reads,
         include=include,
         user_id=current_user.id if current_user is not None else None,
-        library_id=library_id,
+        library_id=effective_library_id,
     )
     total_pages = math.ceil(total / page_size) if page_size > 0 else 0
 
@@ -578,25 +676,40 @@ def get_book(
             description="Comma-separated list of optional includes (e.g., 'reading_summary')"
         ),
     ] = None,
+    requested_library_id: Annotated[
+        int | None,
+        Query(
+            alias="library_id",
+            description="Optional library ID to fetch book from a specific library",
+        ),
+    ] = None,
 ) -> BookRead:
     """Get a book by ID.
+
+    When *requested_library_id* is supplied (via ``?library_id=``), the
+    endpoint validates that the current user has access to that library
+    and looks the book up there instead of in the user's active library.
 
     Parameters
     ----------
     session : SessionDep
         Database session dependency.
-    current_user : CurrentUserDep
-        Current authenticated user.
+    current_user : OptionalUserDep
+        Optionally-resolved authenticated user.
     book_id : int
         Calibre book ID.
     book_service : BookServiceDep
-        Book service instance.
+        Book service instance (active library).
     permission_helper : PermissionHelperDep
         Permission helper instance.
     response_builder : ResponseBuilderDep
         Response builder instance.
+    library_id : ActiveLibraryIdDep
+        Active library ID (resolved automatically).
     full : bool
         If True, return full book details with all metadata (default: False).
+    requested_library_id : int | None
+        Optional explicit library ID to fetch the book from.
 
     Returns
     -------
@@ -606,12 +719,22 @@ def get_book(
     Raises
     ------
     HTTPException
-        If book not found (404), no active library (404), or permission denied (403).
+        If book not found (404), no active library (404), permission denied (403),
+        or requested library not accessible (403).
     """
+    # Override book service / response builder when an explicit library is requested
+    effective_book_service = book_service
+    effective_response_builder = response_builder
+    effective_library_id = library_id
+    if requested_library_id is not None and requested_library_id != library_id:
+        effective_book_service, effective_response_builder, effective_library_id = (
+            _resolve_requested_library(session, current_user, requested_library_id)
+        )
+
     if full:
-        book_with_rels = book_service.get_book_full(book_id)
+        book_with_rels = effective_book_service.get_book_full(book_id)
     else:
-        book_with_rels = book_service.get_book(book_id)
+        book_with_rels = effective_book_service.get_book(book_id)
 
     if book_with_rels is None:
         raise HTTPException(
@@ -623,13 +746,15 @@ def get_book(
         permission_helper.check_read_permission(current_user, book_with_rels)
 
     try:
-        book_read = response_builder.build_book_read(book_with_rels, full=full)
+        book_read = effective_response_builder.build_book_read(
+            book_with_rels, full=full
+        )
         read_model_service = BookReadModelService(session)
         read_model_service.apply_includes_to_one(
             book_read=book_read,
             include=include,
             user_id=current_user.id if current_user is not None else None,
-            library_id=library_id,
+            library_id=effective_library_id,
         )
     except ValueError as exc:
         raise BookExceptionMapper.map_value_error_to_http_exception(exc) from exc

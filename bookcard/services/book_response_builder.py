@@ -96,6 +96,8 @@ class BookResponseBuilder:
             tracking_status=getattr(book_with_rels, "tracking_status", None),
             is_virtual=getattr(book_with_rels, "is_virtual", False),
             tracking_id=getattr(book_with_rels, "tracking_id", None),
+            library_id=self._book_service.library.id,
+            library_name=self._book_service.library.name,
         )
 
         # Add full details if requested and available

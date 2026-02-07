@@ -79,18 +79,13 @@ def client(app: FastAPI) -> TestClient:
 
 
 def test__get_book_service_no_active_library(monkeypatch: pytest.MonkeyPatch) -> None:
-    class FakeLibraryService:
-        def __init__(self, _session: object, _repo: object) -> None:
-            pass
-
-        def get_active_library(self) -> None:
-            return None
-
-    monkeypatch.setattr(comic_routes, "LibraryRepository", lambda _s: object())
-    monkeypatch.setattr(comic_routes, "LibraryService", FakeLibraryService)
+    monkeypatch.setattr(
+        "bookcard.api.routes.comic._resolve_active_library", lambda _s, _u=None: None
+    )
+    user = User(id=1, username="test", is_admin=True)
 
     with pytest.raises(HTTPException) as exc_info:
-        _ = comic_routes._get_book_service(object())  # type: ignore[invalid-argument-type]
+        _ = comic_routes._get_book_service(object(), user)  # type: ignore[arg-type]
     exc = exc_info.value
     assert isinstance(exc, HTTPException)
     assert exc.status_code == 404
@@ -107,23 +102,19 @@ def test__get_book_service_returns_book_service(
 
     fake_library = FakeLibrary(calibre_db_path="/tmp")
 
-    class FakeLibraryService:
-        def __init__(self, _session: object, _repo: object) -> None:
-            pass
-
-        def get_active_library(self) -> FakeLibrary:
-            return fake_library
-
     @dataclass
     class FakeBookService:
         library: FakeLibrary
         session: object
 
-    monkeypatch.setattr(comic_routes, "LibraryRepository", lambda _s: object())
-    monkeypatch.setattr(comic_routes, "LibraryService", FakeLibraryService)
+    monkeypatch.setattr(
+        "bookcard.api.routes.comic._resolve_active_library",
+        lambda _s, _u=None: fake_library,
+    )
     monkeypatch.setattr(comic_routes, "BookService", FakeBookService)
+    user = User(id=1, username="test", is_admin=True)
 
-    svc = comic_routes._get_book_service(object())  # type: ignore[invalid-argument-type]
+    svc = comic_routes._get_book_service(object(), user)  # type: ignore[arg-type]
     assert isinstance(svc, FakeBookService)
     assert svc.library is fake_library
 
@@ -368,7 +359,9 @@ def test_list_comic_pages_success(
     f = tmp_path / "a.cbz"
     f.write_bytes(b"x")
 
-    monkeypatch.setattr(comic_routes, "_get_book_service", lambda _s: FakeBookService())
+    monkeypatch.setattr(
+        comic_routes, "_get_book_service", lambda _s, _u=None: FakeBookService()
+    )
     monkeypatch.setattr(comic_routes, "BookPermissionHelper", FakePermissionHelper)
     monkeypatch.setattr(comic_routes, "_get_comic_file_path", lambda *_a, **_k: f)
     monkeypatch.setattr(
@@ -414,7 +407,9 @@ def test_list_comic_pages_archive_error_mapped_to_400(
     f = tmp_path / "a.cbz"
     f.write_bytes(b"x")
 
-    monkeypatch.setattr(comic_routes, "_get_book_service", lambda _s: FakeBookService())
+    monkeypatch.setattr(
+        comic_routes, "_get_book_service", lambda _s, _u=None: FakeBookService()
+    )
     monkeypatch.setattr(comic_routes, "BookPermissionHelper", FakePermissionHelper)
     monkeypatch.setattr(comic_routes, "_get_comic_file_path", lambda *_a, **_k: f)
     monkeypatch.setattr(
@@ -433,7 +428,9 @@ def test_list_comic_pages_book_not_found(
         def get_book_full(self, _book_id: int) -> None:
             return None
 
-    monkeypatch.setattr(comic_routes, "_get_book_service", lambda _s: FakeBookService())
+    monkeypatch.setattr(
+        comic_routes, "_get_book_service", lambda _s, _u=None: FakeBookService()
+    )
 
     res = client.get("/comic/1/pages", params={"file_format": "CBZ"})
     assert res.status_code == 404
@@ -472,7 +469,9 @@ def test_get_comic_page_thumbnail_success_and_fallback(
 
     f = Path("/tmp/a.cbz")
 
-    monkeypatch.setattr(comic_routes, "_get_book_service", lambda _s: FakeBookService())
+    monkeypatch.setattr(
+        comic_routes, "_get_book_service", lambda _s, _u=None: FakeBookService()
+    )
     monkeypatch.setattr(comic_routes, "BookPermissionHelper", FakePermissionHelper)
     monkeypatch.setattr(comic_routes, "_get_comic_file_path", lambda *_a, **_k: f)
 
@@ -532,7 +531,9 @@ def test_get_comic_page_thumbnail_endpoint_delegates(
 
     f = Path("/tmp/a.cbz")
 
-    monkeypatch.setattr(comic_routes, "_get_book_service", lambda _s: FakeBookService())
+    monkeypatch.setattr(
+        comic_routes, "_get_book_service", lambda _s, _u=None: FakeBookService()
+    )
     monkeypatch.setattr(comic_routes, "BookPermissionHelper", FakePermissionHelper)
     monkeypatch.setattr(comic_routes, "_get_comic_file_path", lambda *_a, **_k: f)
     monkeypatch.setattr(
@@ -570,7 +571,9 @@ def test_get_comic_page_archive_error_mapped_to_400(
 
     f = Path("/tmp/a.cbz")
 
-    monkeypatch.setattr(comic_routes, "_get_book_service", lambda _s: FakeBookService())
+    monkeypatch.setattr(
+        comic_routes, "_get_book_service", lambda _s, _u=None: FakeBookService()
+    )
     monkeypatch.setattr(comic_routes, "BookPermissionHelper", FakePermissionHelper)
     monkeypatch.setattr(comic_routes, "_get_comic_file_path", lambda *_a, **_k: f)
     monkeypatch.setattr(
@@ -589,7 +592,9 @@ def test_get_comic_page_book_not_found(
         def get_book_full(self, _book_id: int) -> None:
             return None
 
-    monkeypatch.setattr(comic_routes, "_get_book_service", lambda _s: FakeBookService())
+    monkeypatch.setattr(
+        comic_routes, "_get_book_service", lambda _s, _u=None: FakeBookService()
+    )
 
     res = client.get("/comic/1/pages/1", params={"file_format": "CBZ"})
     assert res.status_code == 404

@@ -127,7 +127,13 @@ def app(
         "bookcard.api.routes.shelves.BookShelfLinkRepository", mock_link_repo_init
     )
 
-    # Mock LibraryService
+    # Mock _resolve_active_library (replaces old direct LibraryService mock)
+    monkeypatch.setattr(
+        "bookcard.api.routes.shelves._resolve_active_library",
+        lambda session, user_id=None: mock_library,
+    )
+
+    # Mock LibraryService (still needed by _magic_shelf_service)
     mock_lib_service = MagicMock()
     mock_lib_service.get_active_library.return_value = mock_library
     mock_lib_service.get_library.return_value = mock_library
@@ -313,7 +319,13 @@ def test_import_read_list_permission_denied(
         "bookcard.api.routes.shelves.BookShelfLinkRepository", mock_link_repo_init
     )
 
-    # Mock LibraryService
+    # Mock _resolve_active_library (replaces old direct LibraryService mock)
+    monkeypatch.setattr(
+        "bookcard.api.routes.shelves._resolve_active_library",
+        lambda session, user_id=None: mock_library,
+    )
+
+    # Mock LibraryService (still needed by _magic_shelf_service)
     mock_lib_service = MagicMock()
     mock_lib_service.get_active_library.return_value = mock_library
     mock_lib_service.get_library.return_value = mock_library
