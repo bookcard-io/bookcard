@@ -193,6 +193,78 @@ describe("useLibraryBooks", () => {
     expect(result.current.loadMore).toBeTypeOf("function");
   });
 
+  it("should forward sortBy and sortOrder to useShelfBooksView when shelf is active", () => {
+    (useShelfBooksView as ReturnType<typeof vi.fn>).mockReturnValue(
+      mockShelfBooksResult,
+    );
+
+    renderHook(
+      () =>
+        useLibraryBooks({
+          shelfId: 1,
+          sortBy: "title",
+          sortOrder: "asc",
+        }),
+      { wrapper },
+    );
+
+    expect(useShelfBooksView).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shelfId: 1,
+        sortBy: "title",
+        sortOrder: "asc",
+      }),
+    );
+  });
+
+  it("should pass default sort params to useShelfBooksView when none specified", () => {
+    (useShelfBooksView as ReturnType<typeof vi.fn>).mockReturnValue(
+      mockShelfBooksResult,
+    );
+
+    renderHook(() => useLibraryBooks({ shelfId: 1 }), { wrapper });
+
+    expect(useShelfBooksView).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shelfId: 1,
+        sortBy: "timestamp",
+        sortOrder: "desc",
+      }),
+    );
+  });
+
+  it("should update useShelfBooksView when sort params change with active shelf", () => {
+    (useShelfBooksView as ReturnType<typeof vi.fn>).mockReturnValue(
+      mockShelfBooksResult,
+    );
+
+    const { rerender } = renderHook(
+      ({ sortBy, sortOrder }: { sortBy: string; sortOrder: string }) =>
+        useLibraryBooks({
+          shelfId: 1,
+          sortBy: sortBy as "title" | "timestamp",
+          sortOrder: sortOrder as "asc" | "desc",
+        }),
+      { wrapper, initialProps: { sortBy: "timestamp", sortOrder: "desc" } },
+    );
+
+    expect(useShelfBooksView).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sortBy: "timestamp",
+        sortOrder: "desc",
+      }),
+    );
+
+    rerender({ sortBy: "title", sortOrder: "asc" });
+
+    expect(useShelfBooksView).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sortBy: "title",
+        sortOrder: "asc",
+      }),
+    );
+  });
+
   it("should return empty array when shelf books are loading", () => {
     (useShelfBooksView as ReturnType<typeof vi.fn>).mockReturnValue({
       ...mockShelfBooksResult,

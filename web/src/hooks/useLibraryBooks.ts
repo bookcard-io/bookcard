@@ -125,10 +125,8 @@ export function useLibraryBooks(
     shelfId: hasShelfFilter ? shelfId : undefined,
     pageSize,
     full,
-    // Preserve existing shelf endpoint behavior (order asc) for now.
-    // This avoids relying on `/api/books` ordering and supports infinite scroll.
-    shelfSortBy: "order",
-    shelfSortOrder: "asc",
+    sortBy,
+    sortOrder,
   });
 
   // Base result: use filtered books if filters are active, otherwise use regular books

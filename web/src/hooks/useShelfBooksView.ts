@@ -18,6 +18,11 @@
 import type { InfiniteData } from "@tanstack/react-query";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
+import type { SortField, SortOrder } from "@/constants/librarySorting";
+import {
+  DEFAULT_SORT_FIELD,
+  DEFAULT_SORT_ORDER,
+} from "@/constants/librarySorting";
 import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { getShelfBooks } from "@/services/shelfService";
@@ -36,6 +41,10 @@ export interface UseShelfBooksViewOptions {
   shelfSortBy?: string;
   /** Shelf ordering direction (API: asc, desc). */
   shelfSortOrder?: string;
+  /** Library sort field applied when resolving book details. */
+  sortBy?: SortField;
+  /** Library sort direction applied when resolving book details. */
+  sortOrder?: SortOrder;
 }
 
 export interface UseShelfBooksViewResult {
@@ -63,12 +72,14 @@ interface ShelfBooksPage {
 async function fetchBooksByIds(
   ids: number[],
   full: boolean,
+  sortBy: string = "timestamp",
+  sortOrder: string = "desc",
 ): Promise<BookListResponse> {
   const queryParams = new URLSearchParams({
     page: "1",
     page_size: Math.min(ids.length, 100).toString(),
-    sort_by: "timestamp",
-    sort_order: "desc",
+    sort_by: sortBy,
+    sort_order: sortOrder,
     include: "reading_summary",
   });
 
@@ -103,22 +114,6 @@ async function fetchBooksByIds(
   });
 }
 
-function orderBooksByIdList(ids: number[], books: Book[]): Book[] {
-  if (ids.length <= 1 || books.length <= 1) {
-    return books;
-  }
-  const order = new Map<number, number>();
-  for (let i = 0; i < ids.length; i += 1) {
-    const id = ids[i];
-    if (id !== undefined) {
-      order.set(id, i);
-    }
-  }
-  return [...books].sort(
-    (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0),
-  );
-}
-
 /**
  * Infinite-scroll shelf loader that does not assume shelf books are within the
  * "top N" of the library listing.
@@ -139,6 +134,8 @@ export function useShelfBooksView(
     full = false,
     shelfSortBy = "order",
     shelfSortOrder = "asc",
+    sortBy = DEFAULT_SORT_FIELD,
+    sortOrder = DEFAULT_SORT_ORDER,
   } = options;
 
   const { activeLibrary, isLoading: isActiveLibraryLoading } =
@@ -164,9 +161,11 @@ export function useShelfBooksView(
           full,
           shelfSortBy,
           shelfSortOrder,
+          sortBy,
+          sortOrder,
         },
       ] as const,
-    [shelfId, pageSize, full, shelfSortBy, shelfSortOrder],
+    [shelfId, pageSize, full, shelfSortBy, shelfSortOrder, sortBy, sortOrder],
   );
 
   const query = useInfiniteQuery<ShelfBooksPage, Error>({
@@ -188,10 +187,10 @@ export function useShelfBooksView(
         return { ids: [], books: [] };
       }
 
-      const response = await fetchBooksByIds(ids, full);
+      const response = await fetchBooksByIds(ids, full, sortBy, sortOrder);
       return {
         ids,
-        books: orderBooksByIdList(ids, response.items),
+        books: response.items,
       };
     },
     getNextPageParam: (lastPage, _allPages, lastPageParam) => {
