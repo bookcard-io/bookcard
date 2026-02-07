@@ -126,7 +126,7 @@ def _mock_permission_service(
 def _mock_library_service(
     monkeypatch: pytest.MonkeyPatch, library: Library | None = None
 ) -> None:
-    """Mock LibraryService.
+    """Mock library resolution for OPDS routes.
 
     Parameters
     ----------
@@ -135,17 +135,9 @@ def _mock_library_service(
     library : Library | None
         Library to return (default: None).
     """
-    mock_library_service = MagicMock()
-    mock_library_service.get_active_library.return_value = library
-
-    mock_library_repo = MagicMock()
     monkeypatch.setattr(
-        "bookcard.api.routes.opds.LibraryRepository",
-        lambda session: mock_library_repo,
-    )
-    monkeypatch.setattr(
-        "bookcard.api.routes.opds.LibraryService",
-        lambda session, repo: mock_library_service,
+        "bookcard.api.routes.opds._resolve_active_library",
+        lambda session, user_id=None: library,
     )
 
 
@@ -200,7 +192,9 @@ def _mock_feed_service(
         mock_feed_service.generate_read_books_feed.return_value = feed_response
         mock_feed_service.generate_unread_books_feed.return_value = feed_response
 
-    def _get_opds_feed_service(session: DummySession) -> MagicMock:
+    def _get_opds_feed_service(
+        session: DummySession, opds_user: object = None
+    ) -> MagicMock:
         return mock_feed_service
 
     monkeypatch.setattr(
@@ -252,13 +246,13 @@ class TestGetOpdsFeedService:
     """Test _get_opds_feed_service helper."""
 
     def test_get_service_no_library(
-        self, monkeypatch: pytest.MonkeyPatch, session: DummySession
+        self, monkeypatch: pytest.MonkeyPatch, session: DummySession, opds_user: User
     ) -> None:
         """Test service getter raises 404 when no active library."""
         _mock_library_service(monkeypatch, library=None)
 
         with pytest.raises(HTTPException) as exc_info:
-            opds_routes._get_opds_feed_service(session)  # type: ignore[arg-type]
+            opds_routes._get_opds_feed_service(session, opds_user)  # type: ignore[arg-type]
 
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
@@ -267,12 +261,13 @@ class TestGetOpdsFeedService:
         self,
         monkeypatch: pytest.MonkeyPatch,
         session: DummySession,
+        opds_user: User,
         mock_library: Library,
     ) -> None:
         """Test service getter returns service when library exists."""
         _mock_library_service(monkeypatch, library=mock_library)
 
-        service = opds_routes._get_opds_feed_service(session)  # type: ignore[arg-type]
+        service = opds_routes._get_opds_feed_service(session, opds_user)  # type: ignore[arg-type]
         assert service is not None
 
     """Test feed_index endpoint."""

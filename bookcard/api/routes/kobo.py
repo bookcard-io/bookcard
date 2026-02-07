@@ -34,6 +34,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sqlmodel import Session, select
 
 from bookcard.api.deps import (
+    _resolve_active_library,
     get_db_session,
     get_kobo_auth_token,
     get_kobo_user,
@@ -49,7 +50,6 @@ from bookcard.api.schemas.kobo import (
 from bookcard.models.auth import User
 from bookcard.models.config import IntegrationConfig, Library
 from bookcard.models.core import Book
-from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.repositories.kobo_repository import (
     KoboArchivedBookRepository,
     KoboReadingStateRepository,
@@ -57,7 +57,6 @@ from bookcard.repositories.kobo_repository import (
 )
 from bookcard.repositories.reading_repository import ReadStatusRepository
 from bookcard.services.book_service import BookService
-from bookcard.services.config_service import LibraryService
 from bookcard.services.kobo.book_lookup_service import KoboBookLookupService
 from bookcard.services.kobo.cover_service import KoboCoverService
 from bookcard.services.kobo.device_auth_service import KoboDeviceAuthService
@@ -95,13 +94,18 @@ NATIVE_KOBO_RESOURCES = {
 }
 
 
-def _get_active_library(session: SessionDep) -> Library:
-    """Get active library.
+def _get_active_library(
+    session: SessionDep,
+    kobo_user: KoboUserDep,
+) -> Library:
+    """Get the Kobo user's active library.
 
     Parameters
     ----------
     session : SessionDep
         Database session.
+    kobo_user : KoboUserDep
+        Authenticated Kobo user.
 
     Returns
     -------
@@ -113,9 +117,7 @@ def _get_active_library(session: SessionDep) -> Library:
     HTTPException
         If no active library (404).
     """
-    library_repo = LibraryRepository(session)
-    library_service = LibraryService(session, library_repo)
-    library = library_service.get_active_library()
+    library = _resolve_active_library(session, kobo_user.id)
 
     if library is None or library.id is None:
         raise HTTPException(
@@ -166,20 +168,23 @@ def _check_kobo_sync_enabled(session: SessionDep) -> None:
 
 def _get_book_service(
     session: SessionDep,
+    kobo_user: KoboUserDep,
 ) -> BookService:
-    """Get book service for active library.
+    """Get book service for the Kobo user's active library.
 
     Parameters
     ----------
     session : SessionDep
         Database session.
+    kobo_user : KoboUserDep
+        Authenticated Kobo user.
 
     Returns
     -------
     BookService
         Book service instance.
     """
-    library = _get_active_library(session)
+    library = _get_active_library(session, kobo_user)
     return BookService(library, session=session)
 
 
@@ -655,7 +660,7 @@ async def handle_library_sync(
             detail="user_missing_id",
         )
 
-    library = _get_active_library(session)
+    library = _get_active_library(session, kobo_user)
     if library.id is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -827,7 +832,7 @@ def handle_reading_state_get(
         kobo_user.id, book_id
     )
 
-    library = _get_active_library(session)
+    library = _get_active_library(session, kobo_user)
     if library.id is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -895,7 +900,7 @@ async def handle_reading_state_put(
 
     book_id, _book = book_result
 
-    library = _get_active_library(session)
+    library = _get_active_library(session, kobo_user)
     if library.id is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -957,7 +962,7 @@ def handle_tags_create(
             detail="user_missing_id",
         )
 
-    library = _get_active_library(session)
+    library = _get_active_library(session, kobo_user)
     if library.id is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

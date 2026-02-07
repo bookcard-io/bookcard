@@ -92,52 +92,43 @@ def mock_request() -> MagicMock:
 
 
 def test_get_active_library_success(
-    session: DummySession, mock_library: Library
+    session: DummySession, kobo_user: User, mock_library: Library
 ) -> None:
-    """Test _get_active_library returns active library (lines 116-126).
+    """Test _get_active_library returns active library.
 
     Parameters
     ----------
     session : DummySession
         Dummy session.
+    kobo_user : User
+        Kobo user.
     mock_library : Library
         Mock library.
     """
-    with (
-        patch("bookcard.api.routes.kobo.LibraryRepository") as mock_repo_class,
-        patch("bookcard.api.routes.kobo.LibraryService") as mock_service_class,
+    with patch(
+        "bookcard.api.routes.kobo._resolve_active_library",
+        return_value=mock_library,
     ):
-        mock_repo = MagicMock()
-        mock_repo_class.return_value = mock_repo
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = mock_library
-        mock_service_class.return_value = mock_service
-
-        result = kobo_routes._get_active_library(session)  # type: ignore[arg-type]
+        result = kobo_routes._get_active_library(session, kobo_user)  # type: ignore[arg-type]
 
         assert result == mock_library
 
 
-def test_get_active_library_not_found(session: DummySession) -> None:
-    """Test _get_active_library raises 404 when no active library (lines 120-124).
+def test_get_active_library_not_found(session: DummySession, kobo_user: User) -> None:
+    """Test _get_active_library raises 404 when no active library.
 
     Parameters
     ----------
     session : DummySession
         Dummy session.
+    kobo_user : User
+        Kobo user.
     """
     with (
-        patch("bookcard.api.routes.kobo.LibraryRepository") as mock_repo_class,
-        patch("bookcard.api.routes.kobo.LibraryService") as mock_service_class,
+        patch("bookcard.api.routes.kobo._resolve_active_library", return_value=None),
+        pytest.raises(HTTPException) as exc_info,
     ):
-        mock_repo = MagicMock()
-        mock_repo_class.return_value = mock_repo
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = None
-        mock_service_class.return_value = mock_service
-
-        with pytest.raises(HTTPException) as exc_info:
-            kobo_routes._get_active_library(session)  # type: ignore[arg-type]
+        kobo_routes._get_active_library(session, kobo_user)  # type: ignore[arg-type]
 
     assert isinstance(exc_info.value, HTTPException)
     exc = exc_info.value
@@ -145,28 +136,26 @@ def test_get_active_library_not_found(session: DummySession) -> None:
     assert exc.detail == "no_active_library"
 
 
-def test_get_active_library_no_id(session: DummySession) -> None:
-    """Test _get_active_library raises 404 when library has no id (lines 120-124).
+def test_get_active_library_no_id(session: DummySession, kobo_user: User) -> None:
+    """Test _get_active_library raises 404 when library has no id.
 
     Parameters
     ----------
     session : DummySession
         Dummy session.
+    kobo_user : User
+        Kobo user.
     """
     library_no_id = Library(name="Test Library", path="/path/to/library")
 
     with (
-        patch("bookcard.api.routes.kobo.LibraryRepository") as mock_repo_class,
-        patch("bookcard.api.routes.kobo.LibraryService") as mock_service_class,
+        patch(
+            "bookcard.api.routes.kobo._resolve_active_library",
+            return_value=library_no_id,
+        ),
+        pytest.raises(HTTPException) as exc_info,
     ):
-        mock_repo = MagicMock()
-        mock_repo_class.return_value = mock_repo
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = library_no_id
-        mock_service_class.return_value = mock_service
-
-        with pytest.raises(HTTPException) as exc_info:
-            kobo_routes._get_active_library(session)  # type: ignore[arg-type]
+        kobo_routes._get_active_library(session, kobo_user)  # type: ignore[arg-type]
 
     assert isinstance(exc_info.value, HTTPException)
     exc = exc_info.value
@@ -272,13 +261,17 @@ def test_check_kobo_sync_enabled_no_config(session: DummySession) -> None:
 # ==================== _get_book_service Tests ====================
 
 
-def test_get_book_service(session: DummySession, mock_library: Library) -> None:
-    """Test _get_book_service returns BookService (lines 182-183).
+def test_get_book_service(
+    session: DummySession, kobo_user: User, mock_library: Library
+) -> None:
+    """Test _get_book_service returns BookService.
 
     Parameters
     ----------
     session : DummySession
         Dummy session.
+    kobo_user : User
+        Kobo user.
     mock_library : Library
         Mock library.
     """
@@ -288,7 +281,7 @@ def test_get_book_service(session: DummySession, mock_library: Library) -> None:
         ),
         patch("bookcard.api.routes.kobo.BookService") as mock_service_class,
     ):
-        result = kobo_routes._get_book_service(session)  # type: ignore[arg-type]
+        result = kobo_routes._get_book_service(session, kobo_user)  # type: ignore[arg-type]
 
         assert result is not None
         mock_service_class.assert_called_once_with(mock_library, session=session)

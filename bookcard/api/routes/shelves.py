@@ -37,7 +37,7 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy import func
 from sqlmodel import Session, select
 
-from bookcard.api.deps import get_current_user, get_db_session
+from bookcard.api.deps import _resolve_active_library, get_current_user, get_db_session
 from bookcard.api.schemas.shelves import (
     BookMatch,
     BookReferenceSchema,
@@ -99,13 +99,16 @@ ShelfServiceDep = Annotated[ShelfService, Depends(_shelf_service)]
 
 def _get_active_library_id(
     session: SessionDep,
+    current_user: CurrentUserDep,
 ) -> int:
-    """Get the active library ID.
+    """Get the active library ID for the current user.
 
     Parameters
     ----------
     session : SessionDep
         Database session dependency.
+    current_user : CurrentUserDep
+        Authenticated user.
 
     Returns
     -------
@@ -117,9 +120,7 @@ def _get_active_library_id(
     HTTPException
         If no active library is configured (404).
     """
-    library_repo = LibraryRepository(session)
-    library_service = LibraryService(session, library_repo)
-    library = library_service.get_active_library()
+    library = _resolve_active_library(session, current_user.id)
 
     if library is None:
         raise HTTPException(

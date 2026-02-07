@@ -36,7 +36,11 @@ from bookcard.services.book_service import BookService
 @pytest.fixture
 def mock_book_service() -> MagicMock:
     """Create a mock book service."""
-    return MagicMock(spec=BookService)
+    mock = MagicMock(spec=BookService)
+    # Provide concrete library attributes so BookRead validation passes
+    mock.library.id = 1
+    mock.library.name = "Test Library"
+    return mock
 
 
 @pytest.fixture

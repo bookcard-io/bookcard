@@ -165,6 +165,14 @@ class BookRead(BaseModel):
         default=None,
         description="ID of the tracked book record if this is a virtual book",
     )
+    library_id: int | None = Field(
+        default=None,
+        description="Library this book belongs to",
+    )
+    library_name: str | None = Field(
+        default=None,
+        description="Name of the library this book belongs to",
+    )
 
 
 class BookUpdate(BaseModel):
