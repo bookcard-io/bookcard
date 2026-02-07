@@ -168,6 +168,11 @@ from bookcard.api.schemas.tasks import (
     TaskStatisticsRead,
     TaskTypesResponse,
 )
+from bookcard.api.schemas.user_libraries import (
+    UserLibraryAssign,
+    UserLibraryRead,
+    UserLibraryVisibilityUpdate,
+)
 
 __all__ = [
     "AdminUserCreate",
@@ -288,6 +293,9 @@ __all__ = [
     "TaskTypesResponse",
     "TokenResponse",
     "UserCreate",
+    "UserLibraryAssign",
+    "UserLibraryRead",
+    "UserLibraryVisibilityUpdate",
     "UserRead",
     "UserRoleAssign",
 ]

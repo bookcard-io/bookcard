@@ -153,6 +153,7 @@ from bookcard.models.tasks import (
     TaskStatus,
     TaskType,
 )
+from bookcard.models.user_library import UserLibrary
 
 __all__ = [
     "Annotation",
@@ -261,6 +262,7 @@ __all__ = [
     "TrackedBookStatus",
     "UIConfig",
     "User",
+    "UserLibrary",
     "UserRole",
     "UserSetting",
     "WorkSubject",
