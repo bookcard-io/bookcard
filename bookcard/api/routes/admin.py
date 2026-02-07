@@ -57,6 +57,9 @@ from bookcard.api.schemas import (
     ScheduledJobUpdate,
     ScheduledTasksConfigRead,
     ScheduledTasksConfigUpdate,
+    UserLibraryAssign,
+    UserLibraryRead,
+    UserLibraryVisibilityUpdate,
     UserRead,
     UserRoleAssign,
 )
@@ -73,6 +76,7 @@ from bookcard.repositories.role_repository import (
     RoleRepository,
     UserRoleRepository,
 )
+from bookcard.repositories.user_library_repository import UserLibraryRepository
 from bookcard.repositories.user_repository import UserRepository
 from bookcard.services.config_service import (
     BasicConfigService,
@@ -84,6 +88,7 @@ from bookcard.services.openlibrary_service import OpenLibraryService
 from bookcard.services.role_service import RoleService
 from bookcard.services.security import DataEncryptor, PasswordHasher
 from bookcard.services.system_configuration_service import SystemConfigurationService
+from bookcard.services.user_library_service import UserLibraryService
 from bookcard.services.user_service import UserService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -2405,3 +2410,229 @@ def get_basic_config_public(session: SessionDep) -> BasicConfigRead:
     service = BasicConfigService(session)
     config = service.get_basic_config()
     return BasicConfigRead.model_validate(config, from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# User-library management
+# ---------------------------------------------------------------------------
+
+
+def _user_library_service(session: Session) -> UserLibraryService:
+    """Build a ``UserLibraryService`` from the current session."""
+    return UserLibraryService(
+        session=session,
+        user_library_repo=UserLibraryRepository(session),
+        library_repo=LibraryRepository(session),
+    )
+
+
+@router.get(
+    "/users/{user_id}/libraries",
+    response_model=list[UserLibraryRead],
+    dependencies=[Depends(get_admin_user)],
+)
+def list_user_libraries(
+    user_id: int,
+    session: SessionDep,
+) -> list[UserLibraryRead]:
+    """List all library assignments for a user (admin only).
+
+    Parameters
+    ----------
+    user_id : int
+        Target user identifier.
+    session : SessionDep
+        Database session dependency.
+
+    Returns
+    -------
+    list[UserLibraryRead]
+        All user-library associations.
+    """
+    service = _user_library_service(session)
+    assignments = service.list_assignments_for_user(user_id)
+    return [
+        UserLibraryRead.model_validate(a, from_attributes=True) for a in assignments
+    ]
+
+
+@router.post(
+    "/users/{user_id}/libraries",
+    response_model=UserLibraryRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(get_admin_user)],
+)
+def assign_library_to_user(
+    user_id: int,
+    payload: UserLibraryAssign,
+    session: SessionDep,
+) -> UserLibraryRead:
+    """Assign a library to a user (admin only).
+
+    Parameters
+    ----------
+    user_id : int
+        Target user identifier.
+    payload : UserLibraryAssign
+        Assignment details.
+    session : SessionDep
+        Database session dependency.
+
+    Returns
+    -------
+    UserLibraryRead
+        The created or existing association.
+
+    Raises
+    ------
+    HTTPException
+        404 if the library does not exist.
+    """
+    service = _user_library_service(session)
+    try:
+        ul = service.assign_library_to_user(
+            user_id=user_id,
+            library_id=payload.library_id,
+            is_visible=payload.is_visible,
+            is_active=payload.is_active,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    session.commit()
+    return UserLibraryRead.model_validate(ul, from_attributes=True)
+
+
+@router.delete(
+    "/users/{user_id}/libraries/{library_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(get_admin_user)],
+)
+def unassign_library_from_user(
+    user_id: int,
+    library_id: int,
+    session: SessionDep,
+) -> Response:
+    """Remove a library assignment from a user (admin only).
+
+    Parameters
+    ----------
+    user_id : int
+        Target user identifier.
+    library_id : int
+        Library to unassign.
+    session : SessionDep
+        Database session dependency.
+
+    Returns
+    -------
+    Response
+        204 No Content on success.
+
+    Raises
+    ------
+    HTTPException
+        404 if the assignment does not exist.
+    """
+    service = _user_library_service(session)
+    try:
+        service.unassign_library_from_user(user_id, library_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put(
+    "/users/{user_id}/libraries/{library_id}/active",
+    response_model=UserLibraryRead,
+    dependencies=[Depends(get_admin_user)],
+)
+def set_user_active_library(
+    user_id: int,
+    library_id: int,
+    session: SessionDep,
+) -> UserLibraryRead:
+    """Set a library as the active library for a user (admin only).
+
+    Only one library can be active per user.  The previously active
+    library is automatically deactivated.
+
+    Parameters
+    ----------
+    user_id : int
+        Target user identifier.
+    library_id : int
+        Library to activate.
+    session : SessionDep
+        Database session dependency.
+
+    Returns
+    -------
+    UserLibraryRead
+        The updated association.
+
+    Raises
+    ------
+    HTTPException
+        404 if the assignment does not exist.
+    """
+    service = _user_library_service(session)
+    try:
+        ul = service.set_active_library_for_user(user_id, library_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    session.commit()
+    return UserLibraryRead.model_validate(ul, from_attributes=True)
+
+
+@router.put(
+    "/users/{user_id}/libraries/{library_id}/visibility",
+    response_model=UserLibraryRead,
+    dependencies=[Depends(get_admin_user)],
+)
+def set_user_library_visibility(
+    user_id: int,
+    library_id: int,
+    payload: UserLibraryVisibilityUpdate,
+    session: SessionDep,
+) -> UserLibraryRead:
+    """Update visibility of a library for a user (admin only).
+
+    Parameters
+    ----------
+    user_id : int
+        Target user identifier.
+    library_id : int
+        Library to update.
+    payload : UserLibraryVisibilityUpdate
+        Visibility settings.
+    session : SessionDep
+        Database session dependency.
+
+    Returns
+    -------
+    UserLibraryRead
+        The updated association.
+
+    Raises
+    ------
+    HTTPException
+        404 if the assignment does not exist.
+    """
+    service = _user_library_service(session)
+    try:
+        ul = service.set_visibility_for_user(
+            user_id, library_id, is_visible=payload.is_visible
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    session.commit()
+    return UserLibraryRead.model_validate(ul, from_attributes=True)
