@@ -17,6 +17,7 @@
 
 import { FaSpinner } from "react-icons/fa";
 import { GoPlus } from "react-icons/go";
+import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import { useUser } from "@/contexts/UserContext";
 import { cn } from "@/libs/utils";
 
@@ -54,7 +55,16 @@ export function AddBooksButton({
   isUploading = false,
 }: AddBooksButtonProps) {
   const { canPerformAction } = useUser();
+  const { activeLibrary, selectedLibraryId, visibleLibraries } =
+    useActiveLibrary();
   const canCreate = canPerformAction("books", "create");
+
+  // Show a note when viewing a different library than the active (ingest) one
+  const isViewingDifferentLibrary =
+    visibleLibraries.length > 1 &&
+    selectedLibraryId !== null &&
+    activeLibrary !== null &&
+    selectedLibraryId !== activeLibrary.id;
 
   const handleClick = () => {
     if (canCreate) {
@@ -63,7 +73,7 @@ export function AddBooksButton({
   };
 
   return (
-    <>
+    <div className="flex items-center gap-2">
       <input
         ref={fileInputRef}
         type="file"
@@ -112,6 +122,14 @@ export function AddBooksButton({
           {isUploading ? "Uploading..." : "Add Books"}
         </span>
       </button>
-    </>
+      {isViewingDifferentLibrary && activeLibrary && (
+        <span
+          className="text-text-a30 text-xs"
+          title={`Books will be added to ${activeLibrary.name}`}
+        >
+          Adding to {activeLibrary.name}
+        </span>
+      )}
+    </div>
   );
 }

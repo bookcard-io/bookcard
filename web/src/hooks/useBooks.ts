@@ -80,6 +80,7 @@ interface FetchBooksPageParams {
   full: boolean;
   pubdateMonth?: number;
   pubdateDay?: number;
+  libraryId?: number | null;
 }
 
 async function fetchBooksPage({
@@ -92,6 +93,7 @@ async function fetchBooksPage({
   full,
   pubdateMonth,
   pubdateDay,
+  libraryId,
 }: FetchBooksPageParams): Promise<BookListResponse> {
   const queryParams = new URLSearchParams({
     page: page.toString(),
@@ -115,6 +117,9 @@ async function fetchBooksPage({
   }
   if (pubdateDay !== undefined) {
     queryParams.append("pubdate_day", pubdateDay.toString());
+  }
+  if (libraryId != null) {
+    queryParams.append("library_id", libraryId.toString());
   }
 
   const url = `/api/books?${queryParams.toString()}`;
@@ -162,8 +167,11 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
     pubdate_day: initialPubdateDay,
   } = options;
 
-  const { activeLibrary, isLoading: isActiveLibraryLoading } =
-    useActiveLibrary();
+  const {
+    activeLibrary,
+    isLoading: isActiveLibraryLoading,
+    selectedLibraryId,
+  } = useActiveLibrary();
 
   const [_page, _setPage] = useState(initialPage);
   const [_pageSize, _setPageSize] = useState(initialPageSize);
@@ -251,6 +259,7 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
           full,
           pubdateMonth,
           pubdateDay,
+          selectedLibraryId,
         },
       ] as const,
     [
@@ -263,6 +272,7 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
       full,
       pubdateMonth,
       pubdateDay,
+      selectedLibraryId,
     ],
   );
 
@@ -279,6 +289,7 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
           full,
           pubdateMonth,
           pubdateDay,
+          selectedLibraryId,
         },
       ] as const,
     [
@@ -290,6 +301,7 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
       full,
       pubdateMonth,
       pubdateDay,
+      selectedLibraryId,
     ],
   );
 
@@ -311,6 +323,7 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
         full,
         pubdateMonth,
         pubdateDay,
+        libraryId: selectedLibraryId,
       }),
     enabled: listQueryEnabled,
     staleTime: 60_000,
@@ -329,6 +342,7 @@ export function useBooks(options: UseBooksOptions = {}): UseBooksResult {
         full,
         pubdateMonth,
         pubdateDay,
+        libraryId: selectedLibraryId,
       }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {

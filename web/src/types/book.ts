@@ -93,6 +93,10 @@ export interface Book {
   is_virtual?: boolean;
   /** ID of the tracked book record if this is a virtual book. */
   tracking_id?: number | null;
+  /** Library ID this book belongs to. */
+  library_id?: number | null;
+  /** Name of the library this book belongs to. */
+  library_name?: string | null;
 }
 
 export interface BookUpdate {
@@ -168,4 +172,6 @@ export interface BooksQueryParams {
   pubdate_day?: number;
   /** Sort order. */
   sort_order?: "asc" | "desc";
+  /** Library ID to filter by. */
+  library_id?: number | null;
 }

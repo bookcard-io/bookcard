@@ -2451,9 +2451,21 @@ def list_user_libraries(
     """
     service = _user_library_service(session)
     assignments = service.list_assignments_for_user(user_id)
-    return [
-        UserLibraryRead.model_validate(a, from_attributes=True) for a in assignments
-    ]
+
+    library_repo = LibraryRepository(session)
+    name_map: dict[int, str] = {}
+    for a in assignments:
+        if a.library_id not in name_map:
+            lib = library_repo.get(a.library_id)
+            if lib is not None:
+                name_map[a.library_id] = lib.name
+
+    result: list[UserLibraryRead] = []
+    for a in assignments:
+        read = UserLibraryRead.model_validate(a, from_attributes=True)
+        read.library_name = name_map.get(a.library_id)
+        result.append(read)
+    return result
 
 
 @router.post(

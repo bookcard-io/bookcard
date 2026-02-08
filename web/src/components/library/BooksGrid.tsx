@@ -17,6 +17,7 @@
 
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import { useSelectedBooks } from "@/contexts/SelectedBooksContext";
 import { useBooksNavigationData } from "@/hooks/useBooksNavigationData";
 import { useBooksViewData } from "@/hooks/useBooksViewData";
@@ -92,6 +93,11 @@ export function BooksGrid({
   hideLoadMoreMessage = false,
 }: BooksGridProps) {
   const { setBooks } = useSelectedBooks();
+  const { selectedLibraryId, visibleLibraries } = useActiveLibrary();
+
+  // Show library badge when viewing "All Libraries" and there's more than one
+  const showLibraryBadge =
+    selectedLibraryId === null && visibleLibraries.length > 1;
 
   // Fetch and manage books data (SRP: data concerns separated)
   const {
@@ -291,6 +297,7 @@ export function BooksGrid({
                           onEdit={onBookEdit}
                           onBookDeleted={handleBookDeleted}
                           showSelection={true}
+                          showLibraryBadge={showLibraryBadge}
                         />
                       </div>
                     ))}

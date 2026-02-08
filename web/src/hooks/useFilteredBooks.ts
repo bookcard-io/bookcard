@@ -79,6 +79,7 @@ interface FetchFilteredBooksPageParams {
   sortBy: "timestamp" | "pubdate" | "title" | "author_sort" | "series_index";
   sortOrder: "asc" | "desc";
   full: boolean;
+  libraryId?: number | null;
 }
 
 async function fetchFilteredBooksPage({
@@ -88,6 +89,7 @@ async function fetchFilteredBooksPage({
   sortBy,
   sortOrder,
   full,
+  libraryId,
 }: FetchFilteredBooksPageParams): Promise<BookListResponse> {
   // Check if any filter is active
   if (!hasActiveFilters(filters)) {
@@ -110,6 +112,9 @@ async function fetchFilteredBooksPage({
 
   if (full) {
     queryParams.append("full", "true");
+  }
+  if (libraryId != null) {
+    queryParams.append("library_id", libraryId.toString());
   }
 
   const filterBody = filtersToApiBody(filters);
@@ -170,8 +175,11 @@ export function useFilteredBooks(
     full = false,
   } = options;
 
-  const { activeLibrary, isLoading: isActiveLibraryLoading } =
-    useActiveLibrary();
+  const {
+    activeLibrary,
+    isLoading: isActiveLibraryLoading,
+    selectedLibraryId,
+  } = useActiveLibrary();
 
   const queryClient = useQueryClient();
 
@@ -254,6 +262,7 @@ export function useFilteredBooks(
           sortBy: currentSortBy,
           sortOrder: currentSortOrder,
           full,
+          selectedLibraryId,
         },
       ] as const,
     [
@@ -263,6 +272,7 @@ export function useFilteredBooks(
       currentSortBy,
       currentSortOrder,
       full,
+      selectedLibraryId,
     ],
   );
 
@@ -276,9 +286,17 @@ export function useFilteredBooks(
           sortBy: currentSortBy,
           sortOrder: currentSortOrder,
           full,
+          selectedLibraryId,
         },
       ] as const,
-    [filters, currentPageSize, currentSortBy, currentSortOrder, full],
+    [
+      filters,
+      currentPageSize,
+      currentSortBy,
+      currentSortOrder,
+      full,
+      selectedLibraryId,
+    ],
   );
 
   // Only enable queries if there's an active library and not still loading
@@ -298,6 +316,7 @@ export function useFilteredBooks(
         sortBy: currentSortBy,
         sortOrder: currentSortOrder,
         full,
+        libraryId: selectedLibraryId,
       }),
     enabled: listQueryEnabled && !!filters && hasActiveFilters(filters),
     staleTime: 60_000,
@@ -319,6 +338,7 @@ export function useFilteredBooks(
         sortBy: currentSortBy,
         sortOrder: currentSortOrder,
         full,
+        libraryId: selectedLibraryId,
       }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {

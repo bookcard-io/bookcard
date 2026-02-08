@@ -55,6 +55,8 @@ export interface BookCardProps {
   hideActions?: boolean;
   /** Layout variant. 'default' is responsive, 'compact' forces mobile-like layout. Defaults to 'default'. */
   variant?: "default" | "compact";
+  /** Whether to display the library badge on the book card. Defaults to false. */
+  showLibraryBadge?: boolean;
 }
 
 /**
@@ -75,6 +77,7 @@ export function BookCard({
   showSelection: showSelectionProp = false,
   hideActions = false,
   variant = "default",
+  showLibraryBadge = false,
 }: BookCardProps) {
   const { isSelected } = useSelectedBooks();
   const { user } = useUser();
@@ -183,7 +186,12 @@ export function BookCard({
           </>
         }
         metadata={
-          <BookCardMetadata title={book.title} authors={book.authors} />
+          <BookCardMetadata
+            title={book.title}
+            authors={book.authors}
+            libraryName={book.library_name}
+            showLibraryBadge={showLibraryBadge}
+          />
         }
         actions={
           showActions &&

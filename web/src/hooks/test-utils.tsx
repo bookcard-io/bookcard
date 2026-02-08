@@ -76,6 +76,7 @@ const PROVIDER_ENDPOINTS = [
   "/api/auth/me",
   "/api/auth/settings",
   "/api/libraries/active",
+  "/api/libraries/me",
 ];
 
 /**
@@ -205,6 +206,26 @@ export function createMockFetchWithActiveLibrary(
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve(activeLibrary),
+      } as Response);
+    }
+
+    // Handle user library assignments (required by ActiveLibraryProvider)
+    if (url === "/api/libraries/me") {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              id: 1,
+              user_id: 1,
+              library_id: activeLibrary.id,
+              is_visible: true,
+              is_active: true,
+              library_name: activeLibrary.name,
+              created_at: activeLibrary.created_at,
+              updated_at: activeLibrary.updated_at,
+            },
+          ]),
       } as Response);
     }
 
