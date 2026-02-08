@@ -397,15 +397,11 @@ class TestBookConvertTaskGetActiveLibrary:
         task.check_cancelled = MagicMock(return_value=False)  # type: ignore[method-assign]
 
         with (
-            patch("bookcard.services.tasks.book_convert_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_convert_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_convert_task.resolve_task_library",
+                return_value=library,
+            ),
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             result = task._get_active_library(worker_context)
             assert result == library
 
@@ -427,17 +423,13 @@ class TestBookConvertTaskGetActiveLibrary:
         task.check_cancelled = MagicMock(return_value=False)  # type: ignore[method-assign]
 
         with (
-            patch("bookcard.services.tasks.book_convert_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_convert_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_convert_task.resolve_task_library",
+                side_effect=LibraryNotConfiguredError(),
+            ),
+            pytest.raises(LibraryNotConfiguredError),
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = None
-            mock_service_class.return_value = mock_service
-
-            with pytest.raises(LibraryNotConfiguredError):
-                task._get_active_library(worker_context)
+            task._get_active_library(worker_context)
 
     def test_get_active_library_cancelled(self, worker_context: WorkerContext) -> None:
         """Test _get_active_library when task is cancelled.
@@ -552,18 +544,14 @@ class TestBookConvertTaskRun:
         update_progress = MagicMock()
 
         with (
-            patch("bookcard.services.tasks.book_convert_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_convert_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_convert_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.book_convert_task.create_conversion_service"
             ) as mock_create_conversion,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             mock_conversion = MagicMock()
             mock_conversion.check_existing_conversion.return_value = None
             conversion = BookConversion(
@@ -634,18 +622,14 @@ class TestBookConvertTaskRun:
         )
 
         with (
-            patch("bookcard.services.tasks.book_convert_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_convert_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_convert_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.book_convert_task.create_conversion_service"
             ) as mock_create_conversion,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             mock_conversion = MagicMock()
             mock_conversion.check_existing_conversion.return_value = existing_conversion
             mock_create_conversion.return_value = mock_conversion
@@ -683,18 +667,14 @@ class TestBookConvertTaskRun:
         )
 
         with (
-            patch("bookcard.services.tasks.book_convert_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_convert_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_convert_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.book_convert_task.create_conversion_service"
             ) as mock_create_conversion,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             mock_conversion = MagicMock()
             mock_conversion.check_existing_conversion.return_value = None
             mock_conversion.convert_book.return_value = conversion
@@ -733,18 +713,14 @@ class TestBookConvertTaskRun:
         )
 
         with (
-            patch("bookcard.services.tasks.book_convert_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_convert_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_convert_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.book_convert_task.create_conversion_service"
             ) as mock_create_conversion,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             mock_conversion = MagicMock()
             mock_conversion.check_existing_conversion.return_value = None
             mock_conversion.convert_book.return_value = conversion
@@ -782,18 +758,14 @@ class TestBookConvertTaskRun:
         )
 
         with (
-            patch("bookcard.services.tasks.book_convert_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_convert_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_convert_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.book_convert_task.create_conversion_service"
             ) as mock_create_conversion,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             mock_conversion = MagicMock()
             mock_conversion.check_existing_conversion.return_value = None
             mock_conversion.convert_book.return_value = conversion

@@ -2016,6 +2016,7 @@ def test_send_books_to_device_batch_no_book_ids(
             send_request=send_request,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
@@ -2094,6 +2095,7 @@ def test_send_books_to_device_batch_success(monkeypatch: pytest.MonkeyPatch) -> 
             send_request=send_request,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            library_id=1,
         )
 
 
@@ -2140,6 +2142,7 @@ def test_convert_book_format_success(monkeypatch: pytest.MonkeyPatch) -> None:
         book_service=mock_service,
         permission_helper=mock_permission_helper,
         orchestration_service=mock_orchestration_service,
+        library_id=1,
     )
 
     assert result.task_id == 1
@@ -2188,6 +2191,7 @@ def test_convert_book_format_runtime_error(monkeypatch: pytest.MonkeyPatch) -> N
             book_service=mock_service,
             permission_helper=mock_permission_helper,
             orchestration_service=mock_orchestration_service,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 503
@@ -2404,6 +2408,7 @@ def test_upload_book_format_not_allowed(monkeypatch: pytest.MonkeyPatch) -> None
                 file=mock_file,
                 permission_helper=mock_permission_helper,
                 session=session,
+                library_id=1,
             )
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 400
@@ -2778,6 +2783,7 @@ def test_send_books_to_device_batch_email_not_configured(
                 send_request=send_request,
                 book_service=mock_service,
                 permission_helper=mock_permission_helper,
+                library_id=1,
             )
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 400
@@ -2879,6 +2885,7 @@ def test_send_books_to_device_batch_user_missing_id(
                 send_request=send_request,
                 book_service=mock_service,
                 permission_helper=mock_permission_helper,
+                library_id=1,
             )
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 500
@@ -2936,6 +2943,7 @@ def test_send_books_to_device_batch_task_runner_unavailable(
                 send_request=send_request,
                 book_service=mock_service,
                 permission_helper=mock_permission_helper,
+                library_id=1,
             )
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 503
@@ -3004,6 +3012,7 @@ def test_send_books_to_device_batch_book_not_found(
                 send_request=send_request,
                 book_service=mock_service,
                 permission_helper=mock_permission_helper,
+                library_id=1,
             )
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
@@ -3032,6 +3041,7 @@ def test_convert_book_format_book_not_found(monkeypatch: pytest.MonkeyPatch) -> 
             book_service=mock_service,
             permission_helper=mock_permission_helper,
             orchestration_service=mock_orchestration_service,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404
@@ -3093,6 +3103,7 @@ def test_convert_book_format_user_missing_id(monkeypatch: pytest.MonkeyPatch) ->
             book_service=mock_service,
             permission_helper=mock_permission_helper,
             orchestration_service=mock_orchestration_service,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
@@ -3163,6 +3174,7 @@ def test_convert_book_format_value_error(monkeypatch: pytest.MonkeyPatch) -> Non
                 book_service=mock_service,
                 permission_helper=mock_permission_helper,
                 orchestration_service=mock_orchestration_service,
+                library_id=1,
             )
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 400
@@ -3223,6 +3235,7 @@ def test_convert_book_format_runtime_error_other(
             book_service=mock_service,
             permission_helper=mock_permission_helper,
             orchestration_service=mock_orchestration_service,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
@@ -3355,6 +3368,7 @@ def test_upload_book_task_runner_unavailable(monkeypatch: pytest.MonkeyPatch) ->
             file=mock_file,
             permission_helper=mock_permission_helper,
             session=session,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 503

@@ -28,16 +28,12 @@ import shutil
 from contextlib import suppress
 from typing import TYPE_CHECKING, Any
 
-from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.services.book_service import BookService
-from bookcard.services.config_service import LibraryService
 from bookcard.services.dedrm_service import DeDRMService
 from bookcard.services.tasks.base import BaseTask
 from bookcard.services.tasks.context import ProgressCallback, WorkerContext
-from bookcard.services.tasks.exceptions import (
-    LibraryNotConfiguredError,
-    TaskCancelledError,
-)
+from bookcard.services.tasks.exceptions import TaskCancelledError
+from bookcard.services.tasks.task_library_resolver import resolve_task_library
 
 logger = logging.getLogger(__name__)
 
@@ -113,12 +109,7 @@ class BookStripDrmTask(BaseTask):
 
     def _get_active_library(self, context: WorkerContext) -> Library:
         self._check_cancellation()
-        library_repo = LibraryRepository(context.session)
-        library_service = LibraryService(context.session, library_repo)
-        library = library_service.get_active_library()
-        if library is None:
-            raise LibraryNotConfiguredError
-        return library
+        return resolve_task_library(context.session, self.metadata, self.user_id)
 
     def _update_progress_or_cancel(
         self,

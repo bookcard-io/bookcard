@@ -19,48 +19,55 @@ Concrete implementations of protocol dependencies following
 Dependency Inversion Principle.
 """
 
+from typing import Any
+
 from sqlmodel import Session
 
 from bookcard.models.config import Library
-from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.services.book_service import BookService
-from bookcard.services.config_service import LibraryService
 from bookcard.services.email_config_service import EmailConfigService
 from bookcard.services.email_service import EmailService
 from bookcard.services.security import DataEncryptor
 from bookcard.services.tasks.email_send.exceptions import (
     EmailServerNotConfiguredError,
-    LibraryNotConfiguredError,
 )
+from bookcard.services.tasks.task_library_resolver import resolve_task_library
 
 
 class DefaultLibraryProvider:
     """Default implementation of library provider."""
 
-    def get_active_library(self, session: Session) -> Library:
-        """Get active library configuration.
+    def get_active_library(
+        self,
+        session: Session,
+        metadata: dict[str, Any] | None = None,
+        user_id: int | None = None,
+    ) -> Library:
+        """Get target library configuration.
+
+        Uses :func:`resolve_task_library` to resolve the library from
+        task metadata, then per-user active, then global active.
 
         Parameters
         ----------
         session : Session
             Database session.
+        metadata : dict[str, Any] | None
+            Task metadata that may contain ``library_id``.
+        user_id : int | None
+            User identifier for per-user fallback.
 
         Returns
         -------
         Library
-            Active library configuration.
+            Library configuration.
 
         Raises
         ------
         LibraryNotConfiguredError
-            If no active library is configured.
+            If no library could be resolved.
         """
-        library_repo = LibraryRepository(session)
-        library_service = LibraryService(session, library_repo)
-        try:
-            return library_service.require_active_library()
-        except ValueError as e:
-            raise LibraryNotConfiguredError from e
+        return resolve_task_library(session, metadata or {}, user_id)
 
 
 class DefaultEmailServiceFactory:

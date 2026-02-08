@@ -492,15 +492,11 @@ class TestBookStripDrmTaskGetActiveLibrary:
         task.check_cancelled = MagicMock(return_value=False)  # type: ignore[method-assign]
 
         with (
-            patch("bookcard.services.tasks.book_strip_drm_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_strip_drm_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_strip_drm_task.resolve_task_library",
+                return_value=library,
+            ),
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             result = task._get_active_library(worker_context)
             assert result == library
 
@@ -519,17 +515,13 @@ class TestBookStripDrmTaskGetActiveLibrary:
         task.check_cancelled = MagicMock(return_value=False)  # type: ignore[method-assign]
 
         with (
-            patch("bookcard.services.tasks.book_strip_drm_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_strip_drm_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_strip_drm_task.resolve_task_library",
+                side_effect=LibraryNotConfiguredError(),
+            ),
+            pytest.raises(LibraryNotConfiguredError),
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = None
-            mock_service_class.return_value = mock_service
-
-            with pytest.raises(LibraryNotConfiguredError):
-                task._get_active_library(worker_context)
+            task._get_active_library(worker_context)
 
     def test_get_active_library_cancelled(
         self, task: BookStripDrmTask, worker_context: WorkerContext
@@ -724,19 +716,15 @@ class TestBookStripDrmTaskRun:
         update_progress = MagicMock()
 
         with (
-            patch("bookcard.services.tasks.book_strip_drm_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_strip_drm_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_strip_drm_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.book_strip_drm_task.BookService"
             ) as mock_book_service_class,
             patch.object(task._dedrm_service, "strip_drm") as mock_strip_drm,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             mock_book_service = MagicMock()
             mock_book_service.get_format_file_path.return_value = source_file
             mock_book_service_class.return_value = mock_book_service
@@ -781,19 +769,15 @@ class TestBookStripDrmTaskRun:
         task.check_cancelled = MagicMock(return_value=False)  # type: ignore[method-assign]
 
         with (
-            patch("bookcard.services.tasks.book_strip_drm_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_strip_drm_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_strip_drm_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.book_strip_drm_task.BookService"
             ) as mock_book_service_class,
             patch.object(task._dedrm_service, "strip_drm") as mock_strip_drm,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             mock_book_service = MagicMock()
             mock_book_service.get_format_file_path.return_value = source_file
             mock_book_service_class.return_value = mock_book_service
@@ -849,19 +833,15 @@ class TestBookStripDrmTaskRun:
         task.check_cancelled = MagicMock(return_value=False)  # type: ignore[method-assign]
 
         with (
-            patch("bookcard.services.tasks.book_strip_drm_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_strip_drm_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_strip_drm_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.book_strip_drm_task.BookService"
             ) as mock_book_service_class,
             patch.object(task._dedrm_service, "strip_drm") as mock_strip_drm,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             mock_book_service = MagicMock()
             mock_book_service.get_format_file_path.return_value = source_file
             mock_book_service_class.return_value = mock_book_service
@@ -901,19 +881,15 @@ class TestBookStripDrmTaskRun:
         processed_file.write_bytes(source_file.read_bytes())
 
         with (
-            patch("bookcard.services.tasks.book_strip_drm_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_strip_drm_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_strip_drm_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.book_strip_drm_task.BookService"
             ) as mock_book_service_class,
             patch.object(task._dedrm_service, "strip_drm") as mock_strip_drm,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             mock_book_service = MagicMock()
             mock_book_service.get_format_file_path.return_value = source_file
             mock_book_service_class.return_value = mock_book_service
@@ -949,17 +925,13 @@ class TestBookStripDrmTaskRun:
         task.check_cancelled = MagicMock(side_effect=[False, True])  # type: ignore[method-assign]
 
         with (
-            patch("bookcard.services.tasks.book_strip_drm_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_strip_drm_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_strip_drm_task.resolve_task_library",
+                return_value=library,
+            ),
+            pytest.raises(TaskCancelledError),
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
-            with pytest.raises(TaskCancelledError):
-                task.run(worker_context)
+            task.run(worker_context)
 
     def test_run_task_cancelled_error(
         self, task: BookStripDrmTask, worker_context: WorkerContext
@@ -1003,19 +975,15 @@ class TestBookStripDrmTaskRun:
         task.check_cancelled = MagicMock(side_effect=[False, False, False, True])  # type: ignore[method-assign]
 
         with (
-            patch("bookcard.services.tasks.book_strip_drm_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_strip_drm_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_strip_drm_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.book_strip_drm_task.BookService"
             ) as mock_book_service_class,
             patch("bookcard.services.tasks.book_strip_drm_task.logger") as mock_logger,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             mock_book_service = MagicMock()
             mock_book_service.get_format_file_path.return_value = source_file
             mock_book_service_class.return_value = mock_book_service
@@ -1058,19 +1026,15 @@ class TestBookStripDrmTaskRun:
         processed_file.write_bytes(b"processed content")
 
         with (
-            patch("bookcard.services.tasks.book_strip_drm_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_strip_drm_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_strip_drm_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.book_strip_drm_task.BookService"
             ) as mock_book_service_class,
             patch.object(task._dedrm_service, "strip_drm") as mock_strip_drm,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             mock_book_service = MagicMock()
             mock_book_service.get_format_file_path.return_value = source_file
             mock_book_service_class.return_value = mock_book_service
@@ -1112,10 +1076,10 @@ class TestBookStripDrmTaskRun:
         processed_file.write_bytes(b"processed content")
 
         with (
-            patch("bookcard.services.tasks.book_strip_drm_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_strip_drm_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_strip_drm_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.book_strip_drm_task.BookService"
             ) as mock_book_service_class,
@@ -1125,10 +1089,6 @@ class TestBookStripDrmTaskRun:
                 side_effect=OSError("File not found"),
             ),
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             mock_book_service = MagicMock()
             mock_book_service.get_format_file_path.return_value = source_file
             mock_book_service_class.return_value = mock_book_service
@@ -1164,19 +1124,15 @@ class TestBookStripDrmTaskRun:
         task.check_cancelled = MagicMock(return_value=False)  # type: ignore[method-assign]
 
         with (
-            patch("bookcard.services.tasks.book_strip_drm_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_strip_drm_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_strip_drm_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.book_strip_drm_task.BookService"
             ) as mock_book_service_class,
             patch.object(task._dedrm_service, "strip_drm") as mock_strip_drm,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             mock_book_service = MagicMock()
             mock_book_service.get_format_file_path.return_value = source_file
             mock_book_service_class.return_value = mock_book_service
@@ -1217,19 +1173,15 @@ class TestBookStripDrmTaskRun:
         enqueue_task = MagicMock()
 
         with (
-            patch("bookcard.services.tasks.book_strip_drm_task.LibraryRepository") as _,
             patch(
-                "bookcard.services.tasks.book_strip_drm_task.LibraryService"
-            ) as mock_service_class,
+                "bookcard.services.tasks.book_strip_drm_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.book_strip_drm_task.BookService"
             ) as mock_book_service_class,
             patch.object(task._dedrm_service, "strip_drm") as mock_strip_drm,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
-
             mock_book_service = MagicMock()
             mock_book_service.get_format_file_path.return_value = source_file
             mock_book_service_class.return_value = mock_book_service

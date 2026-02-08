@@ -2095,6 +2095,7 @@ def test_upload_book_success(monkeypatch: pytest.MonkeyPatch) -> None:
         file=mock_file,
         permission_helper=mock_permission_helper,
         session=session,
+        library_id=1,
     )
     assert result.task_id == 123
     mock_task_runner.enqueue.assert_called_once()
@@ -2143,6 +2144,7 @@ def test_upload_book_no_extension(monkeypatch: pytest.MonkeyPatch) -> None:
             file=mock_file,
             permission_helper=mock_permission_helper,
             session=session,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
@@ -2203,6 +2205,7 @@ def test_upload_book_save_error(monkeypatch: pytest.MonkeyPatch) -> None:
                     file=mock_file,
                     permission_helper=mock_permission_helper,
                     session=session,
+                    library_id=1,
                 )
             assert isinstance(exc_info.value, HTTPException)
             assert exc_info.value.status_code == 500
@@ -2317,6 +2320,7 @@ def test_send_book_email_server_not_configured(monkeypatch: pytest.MonkeyPatch) 
             send_request=payload,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
@@ -2409,6 +2413,7 @@ def test_send_book_email_server_disabled(monkeypatch: pytest.MonkeyPatch) -> Non
             send_request=payload,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 400
@@ -2502,6 +2507,7 @@ def test_send_book_user_missing_id(monkeypatch: pytest.MonkeyPatch) -> None:
             send_request=payload,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 500
@@ -2602,6 +2608,7 @@ def test_send_book_success_enqueues_task(monkeypatch: pytest.MonkeyPatch) -> Non
         send_request=payload,
         book_service=mock_service,
         permission_helper=mock_permission_helper,
+        library_id=1,
     )
 
     # Should return None (204 No Content)
@@ -2623,6 +2630,7 @@ def test_send_book_success_enqueues_task(monkeypatch: pytest.MonkeyPatch) -> Non
             "book_id": 1,
             "to_email": "device@example.com",
             "file_format": "EPUB",
+            "library_id": 1,
             # encryption_key intentionally excluded from metadata to avoid exposing it
         },
     )
@@ -2717,6 +2725,7 @@ def test_send_book_task_runner_unavailable(monkeypatch: pytest.MonkeyPatch) -> N
             send_request=payload,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 503
@@ -2812,6 +2821,7 @@ def test_send_book_task_runner_none(monkeypatch: pytest.MonkeyPatch) -> None:
             send_request=payload,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 503
@@ -2893,6 +2903,7 @@ def test_send_book_book_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
             send_request=payload,
             book_service=mock_service,
             permission_helper=mock_permission_helper,
+            library_id=1,
         )
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == 404

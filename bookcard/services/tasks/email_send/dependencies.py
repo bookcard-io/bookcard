@@ -22,7 +22,7 @@ through a single container, eliminating Service Locator anti-pattern.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -43,23 +43,32 @@ class LibraryProvider(Protocol):
     Follows Dependency Inversion Principle by depending on abstraction.
     """
 
-    def get_active_library(self, session: Session) -> Library:
-        """Get active library configuration.
+    def get_active_library(
+        self,
+        session: Session,
+        metadata: dict[str, Any] | None = None,
+        user_id: int | None = None,
+    ) -> Library:
+        """Get target library configuration.
 
         Parameters
         ----------
         session : Session
             Database session.
+        metadata : dict[str, Any] | None
+            Task metadata that may contain ``library_id``.
+        user_id : int | None
+            User identifier for per-user fallback.
 
         Returns
         -------
         Library
-            Active library configuration.
+            Library configuration.
 
         Raises
         ------
         LibraryNotConfiguredError
-            If no active library is configured.
+            If no library could be resolved.
         """
         ...
 
