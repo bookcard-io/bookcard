@@ -103,6 +103,7 @@ class BookUploadTask(BaseTask):
                 file_info=self.file_info,
                 task_metadata=self.metadata,
                 post_processors=self._post_processors,
+                library_id=self.metadata.get("library_id"),
             )
             result = self._workflow.execute(upload_context)
 

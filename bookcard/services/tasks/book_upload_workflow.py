@@ -26,12 +26,9 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy.exc import SQLAlchemyError
 
 from bookcard.repositories.book_metadata_service import BookMetadataService
-from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.services.book_service import BookService
-from bookcard.services.config_service import LibraryService
 from bookcard.services.duplicate_detection import BookDuplicateHandler
 from bookcard.services.tasks.exceptions import (
-    LibraryNotConfiguredError,
     TaskCancelledError,
 )
 from bookcard.services.tasks.post_processors import (
@@ -103,6 +100,7 @@ class UploadContext:
     file_info: FileInfo
     task_metadata: dict[str, Any]
     post_processors: list[PostIngestProcessor] | None
+    library_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -196,32 +194,45 @@ class UploadFileValidator:
 class LibraryAccessor:
     """Fetch the active library configuration."""
 
-    def get_active_library(self, session: Session) -> Library:
-        """Return the active library configuration.
+    def get_active_library(
+        self,
+        session: Session,
+        library_id: int | None = None,
+        user_id: int | None = None,
+    ) -> Library:
+        """Return the target library configuration.
+
+        Uses :func:`resolve_task_library` to resolve the library from
+        an explicit *library_id*, then per-user active library, then
+        global active library.
 
         Parameters
         ----------
         session : Session
             Database session.
+        library_id : int | None
+            Explicit library ID captured at enqueue time.
+        user_id : int | None
+            User identifier for per-user fallback.
 
         Returns
         -------
         Library
-            Active library configuration.
+            Library configuration.
 
         Raises
         ------
         LibraryNotConfiguredError
-            If no active library is configured.
+            If no library could be resolved.
         """
-        library_repo = LibraryRepository(session)
-        library_service = LibraryService(session, library_repo)
-        library = library_service.get_active_library()
+        from bookcard.services.tasks.task_library_resolver import (
+            resolve_task_library,
+        )
 
-        if library is None:
-            raise LibraryNotConfiguredError
-
-        return library
+        metadata: dict[str, Any] = {}
+        if library_id is not None:
+            metadata["library_id"] = library_id
+        return resolve_task_library(session, metadata, user_id)
 
 
 class FileMetadataProvider:
@@ -596,7 +607,11 @@ class BookUploadWorkflow:
         file_size = self._file_validator.validate(context.file_info)
         progress.update(0.1, {"file_size": file_size})
 
-        library = self._library_accessor.get_active_library(context.session)
+        library = self._library_accessor.get_active_library(
+            context.session,
+            library_id=context.library_id,
+            user_id=context.user_id,
+        )
         progress.update(0.2)
 
         book_service = BookService(library, session=context.session)

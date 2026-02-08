@@ -83,7 +83,9 @@ class BookDeDRMOrchestrationService:
         self._book_service = book_service
         self._task_runner = task_runner
 
-    def initiate_strip_drm(self, book_id: int, user_id: int) -> DeDRMInitiationResult:
+    def initiate_strip_drm(
+        self, book_id: int, user_id: int, library_id: int | None = None
+    ) -> DeDRMInitiationResult:
         """Initiate a DRM stripping operation for a book.
 
         Chooses a source format from the book's available formats and enqueues
@@ -133,6 +135,15 @@ class BookDeDRMOrchestrationService:
             msg = "Task runner not available"
             raise RuntimeError(msg)
 
+        metadata: dict[str, object] = {
+            "task_type": TaskType.BOOK_STRIP_DRM,
+            "book_id": book_id,
+            "source_format": source_format,
+            "output_format": output_format,
+        }
+        if library_id is not None:
+            metadata["library_id"] = library_id
+
         task_id = self._task_runner.enqueue(
             task_type=TaskType.BOOK_STRIP_DRM,
             payload={
@@ -141,12 +152,7 @@ class BookDeDRMOrchestrationService:
                 "output_format": output_format,
             },
             user_id=user_id,
-            metadata={
-                "task_type": TaskType.BOOK_STRIP_DRM,
-                "book_id": book_id,
-                "source_format": source_format,
-                "output_format": output_format,
-            },
+            metadata=metadata,
         )
 
         return DeDRMInitiationResult(

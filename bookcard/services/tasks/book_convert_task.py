@@ -24,16 +24,12 @@ from typing import Any
 
 from bookcard.models.config import Library
 from bookcard.models.conversion import ConversionMethod, ConversionStatus
-from bookcard.repositories.config_repository import LibraryRepository
-from bookcard.services.config_service import LibraryService
 from bookcard.services.conversion import create_conversion_service
 from bookcard.services.conversion_utils import raise_conversion_error
 from bookcard.services.tasks.base import BaseTask
 from bookcard.services.tasks.context import ProgressCallback, WorkerContext
-from bookcard.services.tasks.exceptions import (
-    LibraryNotConfiguredError,
-    TaskCancelledError,
-)
+from bookcard.services.tasks.exceptions import TaskCancelledError
+from bookcard.services.tasks.task_library_resolver import resolve_task_library
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +159,9 @@ class BookConvertTask(BaseTask):
     def _get_active_library(self, context: WorkerContext) -> Library:
         """Get active library configuration.
 
+        Uses :func:`resolve_task_library` to resolve the library from
+        task metadata, then per-user active, then global active.
+
         Parameters
         ----------
         context : WorkerContext
@@ -176,19 +175,12 @@ class BookConvertTask(BaseTask):
         Raises
         ------
         LibraryNotConfiguredError
-            If no active library is configured.
+            If no library could be resolved.
         TaskCancelledError
             If task has been cancelled.
         """
         self._check_cancellation()
-
-        library_repo = LibraryRepository(context.session)
-        library_service = LibraryService(context.session, library_repo)
-        library = library_service.get_active_library()
-        if library is None:
-            raise LibraryNotConfiguredError
-
-        return library
+        return resolve_task_library(context.session, self.metadata, self.user_id)
 
     def _update_progress_or_cancel(
         self,

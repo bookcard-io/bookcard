@@ -26,15 +26,9 @@ from bookcard.models.epub_fixer import EPUBFixRun
 from bookcard.services.tasks.epub_fix_task import (
     EPUBFixBatchTask,
     EPUBFixTask,
-    _raise_no_library_error,
 )
+from bookcard.services.tasks.task_library_resolver import LibraryNotConfiguredError
 from tests.conftest import DummySession
-
-
-def test_raise_no_library_error() -> None:
-    """Test _raise_no_library_error helper function."""
-    with pytest.raises(ValueError, match="No active library configured"):
-        _raise_no_library_error()
 
 
 def test_epub_fix_task_init() -> None:
@@ -99,12 +93,9 @@ def test_epub_fix_task_run_no_library(minimal_epub: Path) -> None:
 
     # Mock library service to return None
     with patch(
-        "bookcard.services.tasks.epub_fix_task.LibraryService"
-    ) as mock_library_service:
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = None
-        mock_library_service.return_value = mock_service
-
+        "bookcard.services.tasks.epub_fix_task.resolve_task_library",
+        side_effect=LibraryNotConfiguredError(),
+    ):
         metadata = {"file_path": str(minimal_epub)}
         task = EPUBFixTask(task_id=1, user_id=1, metadata=metadata)
         task.check_cancelled = MagicMock(return_value=False)  # type: ignore[method-assign]
@@ -114,7 +105,7 @@ def test_epub_fix_task_run_no_library(minimal_epub: Path) -> None:
             "update_progress": update_progress,
         }
 
-        with pytest.raises(ValueError, match="No active library configured"):
+        with pytest.raises(LibraryNotConfiguredError):
             task.run(worker_context)
 
 
@@ -129,12 +120,9 @@ def test_epub_fix_task_run_disabled(minimal_epub: Path) -> None:
     session.add_exec_result([config])
 
     with patch(
-        "bookcard.services.tasks.epub_fix_task.LibraryService"
-    ) as mock_library_service:
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = library
-        mock_library_service.return_value = mock_service
-
+        "bookcard.services.tasks.epub_fix_task.resolve_task_library",
+        return_value=library,
+    ):
         metadata = {"file_path": str(minimal_epub)}
         task = EPUBFixTask(task_id=1, user_id=1, metadata=metadata)
         task.check_cancelled = MagicMock(return_value=False)  # type: ignore[method-assign]
@@ -166,12 +154,9 @@ def test_epub_fix_task_run_success(minimal_epub: Path, temp_dir: Path) -> None:
     session.add_exec_result([config])
 
     with patch(
-        "bookcard.services.tasks.epub_fix_task.LibraryService"
-    ) as mock_library_service:
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = library
-        mock_library_service.return_value = mock_service
-
+        "bookcard.services.tasks.epub_fix_task.resolve_task_library",
+        return_value=library,
+    ):
         metadata = {
             "file_path": str(minimal_epub),
             "book_id": 1,
@@ -206,12 +191,9 @@ def test_epub_fix_task_run_cancelled_during_processing(
     session.add_exec_result([config])
 
     with patch(
-        "bookcard.services.tasks.epub_fix_task.LibraryService"
-    ) as mock_library_service:
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = library
-        mock_library_service.return_value = mock_service
-
+        "bookcard.services.tasks.epub_fix_task.resolve_task_library",
+        return_value=library,
+    ):
         metadata = {"file_path": str(minimal_epub)}
         task = EPUBFixTask(task_id=1, user_id=1, metadata=metadata)
         # Cancel after first check
@@ -531,12 +513,9 @@ def test_epub_fix_batch_task_run_no_library() -> None:
     update_progress = MagicMock()
 
     with patch(
-        "bookcard.services.tasks.epub_fix_task.LibraryService"
-    ) as mock_library_service:
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = None
-        mock_library_service.return_value = mock_service
-
+        "bookcard.services.tasks.epub_fix_task.resolve_task_library",
+        side_effect=LibraryNotConfiguredError(),
+    ):
         task = EPUBFixBatchTask(task_id=1, user_id=1, metadata={})
         task.check_cancelled = MagicMock(return_value=False)  # type: ignore[method-assign]
 
@@ -545,7 +524,7 @@ def test_epub_fix_batch_task_run_no_library() -> None:
             "update_progress": update_progress,
         }
 
-        with pytest.raises(ValueError, match="No active library configured"):
+        with pytest.raises(LibraryNotConfiguredError):
             task.run(worker_context)
 
 
@@ -563,12 +542,9 @@ def test_epub_fix_batch_task_run_no_epub_files(temp_dir: Path) -> None:
     session.add_exec_result([config])
 
     with patch(
-        "bookcard.services.tasks.epub_fix_task.LibraryService"
-    ) as mock_library_service:
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = library
-        mock_library_service.return_value = mock_service
-
+        "bookcard.services.tasks.epub_fix_task.resolve_task_library",
+        return_value=library,
+    ):
         task = EPUBFixBatchTask(task_id=1, user_id=1, metadata={})
         task.check_cancelled = MagicMock(return_value=False)  # type: ignore[method-assign]
         task._scan_epub_files = MagicMock(return_value=[])  # type: ignore[method-assign]
@@ -604,12 +580,9 @@ def test_epub_fix_batch_task_run_success(minimal_epub: Path, temp_dir: Path) -> 
     session.add_exec_result([config])
 
     with patch(
-        "bookcard.services.tasks.epub_fix_task.LibraryService"
-    ) as mock_library_service:
-        mock_service = MagicMock()
-        mock_service.get_active_library.return_value = library
-        mock_library_service.return_value = mock_service
-
+        "bookcard.services.tasks.epub_fix_task.resolve_task_library",
+        return_value=library,
+    ):
         task = EPUBFixBatchTask(task_id=1, user_id=1, metadata={})
         task.check_cancelled = MagicMock(return_value=False)  # type: ignore[method-assign]
         task._scan_epub_files = MagicMock(  # type: ignore[method-assign]
@@ -652,12 +625,9 @@ class TestEPUBFixTaskAdditional:
         session.add_exec_result([config])
 
         with patch(
-            "bookcard.services.tasks.epub_fix_task.LibraryService"
-        ) as mock_library_service:
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_library_service.return_value = mock_service
-
+            "bookcard.services.tasks.epub_fix_task.resolve_task_library",
+            return_value=library,
+        ):
             metadata = {"file_path": str(minimal_epub)}
             task = EPUBFixTask(task_id=1, user_id=1, metadata=metadata)
             call_count = 0
@@ -700,12 +670,9 @@ class TestEPUBFixTaskAdditional:
         session.add_exec_result([config])
 
         with patch(
-            "bookcard.services.tasks.epub_fix_task.LibraryService"
-        ) as mock_library_service:
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_library_service.return_value = mock_service
-
+            "bookcard.services.tasks.epub_fix_task.resolve_task_library",
+            return_value=library,
+        ):
             metadata = {"file_path": str(minimal_epub)}
             task = EPUBFixTask(task_id=1, user_id=1, metadata=metadata)
             call_count = 0
@@ -749,8 +716,9 @@ class TestEPUBFixTaskAdditional:
 
         with (
             patch(
-                "bookcard.services.tasks.epub_fix_task.LibraryService"
-            ) as mock_library_service,
+                "bookcard.services.tasks.epub_fix_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.epub_fix_task.EPUBFixerService"
             ) as mock_fixer_service_class,
@@ -764,10 +732,6 @@ class TestEPUBFixTaskAdditional:
                 "bookcard.services.tasks.epub_fix_task.EPUBWriter"
             ) as mock_writer_class,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_library_service.return_value = mock_service
-
             mock_fixer_service = MagicMock()
             fix_run = EPUBFixRun(id=1, started_at=datetime.now(UTC))
             mock_fixer_service.create_fix_run.return_value = fix_run
@@ -826,8 +790,9 @@ class TestEPUBFixTaskAdditional:
 
         with (
             patch(
-                "bookcard.services.tasks.epub_fix_task.LibraryService"
-            ) as mock_library_service,
+                "bookcard.services.tasks.epub_fix_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.epub_fix_task.EPUBFixerService"
             ) as mock_fixer_service_class,
@@ -841,10 +806,6 @@ class TestEPUBFixTaskAdditional:
                 "bookcard.services.tasks.epub_fix_task.EPUBWriter"
             ) as mock_writer_class,
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_library_service.return_value = mock_service
-
             mock_fixer_service = MagicMock()
             fix_run = EPUBFixRun(id=1, started_at=datetime.now(UTC))
             mock_fixer_service.create_fix_run.return_value = fix_run
@@ -1004,12 +965,9 @@ class TestEPUBFixTaskAdditional:
         update_progress = MagicMock()
 
         with patch(
-            "bookcard.services.tasks.epub_fix_task.LibraryService"
-        ) as mock_library_service:
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = None
-            mock_library_service.return_value = mock_service
-
+            "bookcard.services.tasks.epub_fix_task.resolve_task_library",
+            side_effect=LibraryNotConfiguredError(),
+        ):
             task = EPUBFixBatchTask(task_id=1, user_id=1, metadata={})
             task.check_cancelled = MagicMock(return_value=False)  # type: ignore[method-assign]
 
@@ -1018,7 +976,7 @@ class TestEPUBFixTaskAdditional:
                 "update_progress": update_progress,
             }
 
-            with pytest.raises(ValueError, match="No active library configured"):
+            with pytest.raises(LibraryNotConfiguredError):
                 task.run(worker_context)
 
     def test_epub_fix_batch_task_run_setup_services_returns_none(
@@ -1035,12 +993,9 @@ class TestEPUBFixTaskAdditional:
         session.add_exec_result([config])
 
         with patch(
-            "bookcard.services.tasks.epub_fix_task.LibraryService"
-        ) as mock_library_service:
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_library_service.return_value = mock_service
-
+            "bookcard.services.tasks.epub_fix_task.resolve_task_library",
+            return_value=library,
+        ):
             task = EPUBFixBatchTask(task_id=1, user_id=1, metadata={})
             task.check_cancelled = MagicMock(return_value=False)  # type: ignore[method-assign]
 
@@ -1079,17 +1034,14 @@ class TestEPUBFixTaskAdditional:
 
         with (
             patch(
-                "bookcard.services.tasks.epub_fix_task.LibraryService"
-            ) as mock_library_service,
+                "bookcard.services.tasks.epub_fix_task.resolve_task_library",
+                return_value=library,
+            ),
             patch(
                 "bookcard.services.tasks.epub_fix_task.EPUBFixerService"
             ) as mock_fixer_service_class,
             patch("bookcard.services.epub_fixer.services.scanner.EPUBScanner"),
         ):
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_library_service.return_value = mock_service
-
             mock_fixer_service = MagicMock()
             fix_run = EPUBFixRun(id=1, started_at=datetime.now(UTC))
             mock_fixer_service.create_fix_run.return_value = fix_run

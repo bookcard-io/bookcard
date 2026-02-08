@@ -24,7 +24,7 @@ import math
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import (
     APIRouter,
@@ -1263,6 +1263,7 @@ def send_book_to_device(
     send_request: BookSendRequest,
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
+    library_id: ActiveLibraryIdDep,
 ) -> None:
     """Send a book via email as a background task.
 
@@ -1349,6 +1350,7 @@ def send_book_to_device(
             "book_id": book_id,
             "to_email": send_request.to_email,
             "file_format": send_request.file_format,
+            "library_id": library_id,
             # encryption_key intentionally excluded from metadata to avoid exposing it
         },
     )
@@ -1362,6 +1364,7 @@ def send_books_to_device_batch(
     send_request: BookBulkSendRequest,
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
+    library_id: ActiveLibraryIdDep,
 ) -> None:
     """Send multiple books via email as background tasks.
 
@@ -1456,6 +1459,7 @@ def send_books_to_device_batch(
                 "book_id": book_id,
                 "to_email": send_request.to_email,
                 "file_format": send_request.file_format,
+                "library_id": library_id,
                 # encryption_key intentionally excluded from metadata to avoid exposing it
             },
         )
@@ -1473,6 +1477,7 @@ def convert_book_format(
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
     orchestration_service: ConversionOrchestrationServiceDep,
+    library_id: ActiveLibraryIdDep,
 ) -> BookConvertResponse:
     """Convert a book from one format to another.
 
@@ -1533,6 +1538,7 @@ def convert_book_format(
             source_format=convert_request.source_format,
             target_format=convert_request.target_format,
             user_id=current_user.id,
+            library_id=library_id,
         )
     except ValueError as e:
         # Map business exceptions to HTTP exceptions
@@ -1571,6 +1577,7 @@ def strip_book_drm(
     book_service: BookServiceDep,
     permission_helper: PermissionHelperDep,
     orchestration_service: DeDRMOrchestrationServiceDep,
+    library_id: ActiveLibraryIdDep,
 ) -> BookStripDrmResponse:
     """Strip DRM from a book format if present.
 
@@ -1615,6 +1622,7 @@ def strip_book_drm(
         result = orchestration_service.initiate_strip_drm(
             book_id=book_id,
             user_id=current_user.id,
+            library_id=library_id,
         )
     except ValueError as e:
         msg = str(e)
@@ -1648,6 +1656,7 @@ def fix_book_epub(
     book_file_service: BookFileServiceDep,
     permission_helper: PermissionHelperDep,
     request: Request,
+    active_library_id: ActiveLibraryIdDep,
 ) -> BookFixEpubResponse:
     """Fix EPUB file for a book.
 
@@ -1718,20 +1727,13 @@ def fix_book_epub(
     task_runner = _get_task_runner(request)
 
     # Enqueue task
-    metadata = {
+    metadata: dict[str, Any] = {
         "task_type": TaskType.EPUB_FIX_SINGLE.value,
         "file_path": str(file_path),
         "book_id": book_id,
         "book_title": existing_book.book.title,
-        # library_id is optional in EPUBFixTask but good to have if we can access it
-        # book_service has .library but it might be protected or not directly exposed as id
-        # actually book_service.library.id should work if library is a model
+        "library_id": active_library_id,
     }
-
-    # Try to add library_id if available
-    library = getattr(book_service, "library", None)
-    if library and hasattr(library, "id"):
-        metadata["library_id"] = library.id
 
     try:
         task_id = task_runner.enqueue(
@@ -2265,6 +2267,7 @@ def upload_book(
     file: UploadFile,
     permission_helper: PermissionHelperDep,
     session: SessionDep,
+    library_id: ActiveLibraryIdDep,
 ) -> BookUploadResponse:
     """Upload a book file to the active library (asynchronous).
 
@@ -2361,6 +2364,7 @@ def upload_book(
             "task_type": TaskType.BOOK_UPLOAD,
             "filename": filename,
             "file_format": file_ext,
+            "library_id": library_id,
         },
     )
 
