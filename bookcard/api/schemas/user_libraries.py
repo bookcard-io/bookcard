@@ -34,6 +34,9 @@ class UserLibraryRead(BaseModel):
     library_id: int
     is_visible: bool
     is_active: bool
+    library_name: str | None = Field(
+        default=None, description="Name of the associated library"
+    )
     created_at: datetime
     updated_at: datetime
 

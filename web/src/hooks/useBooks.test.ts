@@ -768,8 +768,8 @@ describe("useBooks", () => {
     });
 
     // Should call refetch (covers lines 529-532)
-    // Account for 3 provider calls + 1 initial + 1 refetch = 5 total
-    expect(globalThis.fetch).toHaveBeenCalledTimes(5);
+    // Account for 4 provider calls + 1 initial + 1 refetch = 6 total
+    expect(globalThis.fetch).toHaveBeenCalledTimes(6);
   });
 
   it("should call refetch for list query", async () => {
@@ -794,8 +794,8 @@ describe("useBooks", () => {
     });
 
     // Should call refetch for list query (covers lines 529-532)
-    // Account for 3 provider calls + 1 initial + 1 refetch = 5 total
-    expect(globalThis.fetch).toHaveBeenCalledTimes(5);
+    // Account for 4 provider calls + 1 initial + 1 refetch = 6 total
+    expect(globalThis.fetch).toHaveBeenCalledTimes(6);
   });
 
   it("should reset accumulated books when sort_by changes in infinite scroll", async () => {

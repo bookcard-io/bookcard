@@ -20,15 +20,25 @@ export interface BookCardMetadataProps {
   title: string;
   /** Book authors. */
   authors: string[];
+  /** Name of the library this book belongs to. */
+  libraryName?: string | null;
+  /** Whether to display the library badge. */
+  showLibraryBadge?: boolean;
 }
 
 /**
- * Book card metadata component (title and authors).
+ * Book card metadata component (title, authors, and optional library badge).
  *
- * Displays book title and author information.
+ * Displays book title and author information with an optional library badge
+ * shown when viewing books from multiple libraries.
  * Follows SRP by focusing solely on metadata display.
  */
-export function BookCardMetadata({ title, authors }: BookCardMetadataProps) {
+export function BookCardMetadata({
+  title,
+  authors,
+  libraryName,
+  showLibraryBadge = false,
+}: BookCardMetadataProps) {
   const authorsText =
     authors.length > 0 ? authors.join(", ") : "Unknown Author";
 
@@ -46,6 +56,11 @@ export function BookCardMetadata({ title, authors }: BookCardMetadataProps) {
       >
         {authorsText}
       </p>
+      {showLibraryBadge && libraryName && (
+        <span className="mt-0.5 inline-block max-w-full truncate rounded-sm bg-surface-a20 px-1.5 py-0.5 text-[0.625rem] text-text-a30">
+          {libraryName}
+        </span>
+      )}
     </div>
   );
 }
