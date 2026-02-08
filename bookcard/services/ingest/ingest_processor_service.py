@@ -232,6 +232,7 @@ class IngestProcessorService:
         tags: list[str] | None = None,
         rating: int | None = None,
         cover_url: str | None = None,
+        library_id: int | None = None,
     ) -> int:
         """Add a book file to the library.
 
@@ -263,6 +264,9 @@ class IngestProcessorService:
             Optional rating (0-10).
         cover_url : str | None
             Optional cover URL to set.
+        library_id : int | None
+            Explicit library ID.  Falls back to the global active
+            library when ``None``.
 
         Returns
         -------
@@ -277,7 +281,7 @@ class IngestProcessorService:
             If no active library is configured.
         """
         history = self._get_history_or_raise(history_id)
-        library = self._get_active_library_or_raise()
+        library = self._get_active_library_or_raise(library_id)
 
         # Extract metadata with fallback to filename
         extracted = extract_metadata(history, fallback_title=file_path.stem)
@@ -350,6 +354,7 @@ class IngestProcessorService:
         book_id: int,
         file_path: Path,
         file_format: str,
+        library_id: int | None = None,
     ) -> None:
         """Add a format to an existing book.
 
@@ -361,8 +366,11 @@ class IngestProcessorService:
             Path to format file.
         file_format : str
             File format extension.
+        library_id : int | None
+            Explicit library ID.  Falls back to the global active
+            library when ``None``.
         """
-        library = self._get_active_library_or_raise()
+        library = self._get_active_library_or_raise(library_id)
         book_service = self._book_service_factory(library)
 
         # Attempt to strip DRM
@@ -432,7 +440,9 @@ class IngestProcessorService:
             except OSError:
                 logger.warning("Failed to delete temp file: %s", processed_path)
 
-    def set_book_cover(self, book_id: int, cover_url: str) -> None:
+    def set_book_cover(
+        self, book_id: int, cover_url: str, library_id: int | None = None
+    ) -> None:
         """Set book cover from URL.
 
         Parameters
@@ -441,13 +451,16 @@ class IngestProcessorService:
             Book ID.
         cover_url : str
             URL of the cover image.
+        library_id : int | None
+            Explicit library ID.  Falls back to the global active
+            library when ``None``.
 
         Raises
         ------
         NoActiveLibraryError
             If no active library is configured.
         """
-        library = self._get_active_library_or_raise()
+        library = self._get_active_library_or_raise(library_id)
         book_service = self._book_service_factory(library)
 
         # Import lazily to avoid circular imports if any
@@ -561,8 +574,14 @@ class IngestProcessorService:
         """
         return self._get_history_or_raise(history_id)
 
-    def get_active_library(self) -> Library:
+    def get_active_library(self, library_id: int | None = None) -> Library:
         """Get active library or raise exception if none exists.
+
+        Parameters
+        ----------
+        library_id : int | None
+            Explicit library ID.  When provided the library is fetched
+            by ID instead of using the global active flag.
 
         Returns
         -------
@@ -574,7 +593,7 @@ class IngestProcessorService:
         NoActiveLibraryError
             If no active library is configured.
         """
-        return self._get_active_library_or_raise()
+        return self._get_active_library_or_raise(library_id)
 
     # Private helper methods
 
@@ -616,8 +635,15 @@ class IngestProcessorService:
         """
         return self._book_service_factory(library)
 
-    def _get_active_library_or_raise(self) -> Library:
+    def _get_active_library_or_raise(self, library_id: int | None = None) -> Library:
         """Get active library or raise exception if none exists.
+
+        Parameters
+        ----------
+        library_id : int | None
+            Explicit library ID to look up.  When provided the library
+            is fetched by ID instead of using the global active flag.
+            Falls back to the global active library when ``None``.
 
         Returns
         -------
@@ -629,6 +655,10 @@ class IngestProcessorService:
         NoActiveLibraryError
             If no active library is configured.
         """
+        if library_id is not None:
+            library = self._library_repo.get(library_id)
+            if library is not None:
+                return library
         library = self._library_repo.get_active()
         if library is None:
             raise NoActiveLibraryError

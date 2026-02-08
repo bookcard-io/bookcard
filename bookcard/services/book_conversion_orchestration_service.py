@@ -134,6 +134,7 @@ class BookConversionOrchestrationService:
         source_format: str,
         target_format: str,
         user_id: int,
+        library_id: int | None = None,
     ) -> ConversionInitiationResult:
         """Initiate a book format conversion.
 
@@ -231,6 +232,16 @@ class BookConversionOrchestrationService:
             raise RuntimeError(error_msg)
 
         # Enqueue conversion task
+        metadata: dict[str, object] = {
+            "task_type": TaskType.BOOK_CONVERT,
+            "book_id": book_id,
+            "source_format": source_format,
+            "target_format": target_format,
+            "conversion_method": "manual",
+        }
+        if library_id is not None:
+            metadata["library_id"] = library_id
+
         task_id = self._task_runner.enqueue(
             task_type=TaskType.BOOK_CONVERT,
             payload={
@@ -239,13 +250,7 @@ class BookConversionOrchestrationService:
                 "target_format": target_format,
             },
             user_id=user_id,
-            metadata={
-                "task_type": TaskType.BOOK_CONVERT,
-                "book_id": book_id,
-                "source_format": source_format,
-                "target_format": target_format,
-                "conversion_method": "manual",
-            },
+            metadata=metadata,
         )
 
         return ConversionInitiationResult(task_id=task_id)

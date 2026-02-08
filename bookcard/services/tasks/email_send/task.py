@@ -163,7 +163,11 @@ class EmailSendTask(BaseTask):
 
         # Load library
         tracker.advance("Loading library configuration")
-        library = deps.library_provider.get_active_library(context.session)
+        library = deps.library_provider.get_active_library(
+            context.session,
+            metadata=self.metadata,
+            user_id=self.user_id,
+        )
 
         # Configure email service
         tracker.advance("Configuring email service")
