@@ -27,6 +27,8 @@ export interface BookListItemTitleSectionProps {
   selected: boolean;
   /** Callback when section is clicked. */
   onClick: () => void;
+  /** Whether to display the library badge. */
+  showLibraryBadge?: boolean;
 }
 
 /**
@@ -44,6 +46,7 @@ export function BookListItemTitleSection({
   book,
   selected,
   onClick,
+  showLibraryBadge = false,
 }: BookListItemTitleSectionProps) {
   const authorsText = formatAuthors(book.authors);
   const handleKeyDown = createEnterSpaceHandler(onClick);
@@ -74,6 +77,11 @@ export function BookListItemTitleSection({
           >
             {authorsText}
           </p>
+          {showLibraryBadge && book.library_name && (
+            <span className="mt-0.5 inline-block max-w-fit truncate rounded-sm bg-surface-a20 px-1.5 py-0.5 text-[0.625rem] text-text-a30">
+              {book.library_name}
+            </span>
+          )}
         </div>
       </button>
     </div>

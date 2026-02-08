@@ -2153,11 +2153,22 @@ def filter_books(
             description="Comma-separated list of optional includes (e.g., 'reading_summary')"
         ),
     ] = None,
+    requested_library_id: Annotated[
+        int | None,
+        Query(
+            alias="library_id",
+            description="Optional library ID to filter books from a specific library",
+        ),
+    ] = None,
 ) -> BookListResponse:
     """Filter books with multiple criteria using OR conditions.
 
     Each filter type uses OR conditions (e.g., multiple authors = OR).
     Different filter types are combined with AND conditions.
+
+    When *requested_library_id* is supplied (via ``?library_id=``), the
+    endpoint validates that the current user has access to that library
+    and returns filtered books from it instead of the user's active library.
 
     Parameters
     ----------
@@ -2176,6 +2187,8 @@ def filter_books(
         Sort order: 'asc' or 'desc' (default: 'desc').
     full : bool
         If True, return full book details with all metadata (default: False).
+    requested_library_id : int | None
+        Optional explicit library ID to filter books from.
 
     Returns
     -------
@@ -2190,6 +2203,14 @@ def filter_books(
     if current_user is not None:
         permission_helper.check_read_permission(current_user)
 
+    effective_book_service = book_service
+    effective_response_builder = response_builder
+    effective_library_id = library_id
+    if requested_library_id is not None and requested_library_id != library_id:
+        effective_book_service, effective_response_builder, effective_library_id = (
+            _resolve_requested_library(session, current_user, requested_library_id)
+        )
+
     if page < 1:
         page = 1
     if page_size < 1:
@@ -2197,7 +2218,7 @@ def filter_books(
     if page_size > 100:
         page_size = 100
 
-    books, total = book_service.list_books_with_filters(
+    books, total = effective_book_service.list_books_with_filters(
         page=page,
         page_size=page_size,
         author_ids=filter_request.author_ids,
@@ -2214,13 +2235,13 @@ def filter_books(
         full=full,
     )
 
-    book_reads = response_builder.build_book_read_list(books, full=full)
+    book_reads = effective_response_builder.build_book_read_list(books, full=full)
     read_model_service = BookReadModelService(session)
     read_model_service.apply_includes(
         book_reads=book_reads,
         include=include,
         user_id=current_user.id if current_user is not None else None,
-        library_id=library_id,
+        library_id=effective_library_id,
     )
     total_pages = math.ceil(total / page_size) if page_size > 0 else 0
 

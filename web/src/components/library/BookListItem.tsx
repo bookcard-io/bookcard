@@ -48,6 +48,8 @@ export interface BookListItemProps {
   onBookDeleted?: (bookId: number) => void;
   /** Callback fired when rating changes. */
   onRatingChange?: (bookId: number, rating: number | null) => void;
+  /** Whether to display the library badge on the title section. */
+  showLibraryBadge?: boolean;
 }
 
 /**
@@ -66,6 +68,7 @@ export function BookListItem({
   onEdit,
   onBookDeleted,
   onRatingChange,
+  showLibraryBadge = false,
 }: BookListItemProps) {
   const { isSelected } = useSelectedBooks();
   const selected = isSelected(book.id);
@@ -138,6 +141,7 @@ export function BookListItem({
           book={book}
           selected={selected}
           onClick={handleClick}
+          showLibraryBadge={showLibraryBadge}
         />
 
         {/* Other columns */}

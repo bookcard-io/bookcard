@@ -100,15 +100,28 @@ def list_my_libraries(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="authentication_required",
         )
+    library_repo = LibraryRepository(session)
     service = UserLibraryService(
         session=session,
         user_library_repo=UserLibraryRepository(session),
-        library_repo=LibraryRepository(session),
+        library_repo=library_repo,
     )
     assignments = service.list_assignments_for_user(current_user.id)
-    return [
-        UserLibraryRead.model_validate(a, from_attributes=True) for a in assignments
-    ]
+
+    # Build a library_id -> name lookup to enrich the response
+    library_ids = [a.library_id for a in assignments]
+    name_map: dict[int, str] = {}
+    for lib_id in library_ids:
+        lib = library_repo.get(lib_id)
+        if lib is not None:
+            name_map[lib_id] = lib.name
+
+    result: list[UserLibraryRead] = []
+    for a in assignments:
+        read = UserLibraryRead.model_validate(a, from_attributes=True)
+        read.library_name = name_map.get(a.library_id)
+        result.append(read)
+    return result
 
 
 @router.put(

@@ -34,6 +34,7 @@ import {
 } from "@/services/shelfService";
 import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 import { buildShelfCreatePayload } from "@/utils/shelfPayload";
+import { LibrariesSection } from "./LibrariesSection";
 import { LibrarySection } from "./LibrarySection";
 import { ShelvesSection } from "./ShelvesSection";
 import { SidebarDevicesSection } from "./SidebarDevicesSection";
@@ -108,6 +109,7 @@ export function Sidebar() {
       />
 
       <SidebarNav isScrolling={isScrolling} navRef={navRef}>
+        <LibrariesSection isCollapsed={isCollapsed} />
         <LibrarySection
           isCollapsed={isCollapsed}
           isExpanded={expandedSections.has("MY LIBRARY")}

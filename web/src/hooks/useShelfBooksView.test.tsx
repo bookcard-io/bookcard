@@ -130,6 +130,9 @@ describe("useShelfBooksView", () => {
       },
       isLoading: false,
       refresh: vi.fn(),
+      visibleLibraries: [],
+      selectedLibraryId: null,
+      setSelectedLibraryId: vi.fn(),
     });
 
     // Default: shelf with id=1 exists and has 3 books
@@ -338,6 +341,9 @@ describe("useShelfBooksView", () => {
       activeLibrary: null,
       isLoading: false,
       refresh: vi.fn(),
+      visibleLibraries: [],
+      selectedLibraryId: null,
+      setSelectedLibraryId: vi.fn(),
     });
 
     const { result } = renderHook(() => useShelfBooksView({ shelfId: 1 }), {
