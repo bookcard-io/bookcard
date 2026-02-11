@@ -178,6 +178,21 @@ class ShelfListResponse(BaseModel):
     total: int
 
 
+class ShelfBookRef(BaseModel):
+    """Reference to a book within a shelf, including its library context.
+
+    Attributes
+    ----------
+    book_id : int
+        Calibre book ID.
+    library_id : int
+        Library the book belongs to.
+    """
+
+    book_id: int
+    library_id: int
+
+
 class BookShelfLinkRead(BaseModel):
     """Response schema for book-shelf link data.
 

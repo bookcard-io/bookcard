@@ -85,17 +85,17 @@ export function useShelfBooks(
     setIsLoading(true);
     setError(null);
     try {
-      const ids = await getShelfBooks(
+      const refs = await getShelfBooks(
         shelfId,
         page,
         sortBy,
         pageSize,
         sortOrder,
       );
-      setBookIds(ids);
+      setBookIds(refs.map((ref) => ref.book_id));
       // Note: API doesn't return total yet, so we use the length
       // In future, we can enhance the API to return total count
-      setTotal(ids.length);
+      setTotal(refs.length);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to load shelf books",

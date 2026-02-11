@@ -27,6 +27,7 @@ import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { getShelfBooks } from "@/services/shelfService";
 import type { Book, BookListResponse } from "@/types/book";
+import type { ShelfBookRef } from "@/types/shelf";
 import { deduplicateFetch, generateFetchKey } from "@/utils/fetch";
 import { createEmptyFilters, filtersToApiBody } from "@/utils/filters";
 
@@ -65,53 +66,72 @@ export interface UseShelfBooksViewResult {
 }
 
 interface ShelfBooksPage {
-  ids: number[];
+  refs: ShelfBookRef[];
   books: Book[];
 }
 
-async function fetchBooksByIds(
-  ids: number[],
+async function fetchBooksByRefs(
+  refs: ShelfBookRef[],
   full: boolean,
   sortBy: string = "timestamp",
   sortOrder: string = "desc",
-): Promise<BookListResponse> {
-  const queryParams = new URLSearchParams({
-    page: "1",
-    page_size: Math.min(ids.length, 100).toString(),
-    sort_by: sortBy,
-    sort_order: sortOrder,
-    include: "reading_summary",
-  });
-
-  if (full) {
-    queryParams.append("full", "true");
+): Promise<Book[]> {
+  // Group refs by library_id
+  const byLibrary = new Map<number, number[]>();
+  for (const ref of refs) {
+    const ids = byLibrary.get(ref.library_id) ?? [];
+    ids.push(ref.book_id);
+    byLibrary.set(ref.library_id, ids);
   }
 
-  const filters = { ...createEmptyFilters(), titleIds: ids };
-  const body = filtersToApiBody(filters);
-  const url = `/api/books/filter?${queryParams.toString()}`;
-  const fetchKey = generateFetchKey(url, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  const allBooks: Book[] = [];
 
-  return deduplicateFetch(fetchKey, async () => {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      cache: "no-store",
+  for (const [libraryId, ids] of byLibrary) {
+    const queryParams = new URLSearchParams({
+      page: "1",
+      page_size: Math.min(ids.length, 100).toString(),
+      sort_by: sortBy,
+      sort_order: sortOrder,
+      include: "reading_summary",
     });
 
-    if (!response.ok) {
-      const errorData = (await response.json()) as { detail?: string };
-      throw new Error(errorData.detail || "Failed to fetch shelf books");
+    if (full) {
+      queryParams.append("full", "true");
+    }
+    if (libraryId) {
+      queryParams.append("requested_library_id", libraryId.toString());
     }
 
-    return (await response.json()) as BookListResponse;
-  });
+    const filters = { ...createEmptyFilters(), titleIds: ids };
+    const body = filtersToApiBody(filters);
+    const url = `/api/books/filter?${queryParams.toString()}`;
+    const fetchKey = generateFetchKey(url, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+
+    const response = await deduplicateFetch(fetchKey, async () => {
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        cache: "no-store",
+      });
+
+      if (!resp.ok) {
+        const errorData = (await resp.json()) as { detail?: string };
+        throw new Error(errorData.detail || "Failed to fetch shelf books");
+      }
+
+      return (await resp.json()) as BookListResponse;
+    });
+
+    allBooks.push(...response.items);
+  }
+
+  return allBooks;
 }
 
 /**
@@ -175,7 +195,7 @@ export function useShelfBooksView(
     queryFn: async ({ pageParam }) => {
       const page = (pageParam as number | undefined) ?? 1;
 
-      const ids = await getShelfBooks(
+      const refs = await getShelfBooks(
         shelfId as number,
         page,
         shelfSortBy,
@@ -183,18 +203,18 @@ export function useShelfBooksView(
         shelfSortOrder,
       );
 
-      if (ids.length === 0) {
-        return { ids: [], books: [] };
+      if (refs.length === 0) {
+        return { refs: [], books: [] };
       }
 
-      const response = await fetchBooksByIds(ids, full, sortBy, sortOrder);
+      const books = await fetchBooksByRefs(refs, full, sortBy, sortOrder);
       return {
-        ids,
-        books: response.items,
+        refs,
+        books,
       };
     },
     getNextPageParam: (lastPage, _allPages, lastPageParam) => {
-      if (lastPage.ids.length < pageSize) {
+      if (lastPage.refs.length < pageSize) {
         return undefined;
       }
       const current = (lastPageParam as number | undefined) ?? 1;
@@ -219,7 +239,7 @@ export function useShelfBooksView(
             ...prev,
             pages: prev.pages.map((p) => ({
               ...p,
-              ids: p.ids.filter((id) => id !== bookId),
+              refs: p.refs.filter((ref) => ref.book_id !== bookId),
               books: p.books.filter((b) => b.id !== bookId),
             })),
           };

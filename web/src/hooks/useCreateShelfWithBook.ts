@@ -26,6 +26,8 @@ import type { Shelf, ShelfCreate, ShelfUpdate } from "@/types/shelf";
 export interface UseCreateShelfWithBookOptions {
   /** Book ID to add to the newly created shelf. */
   bookId: number;
+  /** Library ID the book belongs to. */
+  libraryId: number;
   /** Callback when shelf creation is successful. */
   onSuccess?: () => void;
   /** Callback when shelf creation fails. */
@@ -66,6 +68,7 @@ export interface UseCreateShelfWithBookReturn {
  */
 export function useCreateShelfWithBook({
   bookId,
+  libraryId,
   onSuccess,
   onError,
 }: UseCreateShelfWithBookOptions): UseCreateShelfWithBookReturn {
@@ -106,7 +109,7 @@ export function useCreateShelfWithBook({
           ? createShelfService(data as ShelfCreate, options)
           : createShelfService(data as ShelfCreate));
         // Add book to the newly created shelf
-        await addBook(newShelf.id, bookId);
+        await addBook(newShelf.id, bookId, libraryId);
         // Add to recent shelves
         addRecentShelf(newShelf.id);
         // Refresh shelves context
@@ -128,6 +131,7 @@ export function useCreateShelfWithBook({
       refreshShelvesContext,
       onSuccess,
       onError,
+      libraryId,
     ],
   );
 

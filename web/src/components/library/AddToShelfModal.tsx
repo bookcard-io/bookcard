@@ -198,7 +198,7 @@ export function AddToShelfModal({
       }
 
       const results = await Promise.allSettled(
-        books.map((book) => addBook(shelfId, book.id)),
+        books.map((book) => addBook(shelfId, book.id, book.library_id ?? 0)),
       );
 
       const failed = results.filter((r) => r.status === "rejected").length;
@@ -274,7 +274,9 @@ export function AddToShelfModal({
       // Automatically add all books to the newly created shelf
       if (books.length > 0) {
         const results = await Promise.allSettled(
-          books.map((book) => addBook(newShelf.id, book.id)),
+          books.map((book) =>
+            addBook(newShelf.id, book.id, book.library_id ?? 0),
+          ),
         );
 
         const failed = results.filter((r) => r.status === "rejected").length;

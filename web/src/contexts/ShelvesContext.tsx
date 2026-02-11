@@ -68,10 +68,8 @@ export function ShelvesProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       setError(null);
       const response = await listShelves();
-      // Filter to only active shelves for the active library
-      const activeShelves = response.shelves.filter(
-        (shelf) => shelf.is_active && shelf.library_id === activeLibraryId,
-      );
+      // Filter to only active shelves (across all visible libraries)
+      const activeShelves = response.shelves.filter((shelf) => shelf.is_active);
       setShelves(activeShelves);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load shelves");

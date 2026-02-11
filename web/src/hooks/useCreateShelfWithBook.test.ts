@@ -41,7 +41,9 @@ import { createShelf } from "@/services/shelfService";
 
 describe("useCreateShelfWithBook", () => {
   let mockAddBook: ReturnType<
-    typeof vi.fn<(shelfId: number, bookId: number) => Promise<void>>
+    typeof vi.fn<
+      (shelfId: number, bookId: number, libraryId: number) => Promise<void>
+    >
   >;
   let mockAddRecentShelf: ReturnType<typeof vi.fn<(shelfId: number) => void>>;
   let mockRefreshShelvesContext: ReturnType<typeof vi.fn<() => Promise<void>>>;
@@ -68,7 +70,10 @@ describe("useCreateShelfWithBook", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockAddBook = vi.fn<(shelfId: number, bookId: number) => Promise<void>>();
+    mockAddBook =
+      vi.fn<
+        (shelfId: number, bookId: number, libraryId: number) => Promise<void>
+      >();
     mockAddRecentShelf = vi.fn<(shelfId: number) => void>();
     mockRefreshShelvesContext = vi.fn<() => Promise<void>>();
     mockOnSuccess = vi.fn<() => void>();
@@ -108,6 +113,7 @@ describe("useCreateShelfWithBook", () => {
     const { result } = renderHook(() =>
       useCreateShelfWithBook({
         bookId: 1,
+        libraryId: 1,
       }),
     );
 
@@ -118,6 +124,7 @@ describe("useCreateShelfWithBook", () => {
     const { result } = renderHook(() =>
       useCreateShelfWithBook({
         bookId: 1,
+        libraryId: 1,
       }),
     );
 
@@ -132,6 +139,7 @@ describe("useCreateShelfWithBook", () => {
     const { result } = renderHook(() =>
       useCreateShelfWithBook({
         bookId: 1,
+        libraryId: 1,
       }),
     );
 
@@ -158,6 +166,7 @@ describe("useCreateShelfWithBook", () => {
     const { result } = renderHook(() =>
       useCreateShelfWithBook({
         bookId: 10,
+        libraryId: 1,
         onSuccess: mockOnSuccess,
       }),
     );
@@ -172,7 +181,7 @@ describe("useCreateShelfWithBook", () => {
     });
 
     expect(createShelf).toHaveBeenCalledWith(shelfData);
-    expect(mockAddBook).toHaveBeenCalledWith(1, 10);
+    expect(mockAddBook).toHaveBeenCalledWith(1, 10, 1);
     expect(mockAddRecentShelf).toHaveBeenCalledWith(1);
     expect(mockRefreshShelvesContext).toHaveBeenCalled();
     expect(result.current.showCreateModal).toBe(false);
@@ -197,6 +206,7 @@ describe("useCreateShelfWithBook", () => {
     const { result } = renderHook(() =>
       useCreateShelfWithBook({
         bookId: 10,
+        libraryId: 1,
         onError: mockOnError,
       }),
     );
@@ -240,6 +250,7 @@ describe("useCreateShelfWithBook", () => {
     const { result } = renderHook(() =>
       useCreateShelfWithBook({
         bookId: 10,
+        libraryId: 1,
         onError: mockOnError,
       }),
     );
@@ -281,6 +292,7 @@ describe("useCreateShelfWithBook", () => {
     const { result } = renderHook(() =>
       useCreateShelfWithBook({
         bookId: 10,
+        libraryId: 1,
         onError: mockOnError,
       }),
     );
@@ -313,6 +325,7 @@ describe("useCreateShelfWithBook", () => {
     const { result } = renderHook(() =>
       useCreateShelfWithBook({
         bookId: 10,
+        libraryId: 1,
       }),
     );
 
@@ -342,6 +355,7 @@ describe("useCreateShelfWithBook", () => {
     const { result } = renderHook(() =>
       useCreateShelfWithBook({
         bookId: 10,
+        libraryId: 1,
       }),
     );
 

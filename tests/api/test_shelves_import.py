@@ -25,9 +25,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from bookcard.api.deps import get_current_user, get_db_session
+from bookcard.api.deps import get_current_user, get_db_session, get_visible_library_ids
 from bookcard.api.routes.shelves import router as shelves_router
 from bookcard.models.auth import User
+from bookcard.models.config import Library
 from bookcard.models.shelves import Shelf, ShelfTypeEnum
 from bookcard.services.shelf_service import ShelfService
 from tests.conftest import TEST_ENCRYPTION_KEY, DummySession
@@ -85,19 +86,9 @@ def mock_shelf_service(test_shelf: Shelf) -> MagicMock:
     return service
 
 
-@pytest.fixture
-def app(
-    test_user: User,
-    mock_session: DummySession,
-    mock_shelf_service: MagicMock,
-    test_shelf: Shelf,
-    monkeypatch: pytest.MonkeyPatch,
-) -> FastAPI:
-    """Create a FastAPI app with shelves router and mocked dependencies."""
-    # Mock all the dependencies before creating the app
-    from bookcard.models.config import Library
-
-    mock_library = Library(
+def _mock_library() -> Library:
+    """Create a mock Library used across import tests."""
+    return Library(
         id=1,
         name="Test Library",
         calibre_db_path="/path/to/library",
@@ -105,110 +96,100 @@ def app(
         is_active=True,
     )
 
-    # Mock ShelfRepository
+
+def _patch_route_dependencies(
+    monkeypatch: pytest.MonkeyPatch,
+    test_shelf: Shelf,
+    mock_shelf_service: MagicMock,
+    *,
+    allow_permissions: bool = True,
+) -> None:
+    """Apply monkeypatches common to all import tests."""
+    mock_library = _mock_library()
+    _factory = lambda *a, **kw: MagicMock()  # noqa: E731
+
     mock_repo = MagicMock()
     mock_repo.get.return_value = test_shelf
-
-    def mock_shelf_repo_init(*args: object, **kwargs: object) -> MagicMock:
-        return mock_repo
-
     monkeypatch.setattr(
-        "bookcard.api.routes.shelves.ShelfRepository", mock_shelf_repo_init
+        "bookcard.api.routes.shelves.ShelfRepository", lambda *a, **kw: mock_repo
     )
 
-    # Mock BookShelfLinkRepository
     mock_link_repo = MagicMock()
     mock_link_repo.find_by_shelf.return_value = []
-
-    def mock_link_repo_init(*args: object, **kwargs: object) -> MagicMock:
-        return mock_link_repo
-
     monkeypatch.setattr(
-        "bookcard.api.routes.shelves.BookShelfLinkRepository", mock_link_repo_init
+        "bookcard.api.routes.shelves.BookShelfLinkRepository",
+        lambda *a, **kw: mock_link_repo,
     )
 
-    # Mock _resolve_active_library (replaces old direct LibraryService mock)
     monkeypatch.setattr(
         "bookcard.api.routes.shelves._resolve_active_library",
         lambda session, user_id=None: mock_library,
     )
 
-    # Mock LibraryService (still needed by _magic_shelf_service)
     mock_lib_service = MagicMock()
     mock_lib_service.get_active_library.return_value = mock_library
     mock_lib_service.get_library.return_value = mock_library
-
-    def mock_lib_service_init(*args: object, **kwargs: object) -> MagicMock:
-        return mock_lib_service
-
     monkeypatch.setattr(
-        "bookcard.api.routes.shelves.LibraryService", mock_lib_service_init
+        "bookcard.api.routes.shelves.LibraryService", lambda *a, **kw: mock_lib_service
     )
 
-    # Mock PermissionService
     mock_perm_service = MagicMock()
-    mock_perm_service.check_permission.return_value = None
+    if allow_permissions:
+        mock_perm_service.check_permission.return_value = None
+    else:
+        from fastapi import HTTPException, status
 
-    def mock_perm_service_init(*args: object, **kwargs: object) -> MagicMock:
-        return mock_perm_service
+        def _deny(*a: object, **kw: object) -> NoReturn:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="permission_denied"
+            )
 
+        mock_perm_service.check_permission.side_effect = _deny
     monkeypatch.setattr(
-        "bookcard.api.routes.shelves.PermissionService", mock_perm_service_init
+        "bookcard.api.routes.shelves.PermissionService",
+        lambda *a, **kw: mock_perm_service,
     )
 
-    # Mock ShelfService
-    def mock_shelf_service_init(*args: object, **kwargs: object) -> MagicMock:
-        return mock_shelf_service
-
     monkeypatch.setattr(
-        "bookcard.api.routes.shelves.ShelfService", mock_shelf_service_init
+        "bookcard.api.routes.shelves.ShelfService", lambda *a, **kw: mock_shelf_service
+    )
+    monkeypatch.setattr(
+        "bookcard.api.routes.shelves._shelf_service",
+        lambda *a, **kw: mock_shelf_service,
     )
 
-    # Mock _shelf_service dependency function to avoid creating real ShelfService
-    def mock_shelf_service_dep(*args: object, **kwargs: object) -> MagicMock:
-        return mock_shelf_service
 
-    monkeypatch.setattr(
-        "bookcard.api.routes.shelves._shelf_service", mock_shelf_service_dep
-    )
-
-    # Mock ReadListImportService
+def _mock_import_service(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch ReadListImportService with a dummy result."""
     from bookcard.services.readlist.import_service import ImportResult
 
-    mock_import_service = MagicMock()
-    import_result = ImportResult()
-    import_result.total_books = 1
-    import_result.matched = []
-    import_result.unmatched = []
-    import_result.errors = []
-    mock_import_service.import_read_list.return_value = import_result
-
-    def mock_import_service_init(*args: object, **kwargs: object) -> MagicMock:
-        return mock_import_service
-
+    mock_svc = MagicMock()
+    result = ImportResult()
+    result.total_books = 1
+    result.matched = []
+    result.unmatched = []
+    result.errors = []
+    mock_svc.import_read_list.return_value = result
     monkeypatch.setattr(
         "bookcard.services.shelf_service.ReadListImportService",
-        mock_import_service_init,
+        lambda *a, **kw: mock_svc,
     )
 
-    # Create app and override dependencies
+
+def _build_app(
+    test_user: User,
+    mock_session: DummySession,
+) -> FastAPI:
+    """Create a FastAPI app with dependency overrides."""
+    from bookcard.config import AppConfig
+
     app = FastAPI()
     app.include_router(shelves_router, prefix="/api")
 
-    # Override dependencies
-    def get_current_user_override() -> User:
-        return test_user
+    app.dependency_overrides[get_current_user] = lambda: test_user
+    app.dependency_overrides[get_db_session] = lambda: mock_session
+    app.dependency_overrides[get_visible_library_ids] = lambda: [1]
 
-    def get_db_session_override() -> DummySession:
-        return mock_session
-
-    app.dependency_overrides[get_current_user] = get_current_user_override
-    app.dependency_overrides[get_db_session] = get_db_session_override
-
-    # Set app state for config with temporary data directory
-    from bookcard.config import AppConfig
-
-    # Use a temporary directory for data_directory to avoid permission issues
     temp_data_dir = tempfile.mkdtemp()
     app.state.config = AppConfig(
         jwt_secret="test-secret",
@@ -219,8 +200,21 @@ def app(
         echo_sql=False,
         data_directory=temp_data_dir,
     )
-
     return app
+
+
+@pytest.fixture
+def app(
+    test_user: User,
+    mock_session: DummySession,
+    mock_shelf_service: MagicMock,
+    test_shelf: Shelf,
+    monkeypatch: pytest.MonkeyPatch,
+) -> FastAPI:
+    """Create a FastAPI app with shelves router and mocked dependencies."""
+    _patch_route_dependencies(monkeypatch, test_shelf, mock_shelf_service)
+    _mock_import_service(monkeypatch)
+    return _build_app(test_user, mock_session)
 
 
 @pytest.fixture
@@ -284,119 +278,11 @@ def test_import_read_list_permission_denied(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that import requires edit permission."""
-    from fastapi import FastAPI, HTTPException, status
-
-    # Create a separate app with permission denied
-    from bookcard.models.config import Library
-
-    mock_library = Library(
-        id=1,
-        name="Test Library",
-        calibre_db_path="/path/to/library",
-        calibre_db_file="metadata.db",
-        is_active=True,
+    _patch_route_dependencies(
+        monkeypatch, test_shelf, mock_shelf_service, allow_permissions=False
     )
 
-    # Mock ShelfRepository
-    mock_repo = MagicMock()
-    mock_repo.get.return_value = test_shelf
-
-    def mock_shelf_repo_init(*args: object, **kwargs: object) -> MagicMock:
-        return mock_repo
-
-    monkeypatch.setattr(
-        "bookcard.api.routes.shelves.ShelfRepository", mock_shelf_repo_init
-    )
-
-    # Mock BookShelfLinkRepository
-    mock_link_repo = MagicMock()
-    mock_link_repo.find_by_shelf.return_value = []
-
-    def mock_link_repo_init(*args: object, **kwargs: object) -> MagicMock:
-        return mock_link_repo
-
-    monkeypatch.setattr(
-        "bookcard.api.routes.shelves.BookShelfLinkRepository", mock_link_repo_init
-    )
-
-    # Mock _resolve_active_library (replaces old direct LibraryService mock)
-    monkeypatch.setattr(
-        "bookcard.api.routes.shelves._resolve_active_library",
-        lambda session, user_id=None: mock_library,
-    )
-
-    # Mock LibraryService (still needed by _magic_shelf_service)
-    mock_lib_service = MagicMock()
-    mock_lib_service.get_active_library.return_value = mock_library
-    mock_lib_service.get_library.return_value = mock_library
-
-    def mock_lib_service_init(*args: object, **kwargs: object) -> MagicMock:
-        return mock_lib_service
-
-    monkeypatch.setattr(
-        "bookcard.api.routes.shelves.LibraryService", mock_lib_service_init
-    )
-
-    # Mock ShelfService
-    def mock_shelf_service_init_denied(*args: object, **kwargs: object) -> MagicMock:
-        return mock_shelf_service
-
-    monkeypatch.setattr(
-        "bookcard.api.routes.shelves.ShelfService", mock_shelf_service_init_denied
-    )
-
-    # Mock _shelf_service dependency function to avoid creating real ShelfService
-    def mock_shelf_service_dep_denied(*args: object, **kwargs: object) -> MagicMock:
-        return mock_shelf_service
-
-    monkeypatch.setattr(
-        "bookcard.api.routes.shelves._shelf_service", mock_shelf_service_dep_denied
-    )
-
-    # Mock PermissionService to DENY permission
-    mock_perm_service = MagicMock()
-
-    def check_permission_denied(*args: object, **kwargs: object) -> NoReturn:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="permission_denied"
-        )
-
-    mock_perm_service.check_permission.side_effect = check_permission_denied
-
-    def mock_perm_service_init(*args: object, **kwargs: object) -> MagicMock:
-        return mock_perm_service
-
-    monkeypatch.setattr(
-        "bookcard.api.routes.shelves.PermissionService", mock_perm_service_init
-    )
-
-    # Create app
-    app = FastAPI()
-    app.include_router(shelves_router, prefix="/api")
-
-    def get_current_user_override() -> User:
-        return test_user
-
-    def get_db_session_override() -> DummySession:
-        return mock_session
-
-    app.dependency_overrides[get_current_user] = get_current_user_override
-    app.dependency_overrides[get_db_session] = get_db_session_override
-
-    from bookcard.config import AppConfig
-
-    # Use a temporary directory for data_directory to avoid permission issues
-    temp_data_dir = tempfile.mkdtemp()
-    app.state.config = AppConfig(
-        jwt_secret="test-secret",
-        jwt_algorithm="HS256",
-        jwt_expires_minutes=15,
-        encryption_key=TEST_ENCRYPTION_KEY,
-        database_url="sqlite:///:memory:",
-        echo_sql=False,
-        data_directory=temp_data_dir,
-    )
-
+    app = _build_app(test_user, mock_session)
     client = TestClient(app)
     auth_headers = {"Authorization": "Bearer test_token"}
 

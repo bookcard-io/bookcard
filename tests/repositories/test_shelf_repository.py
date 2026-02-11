@@ -142,6 +142,88 @@ def test_shelf_repository_find_by_library_and_user_exclude_public() -> None:
     assert shelf in result
 
 
+def test_shelf_repository_find_by_libraries_and_user_include_public() -> None:
+    """Test find_by_libraries_and_user returns shelves across multiple libraries."""
+    session = DummySession()
+    repo = ShelfRepository(session)  # type: ignore[arg-type]
+
+    shelf1 = Shelf(
+        id=1,
+        name="Lib1 Private",
+        is_public=False,
+        user_id=1,
+        library_id=1,
+        is_active=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+        last_modified=datetime.now(UTC),
+    )
+    shelf2 = Shelf(
+        id=2,
+        name="Lib2 Public",
+        is_public=True,
+        user_id=2,
+        library_id=2,
+        is_active=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+        last_modified=datetime.now(UTC),
+    )
+
+    session.add_exec_result([shelf1, shelf2])
+    result = repo.find_by_libraries_and_user(
+        library_ids=[1, 2],
+        user_id=1,
+        include_public=True,
+    )
+
+    assert len(result) == 2
+    assert shelf1 in result
+    assert shelf2 in result
+
+
+def test_shelf_repository_find_by_libraries_and_user_exclude_public() -> None:
+    """Test find_by_libraries_and_user with include_public=False."""
+    session = DummySession()
+    repo = ShelfRepository(session)  # type: ignore[arg-type]
+
+    shelf = Shelf(
+        id=1,
+        name="My Private",
+        is_public=False,
+        user_id=1,
+        library_id=1,
+        is_active=True,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+        last_modified=datetime.now(UTC),
+    )
+
+    session.add_exec_result([shelf])
+    result = repo.find_by_libraries_and_user(
+        library_ids=[1, 2],
+        user_id=1,
+        include_public=False,
+    )
+
+    assert len(result) == 1
+    assert shelf in result
+
+
+def test_shelf_repository_find_by_libraries_and_user_empty_list() -> None:
+    """Test find_by_libraries_and_user with empty library_ids returns empty list."""
+    session = DummySession()
+    repo = ShelfRepository(session)  # type: ignore[arg-type]
+
+    result = repo.find_by_libraries_and_user(
+        library_ids=[],
+        user_id=1,
+        include_public=True,
+    )
+
+    assert result == []
+
+
 def test_shelf_repository_find_by_library() -> None:
     """Test find_by_library returns all shelves for a library."""
     session = DummySession()
@@ -471,6 +553,7 @@ def test_book_shelf_link_repository_add() -> None:
     link = BookShelfLink(
         shelf_id=1,
         book_id=100,
+        library_id=1,
         order=0,
         date_added=datetime.now(UTC),
     )
@@ -489,6 +572,7 @@ def test_book_shelf_link_repository_get() -> None:
         id=1,
         shelf_id=1,
         book_id=100,
+        library_id=1,
         order=0,
         date_added=datetime.now(UTC),
     )
@@ -510,6 +594,7 @@ def test_book_shelf_link_repository_find_by_shelf() -> None:
         id=1,
         shelf_id=1,
         book_id=100,
+        library_id=1,
         order=0,
         date_added=datetime.now(UTC),
     )
@@ -517,6 +602,7 @@ def test_book_shelf_link_repository_find_by_shelf() -> None:
         id=2,
         shelf_id=1,
         book_id=101,
+        library_id=1,
         order=1,
         date_added=datetime.now(UTC),
     )
@@ -538,6 +624,7 @@ def test_book_shelf_link_repository_find_by_book() -> None:
         id=1,
         shelf_id=1,
         book_id=100,
+        library_id=1,
         order=0,
         date_added=datetime.now(UTC),
     )
@@ -545,16 +632,43 @@ def test_book_shelf_link_repository_find_by_book() -> None:
         id=2,
         shelf_id=2,
         book_id=100,
+        library_id=1,
         order=0,
         date_added=datetime.now(UTC),
     )
 
     session.add_exec_result([link1, link2])
-    result = repo.find_by_book(book_id=100)
+    result = repo.find_by_book(book_id=100, library_id=1)
 
     assert len(result) == 2
     assert link1 in result
     assert link2 in result
+
+
+def test_book_shelf_link_repository_find_by_book_filters_by_library() -> None:
+    """Test find_by_book filters by library_id."""
+    session = DummySession()
+    repo = BookShelfLinkRepository(session)  # type: ignore[arg-type]
+
+    link_lib1 = BookShelfLink(
+        id=1,
+        shelf_id=1,
+        book_id=100,
+        library_id=1,
+        order=0,
+        date_added=datetime.now(UTC),
+    )
+
+    # Only return link for library 1
+    session.add_exec_result([link_lib1])
+    result = repo.find_by_book(book_id=100, library_id=1)
+    assert len(result) == 1
+    assert result[0] is link_lib1
+
+    # No links for library 2
+    session.add_exec_result([])
+    result = repo.find_by_book(book_id=100, library_id=2)
+    assert len(result) == 0
 
 
 def test_book_shelf_link_repository_find_by_shelf_and_book() -> None:
@@ -566,6 +680,7 @@ def test_book_shelf_link_repository_find_by_shelf_and_book() -> None:
         id=1,
         shelf_id=1,
         book_id=100,
+        library_id=1,
         order=0,
         date_added=datetime.now(UTC),
     )
@@ -577,6 +692,29 @@ def test_book_shelf_link_repository_find_by_shelf_and_book() -> None:
 
     session.add_exec_result([])
     result = repo.find_by_shelf_and_book(shelf_id=1, book_id=999)
+    assert result is None
+
+
+def test_book_shelf_link_repository_find_by_shelf_and_book_with_library_id() -> None:
+    """Test find_by_shelf_and_book with explicit library_id."""
+    session = DummySession()
+    repo = BookShelfLinkRepository(session)  # type: ignore[arg-type]
+
+    link = BookShelfLink(
+        id=1,
+        shelf_id=1,
+        book_id=100,
+        library_id=1,
+        order=0,
+        date_added=datetime.now(UTC),
+    )
+
+    session.add_exec_result([link])
+    result = repo.find_by_shelf_and_book(shelf_id=1, book_id=100, library_id=1)
+    assert result is link
+
+    session.add_exec_result([])
+    result = repo.find_by_shelf_and_book(shelf_id=1, book_id=100, library_id=2)
     assert result is None
 
 
@@ -611,6 +749,7 @@ def test_book_shelf_link_repository_reorder_books() -> None:
         id=1,
         shelf_id=1,
         book_id=100,
+        library_id=1,
         order=0,
         date_added=datetime.now(UTC),
     )
@@ -618,6 +757,7 @@ def test_book_shelf_link_repository_reorder_books() -> None:
         id=2,
         shelf_id=1,
         book_id=101,
+        library_id=1,
         order=1,
         date_added=datetime.now(UTC),
     )
@@ -655,6 +795,7 @@ def test_book_shelf_link_repository_reorder_books_missing_link() -> None:
                 id=1,
                 shelf_id=1,
                 book_id=100,
+                library_id=1,
                 order=0,
                 date_added=datetime.now(UTC),
             )
@@ -675,6 +816,7 @@ def test_book_shelf_link_repository_delete() -> None:
         id=1,
         shelf_id=1,
         book_id=100,
+        library_id=1,
         order=0,
         date_added=datetime.now(UTC),
     )
@@ -692,6 +834,7 @@ def test_book_shelf_link_repository_delete_by_shelf() -> None:
         id=1,
         shelf_id=1,
         book_id=100,
+        library_id=1,
         order=0,
         date_added=datetime.now(UTC),
     )
@@ -699,6 +842,7 @@ def test_book_shelf_link_repository_delete_by_shelf() -> None:
         id=2,
         shelf_id=1,
         book_id=101,
+        library_id=1,
         order=1,
         date_added=datetime.now(UTC),
     )

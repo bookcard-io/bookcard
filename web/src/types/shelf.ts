@@ -19,6 +19,12 @@
  * These types match the backend API schemas defined in bookcard/api/schemas/shelves.py
  */
 
+/** Reference to a book within a shelf, including library context. */
+export interface ShelfBookRef {
+  book_id: number;
+  library_id: number;
+}
+
 export type ShelfType = "shelf" | "read_list" | "magic_shelf";
 
 export interface Shelf {

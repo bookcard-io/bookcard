@@ -439,7 +439,8 @@ describe("shelfService", () => {
   describe("addBookToShelf", () => {
     const shelfId = 1;
     const bookId = 100;
-    const url = `${apiBase}/${shelfId}/books/${bookId}`;
+    const libraryId = 1;
+    const url = `${apiBase}/${shelfId}/books/${bookId}?library_id=${libraryId}`;
 
     it("should add book to shelf successfully", async () => {
       const mockResponse = createMockResponse(true);
@@ -447,7 +448,7 @@ describe("shelfService", () => {
         mockResponse,
       );
 
-      await addBookToShelf(shelfId, bookId);
+      await addBookToShelf(shelfId, bookId, libraryId);
 
       expect(globalThis.fetch).toHaveBeenCalledWith(url, {
         method: "POST",
@@ -473,7 +474,7 @@ describe("shelfService", () => {
         mockResponse,
       );
 
-      await expect(addBookToShelf(shelfId, bookId)).rejects.toThrow(
+      await expect(addBookToShelf(shelfId, bookId, libraryId)).rejects.toThrow(
         expectedMessage,
       );
     });
@@ -488,7 +489,7 @@ describe("shelfService", () => {
         mockResponse,
       );
 
-      await expect(addBookToShelf(shelfId, bookId)).rejects.toThrow(
+      await expect(addBookToShelf(shelfId, bookId, libraryId)).rejects.toThrow(
         "Failed to add book to shelf",
       );
     });
@@ -497,7 +498,8 @@ describe("shelfService", () => {
   describe("removeBookFromShelf", () => {
     const shelfId = 1;
     const bookId = 100;
-    const url = `${apiBase}/${shelfId}/books/${bookId}`;
+    const libraryId = 1;
+    const url = `${apiBase}/${shelfId}/books/${bookId}?library_id=${libraryId}`;
 
     it("should remove book from shelf successfully", async () => {
       const mockResponse = createMockResponse(true);
@@ -505,7 +507,7 @@ describe("shelfService", () => {
         mockResponse,
       );
 
-      await removeBookFromShelf(shelfId, bookId);
+      await removeBookFromShelf(shelfId, bookId, libraryId);
 
       expect(globalThis.fetch).toHaveBeenCalledWith(url, {
         method: "DELETE",
@@ -535,9 +537,9 @@ describe("shelfService", () => {
         mockResponse,
       );
 
-      await expect(removeBookFromShelf(shelfId, bookId)).rejects.toThrow(
-        expectedMessage,
-      );
+      await expect(
+        removeBookFromShelf(shelfId, bookId, libraryId),
+      ).rejects.toThrow(expectedMessage);
     });
 
     it("should throw error when JSON parsing fails", async () => {
@@ -550,9 +552,9 @@ describe("shelfService", () => {
         mockResponse,
       );
 
-      await expect(removeBookFromShelf(shelfId, bookId)).rejects.toThrow(
-        "Failed to remove book from shelf",
-      );
+      await expect(
+        removeBookFromShelf(shelfId, bookId, libraryId),
+      ).rejects.toThrow("Failed to remove book from shelf");
     });
   });
 

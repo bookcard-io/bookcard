@@ -29,6 +29,8 @@ from bookcard.models.magic_shelf_rules import GroupRule
 from bookcard.models.shelves import ShelfTypeEnum
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from bookcard.repositories.interfaces import IBookRepository
     from bookcard.repositories.models import BookWithFullRelations, BookWithRelations
     from bookcard.repositories.shelf_repository import ShelfRepository
@@ -38,17 +40,53 @@ logger = logging.getLogger(__name__)
 
 
 class MagicShelfService:
-    """Service for retrieving books for Magic Shelves."""
+    """Service for retrieving books for Magic Shelves.
+
+    Supports querying books across multiple libraries by holding a mapping
+    of ``library_id`` to ``IBookRepository``.  When only a single library is
+    configured the behaviour is identical to the original single-repo design.
+    """
 
     def __init__(
         self,
         shelf_repo: ShelfRepository,
-        book_repo: IBookRepository,
+        book_repos: dict[int, IBookRepository],
         evaluator: BookRuleEvaluator,
     ) -> None:
         self._shelf_repo = shelf_repo
-        self._book_repo = book_repo
+        self._book_repos = book_repos
         self._evaluator = evaluator
+
+    # ------------------------------------------------------------------
+    # Legacy single-repo constructor for backward compatibility
+    # ------------------------------------------------------------------
+    @classmethod
+    def from_single_repo(
+        cls,
+        shelf_repo: ShelfRepository,
+        book_repo: IBookRepository,
+        evaluator: BookRuleEvaluator,
+        library_id: int,
+    ) -> MagicShelfService:
+        """Create an instance backed by a single library repo.
+
+        Parameters
+        ----------
+        shelf_repo : ShelfRepository
+            Shelf repository.
+        book_repo : IBookRepository
+            Single-library book repository.
+        evaluator : BookRuleEvaluator
+            Rule evaluator.
+        library_id : int
+            Library ID for the repo.
+
+        Returns
+        -------
+        MagicShelfService
+            Service instance scoped to one library.
+        """
+        return cls(shelf_repo, {library_id: book_repo}, evaluator)
 
     def count_books_for_shelf(self, shelf_id: int) -> int:
         """Count books matching the rules of a Magic Shelf.
@@ -82,7 +120,10 @@ class MagicShelfService:
             return 0
 
         book_ids_query = self._evaluator.build_matching_book_ids_stmt(group_rule)
-        return self._book_repo.count_books_by_ids_query(book_ids_query)
+        total = 0
+        for repo in self._book_repos.values():
+            total += repo.count_books_by_ids_query(book_ids_query)
+        return total
 
     def get_books_for_shelf(
         self,
@@ -94,6 +135,10 @@ class MagicShelfService:
         full: bool = False,
     ) -> tuple[list[BookWithRelations | BookWithFullRelations], int]:
         """Get books matching the rules of a Magic Shelf.
+
+        Queries each library's Calibre DB independently then merges the
+        results.  Pagination is applied after merging so page boundaries
+        are consistent.
 
         Parameters
         ----------
@@ -133,25 +178,65 @@ class MagicShelfService:
         if not group_rule:
             return [], 0
 
-        # Build filter expression
         book_ids_query = self._evaluator.build_matching_book_ids_stmt(group_rule)
 
-        # Calculate offset
+        # Collect books from all libraries
+        all_books: list[BookWithRelations | BookWithFullRelations] = []
+        total_count = 0
+        for library_id, repo in self._book_repos.items():
+            count = repo.count_books_by_ids_query(book_ids_query)
+            total_count += count
+            # Fetch all matched books (we paginate after merge)
+            books = repo.list_books_by_ids_query(
+                book_ids_query,
+                limit=count or 1,
+                offset=0,
+                sort_by=sort_by,
+                sort_order=sort_order,
+                full=full,
+            )
+            # Tag each book with its library_id
+            for book in books:
+                book.book.library_id = library_id
+            all_books.extend(books)
+
+        # Sort merged results
+        reverse = sort_order == "desc"
+        sort_key = self._get_sort_key(sort_by)
+        all_books.sort(key=sort_key, reverse=reverse)
+
+        # Paginate
         offset = (page - 1) * page_size
+        paginated = all_books[offset : offset + page_size]
 
-        # Execute query
-        books = self._book_repo.list_books_by_ids_query(
-            book_ids_query,
-            limit=page_size,
-            offset=offset,
-            sort_by=sort_by,
-            sort_order=sort_order,
-            full=full,
-        )
+        return paginated, total_count
 
-        count = self._book_repo.count_books_by_ids_query(book_ids_query)
+    @staticmethod
+    def _get_sort_key(
+        sort_by: str,
+    ) -> Callable[[BookWithRelations | BookWithFullRelations], str | int]:
+        """Return a sort key function for the given field name.
 
-        return books, count
+        Parameters
+        ----------
+        sort_by : str
+            Field to sort by (``timestamp``, ``title``, ``id``).
+
+        Returns
+        -------
+        Callable
+            Callable suitable for ``list.sort(key=...)``.
+        """
+
+        def _key(b: BookWithRelations | BookWithFullRelations) -> str | int:
+            if sort_by == "title":
+                return (b.book.sort or b.book.title or "").lower()
+            if sort_by == "id":
+                return b.book.id or 0
+            # Default to timestamp
+            return str(b.book.timestamp or "")
+
+        return _key
 
     def _parse_rules(
         self,

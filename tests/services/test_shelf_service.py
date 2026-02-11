@@ -476,6 +476,7 @@ def test_add_book_to_shelf_success() -> None:
 
             assert link.shelf_id == 1
             assert link.book_id == 100
+            assert link.library_id == 1  # Falls back to shelf.library_id
             assert link.order == 6  # max_order + 1
             assert link in session.added
             assert session.flush_count > 0
@@ -562,6 +563,7 @@ def test_add_book_to_shelf_already_exists() -> None:
         existing_link = BookShelfLink(
             shelf_id=1,
             book_id=100,
+            library_id=1,
             order=0,
             date_added=datetime.now(UTC),
         )
@@ -574,6 +576,50 @@ def test_add_book_to_shelf_already_exists() -> None:
             pytest.raises(ValueError, match="Book 100 is already in shelf My Shelf"),
         ):
             service.add_book_to_shelf(shelf_id=1, book_id=100, user=user)
+
+
+def test_add_book_to_shelf_with_explicit_library_id() -> None:
+    """Test add_book_to_shelf with explicit library_id for cross-library book."""
+    session = DummySession()
+    shelf_repo = ShelfRepository(session)  # type: ignore[arg-type]
+    link_repo = BookShelfLinkRepository(session)  # type: ignore[arg-type]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        service = ShelfService(
+            session,  # type: ignore[arg-type]
+            shelf_repo,
+            link_repo,
+            data_directory=tmpdir,
+        )
+
+        shelf = Shelf(
+            id=1,
+            name="My Shelf",
+            is_public=False,
+            user_id=1,
+            library_id=1,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+            last_modified=datetime.now(UTC),
+        )
+        session.add(shelf)
+
+        with (
+            patch.object(link_repo, "find_by_shelf_and_book", return_value=None),
+            patch.object(link_repo, "get_max_order", return_value=0),
+        ):
+            user = _create_user(1)
+            link = service.add_book_to_shelf(
+                shelf_id=1,
+                book_id=42,
+                user=user,
+                library_id=2,
+            )
+
+            assert link.shelf_id == 1
+            assert link.book_id == 42
+            assert link.library_id == 2  # Explicit library_id, not shelf's
+            assert link.order == 1
 
 
 def test_remove_book_from_shelf_success() -> None:
@@ -606,6 +652,7 @@ def test_remove_book_from_shelf_success() -> None:
             id=1,
             shelf_id=1,
             book_id=100,
+            library_id=1,
             order=0,
             date_added=datetime.now(UTC),
         )
@@ -702,6 +749,53 @@ def test_remove_book_from_shelf_book_not_in_shelf() -> None:
             pytest.raises(ValueError, match="Book 100 is not in shelf My Shelf"),
         ):
             service.remove_book_from_shelf(shelf_id=1, book_id=100, user=user)
+
+
+def test_remove_book_from_shelf_with_library_id() -> None:
+    """Test remove_book_from_shelf with explicit library_id."""
+    session = DummySession()
+    shelf_repo = ShelfRepository(session)  # type: ignore[arg-type]
+    link_repo = BookShelfLinkRepository(session)  # type: ignore[arg-type]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        service = ShelfService(
+            session,  # type: ignore[arg-type]
+            shelf_repo,
+            link_repo,
+            data_directory=tmpdir,
+        )
+
+        shelf = Shelf(
+            id=1,
+            name="My Shelf",
+            is_public=False,
+            user_id=1,
+            library_id=1,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+            last_modified=datetime.now(UTC),
+        )
+        session.add(shelf)
+
+        link = BookShelfLink(
+            id=10,
+            shelf_id=1,
+            book_id=42,
+            library_id=2,
+            order=0,
+            date_added=datetime.now(UTC),
+        )
+
+        with patch.object(link_repo, "find_by_shelf_and_book", return_value=link):
+            user = _create_user(1)
+            service.remove_book_from_shelf(
+                shelf_id=1,
+                book_id=42,
+                user=user,
+                library_id=2,
+            )
+
+            assert link in session.deleted
 
 
 def test_reorder_books_success() -> None:
@@ -953,6 +1047,86 @@ def test_list_user_shelves() -> None:
                 library_id=1, user_id=1, include_public=True
             )
             assert result == shelves
+
+
+def test_list_user_shelves_multi() -> None:
+    """Test list_user_shelves_multi delegates to repository."""
+    session = DummySession()
+    shelf_repo = ShelfRepository(session)  # type: ignore[arg-type]
+    link_repo = BookShelfLinkRepository(session)  # type: ignore[arg-type]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        service = ShelfService(
+            session,  # type: ignore[arg-type]
+            shelf_repo,
+            link_repo,
+            data_directory=tmpdir,
+        )
+
+        shelf1 = Shelf(
+            id=1,
+            name="S1",
+            is_public=False,
+            user_id=1,
+            library_id=1,
+            is_active=True,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+            last_modified=datetime.now(UTC),
+        )
+        shelf2 = Shelf(
+            id=2,
+            name="S2",
+            is_public=True,
+            user_id=2,
+            library_id=2,
+            is_active=True,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+            last_modified=datetime.now(UTC),
+        )
+
+        with patch.object(
+            shelf_repo,
+            "find_by_libraries_and_user",
+            return_value=[shelf1, shelf2],
+        ):
+            result = service.list_user_shelves_multi(
+                library_ids=[1, 2],
+                user_id=1,
+                include_public=True,
+            )
+
+            assert len(result) == 2
+            assert shelf1 in result
+            assert shelf2 in result
+
+
+def test_list_user_shelves_multi_empty() -> None:
+    """Test list_user_shelves_multi returns empty list for empty library_ids."""
+    session = DummySession()
+    shelf_repo = ShelfRepository(session)  # type: ignore[arg-type]
+    link_repo = BookShelfLinkRepository(session)  # type: ignore[arg-type]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        service = ShelfService(
+            session,  # type: ignore[arg-type]
+            shelf_repo,
+            link_repo,
+            data_directory=tmpdir,
+        )
+
+        with patch.object(
+            shelf_repo,
+            "find_by_libraries_and_user",
+            return_value=[],
+        ):
+            result = service.list_user_shelves_multi(
+                library_ids=[],
+                user_id=1,
+                include_public=True,
+            )
+            assert result == []
 
 
 def test_sync_shelf_status_with_library() -> None:

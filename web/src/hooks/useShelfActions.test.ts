@@ -51,12 +51,12 @@ describe("useShelfActions", () => {
       expect(result.current.error).toBeNull();
 
       await act(async () => {
-        await result.current.addBook(1, 10);
+        await result.current.addBook(1, 10, 1);
       });
 
       expect(result.current.isProcessing).toBe(false);
       expect(result.current.error).toBeNull();
-      expect(addBookToShelf).toHaveBeenCalledWith(1, 10);
+      expect(addBookToShelf).toHaveBeenCalledWith(1, 10, 1);
     });
 
     it("should handle error when adding book", async () => {
@@ -67,7 +67,7 @@ describe("useShelfActions", () => {
 
       await act(async () => {
         try {
-          await result.current.addBook(1, 10);
+          await result.current.addBook(1, 10, 1);
         } catch {
           // Expected to throw
         }
@@ -84,7 +84,7 @@ describe("useShelfActions", () => {
 
       await act(async () => {
         try {
-          await result.current.addBook(1, 10);
+          await result.current.addBook(1, 10, 1);
         } catch {
           // Expected to throw
         }
@@ -103,7 +103,7 @@ describe("useShelfActions", () => {
       const { result } = renderHook(() => useShelfActions());
 
       act(() => {
-        void result.current.addBook(1, 10);
+        void result.current.addBook(1, 10, 1);
       });
 
       expect(result.current.isProcessing).toBe(true);
@@ -129,12 +129,12 @@ describe("useShelfActions", () => {
       const { result } = renderHook(() => useShelfActions());
 
       await act(async () => {
-        await result.current.removeBook(1, 10);
+        await result.current.removeBook(1, 10, 1);
       });
 
       expect(result.current.isProcessing).toBe(false);
       expect(result.current.error).toBeNull();
-      expect(removeBookFromShelf).toHaveBeenCalledWith(1, 10);
+      expect(removeBookFromShelf).toHaveBeenCalledWith(1, 10, 1);
     });
 
     it("should handle error when removing book", async () => {
@@ -145,7 +145,7 @@ describe("useShelfActions", () => {
 
       await act(async () => {
         try {
-          await result.current.removeBook(1, 10);
+          await result.current.removeBook(1, 10, 1);
         } catch {
           // Expected to throw
         }
@@ -162,7 +162,7 @@ describe("useShelfActions", () => {
 
       await act(async () => {
         try {
-          await result.current.removeBook(1, 10);
+          await result.current.removeBook(1, 10, 1);
         } catch {
           // Expected to throw
         }

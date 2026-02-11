@@ -43,8 +43,13 @@ import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
 import { getShelfBooks } from "@/services/shelfService";
 import type { BookListResponse } from "@/types/book";
-import type { Shelf } from "@/types/shelf";
+import type { Shelf, ShelfBookRef } from "@/types/shelf";
 import { useShelfBooksView } from "./useShelfBooksView";
+
+/** Helper to create ShelfBookRef[] from book IDs (all with library_id=1). */
+function toRefs(ids: number[]): ShelfBookRef[] {
+  return ids.map((id) => ({ book_id: id, library_id: 1 }));
+}
 
 function createWrapper(queryClient: QueryClient) {
   return ({ children }: { children: ReactNode }) => (
@@ -161,7 +166,7 @@ describe("useShelfBooksView", () => {
 
   it("should fetch shelf books with default sort params", async () => {
     const ids = [1, 2, 3];
-    vi.mocked(getShelfBooks).mockResolvedValue(ids);
+    vi.mocked(getShelfBooks).mockResolvedValue(toRefs(ids));
 
     const response = mockBookListResponse(ids, ["Charlie", "Alpha", "Bravo"]);
     vi.mocked(globalThis.fetch).mockResolvedValue({
@@ -184,7 +189,7 @@ describe("useShelfBooksView", () => {
 
   it("should pass sortBy and sortOrder to the books filter API", async () => {
     const ids = [1, 2];
-    vi.mocked(getShelfBooks).mockResolvedValue(ids);
+    vi.mocked(getShelfBooks).mockResolvedValue(toRefs(ids));
 
     const response = mockBookListResponse(ids, ["Alpha", "Bravo"]);
     vi.mocked(globalThis.fetch).mockResolvedValue({
@@ -221,7 +226,7 @@ describe("useShelfBooksView", () => {
 
   it("should use default timestamp/desc when sortBy and sortOrder are omitted", async () => {
     const ids = [1];
-    vi.mocked(getShelfBooks).mockResolvedValue(ids);
+    vi.mocked(getShelfBooks).mockResolvedValue(toRefs(ids));
 
     const response = mockBookListResponse(ids, ["Book 1"]);
     vi.mocked(globalThis.fetch).mockResolvedValue({
@@ -251,7 +256,7 @@ describe("useShelfBooksView", () => {
 
   it("should re-fetch when sortBy changes", async () => {
     const ids = [1, 2];
-    vi.mocked(getShelfBooks).mockResolvedValue(ids);
+    vi.mocked(getShelfBooks).mockResolvedValue(toRefs(ids));
 
     const responseByTimestamp = mockBookListResponse(ids, ["Bravo", "Alpha"]);
     const responseByTitle = mockBookListResponse(ids, ["Alpha", "Bravo"]);
@@ -302,7 +307,7 @@ describe("useShelfBooksView", () => {
   it("should return books in API response order, not shelf ID order", async () => {
     // Shelf returns IDs in order [3, 1, 2] but API returns sorted by title
     const shelfIds = [3, 1, 2];
-    vi.mocked(getShelfBooks).mockResolvedValue(shelfIds);
+    vi.mocked(getShelfBooks).mockResolvedValue(toRefs(shelfIds));
 
     // API returns sorted by title (Alpha=1, Bravo=2, Charlie=3)
     const response = mockBookListResponse(
@@ -394,7 +399,7 @@ describe("useShelfBooksView", () => {
     });
 
     const ids = [1, 2];
-    vi.mocked(getShelfBooks).mockResolvedValue(ids);
+    vi.mocked(getShelfBooks).mockResolvedValue(toRefs(ids));
 
     const response = mockBookListResponse(ids, ["Alpha", "Bravo"]);
     vi.mocked(globalThis.fetch).mockResolvedValue({
@@ -416,7 +421,7 @@ describe("useShelfBooksView", () => {
 
   it("should pass shelfSortBy and shelfSortOrder to the shelf endpoint", async () => {
     const ids = [1];
-    vi.mocked(getShelfBooks).mockResolvedValue(ids);
+    vi.mocked(getShelfBooks).mockResolvedValue(toRefs(ids));
 
     const response = mockBookListResponse(ids, ["Book 1"]);
     vi.mocked(globalThis.fetch).mockResolvedValue({

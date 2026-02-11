@@ -37,11 +37,17 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy import func
 from sqlmodel import Session, select
 
-from bookcard.api.deps import _resolve_active_library, get_current_user, get_db_session
+from bookcard.api.deps import (
+    _resolve_active_library,
+    get_current_user,
+    get_db_session,
+    get_visible_library_ids,
+)
 from bookcard.api.schemas.shelves import (
     BookMatch,
     BookReferenceSchema,
     ImportResultSchema,
+    ShelfBookRef,
     ShelfCreate,
     ShelfListResponse,
     ShelfRead,
@@ -64,11 +70,13 @@ from bookcard.services.shelf_service import ShelfService
 
 if TYPE_CHECKING:
     from bookcard.models.shelves import Shelf
+    from bookcard.repositories.interfaces import IBookRepository
 
 router = APIRouter(prefix="/shelves", tags=["shelves"])
 
 SessionDep = Annotated[Session, Depends(get_db_session)]
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
+VisibleLibraryIdsDep = Annotated[list[int], Depends(get_visible_library_ids)]
 
 
 def _shelf_service(request: Request, session: SessionDep) -> ShelfService:
@@ -142,40 +150,72 @@ ActiveLibraryIdDep = Annotated[int, Depends(_get_active_library_id)]
 
 def _magic_shelf_service(
     session: SessionDep,
-    library_id: ActiveLibraryIdDep,
+    visible_library_ids: VisibleLibraryIdsDep,
 ) -> MagicShelfService:
-    """Create a MagicShelfService instance.
+    """Create a MagicShelfService that queries across all visible libraries.
 
     Parameters
     ----------
     session : SessionDep
         Database session dependency.
-    library_id : ActiveLibraryIdDep
-        Active library ID dependency.
+    visible_library_ids : VisibleLibraryIdsDep
+        Library IDs visible to the current user.
 
     Returns
     -------
     MagicShelfService
-        MagicShelf service instance.
+        MagicShelf service instance spanning visible libraries.
     """
     library_repo = LibraryRepository(session)
     library_service = LibraryService(session, library_repo)
-    library = library_service.get_library(library_id)
 
-    if not library or not library.calibre_db_path:
+    book_repos: dict[int, IBookRepository] = {}
+    for lib_id in visible_library_ids:
+        library = library_service.get_library(lib_id)
+        if library and library.calibre_db_path:
+            book_repos[lib_id] = CalibreBookRepository(
+                calibre_db_path=library.calibre_db_path
+            )
+
+    if not book_repos:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Active library has no path",
+            detail="No visible libraries have a configured Calibre path",
         )
 
     shelf_repo = ShelfRepository(session)
-    book_repo = CalibreBookRepository(calibre_db_path=library.calibre_db_path)
     evaluator = BookRuleEvaluator()
 
-    return MagicShelfService(shelf_repo, book_repo, evaluator)
+    return MagicShelfService(shelf_repo, book_repos, evaluator)
 
 
 MagicShelfServiceDep = Annotated[MagicShelfService, Depends(_magic_shelf_service)]
+
+
+def _check_shelf_visible(
+    shelf: Shelf, visible_library_ids: list[int], shelf_id: int
+) -> None:
+    """Verify that a shelf's library is among the user's visible libraries.
+
+    Parameters
+    ----------
+    shelf : Shelf
+        Shelf model instance.
+    visible_library_ids : list[int]
+        Library IDs visible to the current user.
+    shelf_id : int
+        Shelf ID (used in the error message).
+
+    Raises
+    ------
+    HTTPException
+        If the shelf's library is not in the visible set (404).
+    """
+    if shelf.library_id not in visible_library_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Shelf {shelf_id} not found",
+        )
 
 
 def _build_shelf_permission_context(shelf: Shelf) -> dict[str, object]:
@@ -378,7 +418,8 @@ def list_shelves(
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
     magic_shelf_service: MagicShelfServiceDep,
-    library_id: ActiveLibraryIdDep,
+    visible_library_ids: VisibleLibraryIdsDep,
+    library_id: int | None = Query(None, description="Filter by a single library ID"),
 ) -> ShelfListResponse:
     """List shelves accessible to the current user.
 
@@ -390,8 +431,10 @@ def list_shelves(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
-    library_id : ActiveLibraryIdDep
-        Active library ID dependency.
+    visible_library_ids : VisibleLibraryIdsDep
+        Library IDs visible to the current user.
+    library_id : int | None
+        Optional library ID to filter shelves by.
 
     Returns
     -------
@@ -407,11 +450,18 @@ def list_shelves(
     permission_service = PermissionService(session)
     permission_service.check_permission(current_user, "shelves", "read")
 
-    shelves = shelf_service.list_user_shelves(
-        library_id=library_id,
-        user_id=current_user.id,  # ty:ignore[invalid-argument-type]
-        include_public=True,
-    )
+    if library_id is not None and library_id in visible_library_ids:
+        shelves = shelf_service.list_user_shelves(
+            library_id=library_id,
+            user_id=current_user.id,  # ty:ignore[invalid-argument-type]
+            include_public=True,
+        )
+    else:
+        shelves = shelf_service.list_user_shelves_multi(
+            library_ids=visible_library_ids,
+            user_id=current_user.id,  # ty:ignore[invalid-argument-type]
+            include_public=True,
+        )
 
     # Get book counts for each shelf
     link_repo = BookShelfLinkRepository(session)
@@ -457,7 +507,7 @@ def get_shelf(
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
     magic_shelf_service: MagicShelfServiceDep,
-    library_id: ActiveLibraryIdDep,
+    visible_library_ids: VisibleLibraryIdsDep,
 ) -> ShelfRead:
     """Get a shelf by ID.
 
@@ -471,8 +521,8 @@ def get_shelf(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
-    library_id : ActiveLibraryIdDep
-        Active library ID dependency.
+    visible_library_ids : VisibleLibraryIdsDep
+        Library IDs visible to the current user.
 
     Returns
     -------
@@ -492,12 +542,8 @@ def get_shelf(
             detail=f"Shelf {shelf_id} not found",
         )
 
-    # Verify shelf belongs to active library
-    if shelf.library_id != library_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Shelf {shelf_id} not found",
-        )
+    # Verify shelf belongs to a visible library
+    _check_shelf_visible(shelf, visible_library_ids, shelf_id)
 
     # Check permission with shelf context
     permission_service = PermissionService(session)
@@ -551,7 +597,7 @@ def update_shelf(
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
     magic_shelf_service: MagicShelfServiceDep,
-    library_id: ActiveLibraryIdDep,
+    visible_library_ids: VisibleLibraryIdsDep,
 ) -> ShelfRead:
     """Update a shelf.
 
@@ -567,8 +613,8 @@ def update_shelf(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
-    library_id : ActiveLibraryIdDep
-        Active library ID dependency.
+    visible_library_ids : VisibleLibraryIdsDep
+        Library IDs visible to the current user.
 
     Returns
     -------
@@ -580,14 +626,15 @@ def update_shelf(
     HTTPException
         If shelf not found, permission denied, or name conflict.
     """
-    # Verify shelf belongs to active library
+    # Verify shelf belongs to a visible library
     shelf_repo = ShelfRepository(session)
     shelf_check = shelf_repo.get(shelf_id)
-    if shelf_check is None or shelf_check.library_id != library_id:
+    if shelf_check is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Shelf {shelf_id} not found",
         )
+    _check_shelf_visible(shelf_check, visible_library_ids, shelf_id)
 
     # Check permission with shelf context
     permission_service = PermissionService(session)
@@ -649,7 +696,7 @@ def delete_shelf(
     session: SessionDep,
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
-    library_id: ActiveLibraryIdDep,
+    visible_library_ids: VisibleLibraryIdsDep,
 ) -> None:
     """Delete a shelf.
 
@@ -663,22 +710,23 @@ def delete_shelf(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
-    library_id : ActiveLibraryIdDep
-        Active library ID dependency.
+    visible_library_ids : VisibleLibraryIdsDep
+        Library IDs visible to the current user.
 
     Raises
     ------
     HTTPException
         If shelf not found or permission denied.
     """
-    # Verify shelf belongs to active library
+    # Verify shelf belongs to a visible library
     shelf_repo = ShelfRepository(session)
     shelf_check = shelf_repo.get(shelf_id)
-    if shelf_check is None or shelf_check.library_id != library_id:
+    if shelf_check is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Shelf {shelf_id} not found",
         )
+    _check_shelf_visible(shelf_check, visible_library_ids, shelf_id)
 
     # Check permission with shelf context
     permission_service = PermissionService(session)
@@ -707,7 +755,8 @@ def add_book_to_shelf(
     session: SessionDep,
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
-    library_id: ActiveLibraryIdDep,
+    visible_library_ids: VisibleLibraryIdsDep,
+    library_id: int = Query(..., description="Library the book belongs to"),
 ) -> None:
     """Add a book to a shelf.
 
@@ -723,20 +772,32 @@ def add_book_to_shelf(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
+    visible_library_ids : VisibleLibraryIdsDep
+        Library IDs visible to the current user.
+    library_id : int
+        Library the book belongs to.
 
     Raises
     ------
     HTTPException
         If shelf not found, permission denied, or book already in shelf.
     """
-    # Verify shelf belongs to active library
+    # Validate the requested library is visible
+    if library_id not in visible_library_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Library {library_id} not found",
+        )
+
+    # Verify shelf belongs to a visible library
     shelf_repo = ShelfRepository(session)
     shelf_check = shelf_repo.get(shelf_id)
-    if shelf_check is None or shelf_check.library_id != library_id:
+    if shelf_check is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Shelf {shelf_id} not found",
         )
+    _check_shelf_visible(shelf_check, visible_library_ids, shelf_id)
 
     # Check permission with shelf context
     permission_service = PermissionService(session)
@@ -744,7 +805,9 @@ def add_book_to_shelf(
     permission_service.check_permission(current_user, "shelves", "edit", shelf_context)
 
     try:
-        shelf_service.add_book_to_shelf(shelf_id, book_id, current_user)
+        shelf_service.add_book_to_shelf(
+            shelf_id, book_id, current_user, library_id=library_id
+        )
         session.commit()
     except ValueError as e:
         raise HTTPException(
@@ -763,7 +826,8 @@ def remove_book_from_shelf(
     session: SessionDep,
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
-    library_id: ActiveLibraryIdDep,
+    visible_library_ids: VisibleLibraryIdsDep,
+    library_id: int = Query(..., description="Library the book belongs to"),
 ) -> None:
     """Remove a book from a shelf.
 
@@ -779,20 +843,32 @@ def remove_book_from_shelf(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
+    visible_library_ids : VisibleLibraryIdsDep
+        Library IDs visible to the current user.
+    library_id : int
+        Library the book belongs to.
 
     Raises
     ------
     HTTPException
         If shelf not found, permission denied, or book not in shelf.
     """
-    # Verify shelf belongs to active library
+    # Validate the requested library is visible
+    if library_id not in visible_library_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Library {library_id} not found",
+        )
+
+    # Verify shelf belongs to a visible library
     shelf_repo = ShelfRepository(session)
     shelf_check = shelf_repo.get(shelf_id)
-    if shelf_check is None or shelf_check.library_id != library_id:
+    if shelf_check is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Shelf {shelf_id} not found",
         )
+    _check_shelf_visible(shelf_check, visible_library_ids, shelf_id)
 
     # Check permission with shelf context
     permission_service = PermissionService(session)
@@ -800,7 +876,9 @@ def remove_book_from_shelf(
     permission_service.check_permission(current_user, "shelves", "edit", shelf_context)
 
     try:
-        shelf_service.remove_book_from_shelf(shelf_id, book_id, current_user)
+        shelf_service.remove_book_from_shelf(
+            shelf_id, book_id, current_user, library_id=library_id
+        )
         session.commit()
     except ValueError as e:
         raise HTTPException(
@@ -819,7 +897,7 @@ def reorder_shelf_books(
     session: SessionDep,
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
-    library_id: ActiveLibraryIdDep,
+    visible_library_ids: VisibleLibraryIdsDep,
 ) -> None:
     """Reorder books in a shelf.
 
@@ -835,20 +913,23 @@ def reorder_shelf_books(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
+    visible_library_ids : VisibleLibraryIdsDep
+        Library IDs visible to the current user.
 
     Raises
     ------
     HTTPException
         If shelf not found or permission denied.
     """
-    # Verify shelf belongs to active library
+    # Verify shelf belongs to a visible library
     shelf_repo = ShelfRepository(session)
     shelf_check = shelf_repo.get(shelf_id)
-    if shelf_check is None or shelf_check.library_id != library_id:
+    if shelf_check is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Shelf {shelf_id} not found",
         )
+    _check_shelf_visible(shelf_check, visible_library_ids, shelf_id)
 
     # Check permission with shelf context
     permission_service = PermissionService(session)
@@ -869,14 +950,14 @@ def reorder_shelf_books(
         ) from e
 
 
-@router.get("/{shelf_id}/books", response_model=list[int])
+@router.get("/{shelf_id}/books", response_model=list[ShelfBookRef])
 def get_shelf_books(
     shelf_id: int,
     session: SessionDep,
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
     magic_shelf_service: MagicShelfServiceDep,
-    library_id: ActiveLibraryIdDep,
+    visible_library_ids: VisibleLibraryIdsDep,
     page: int = Query(default=1, ge=1, description="Page number"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
     sort_by: str = Query(
@@ -887,8 +968,8 @@ def get_shelf_books(
         default="asc",
         description="Sort order: 'asc' or 'desc'",
     ),
-) -> list[int]:
-    """List book IDs in a shelf with pagination and sorting.
+) -> list[ShelfBookRef]:
+    """List books in a shelf with pagination and sorting.
 
     Parameters
     ----------
@@ -902,6 +983,8 @@ def get_shelf_books(
         Shelf service dependency.
     magic_shelf_service : MagicShelfServiceDep
         Magic Shelf service dependency.
+    visible_library_ids : VisibleLibraryIdsDep
+        Library IDs visible to the current user.
     page : int
         Page number (1-indexed).
     page_size : int
@@ -913,8 +996,8 @@ def get_shelf_books(
 
     Returns
     -------
-    list[int]
-        List of book IDs in the shelf.
+    list[ShelfBookRef]
+        List of book references in the shelf.
 
     Raises
     ------
@@ -929,12 +1012,8 @@ def get_shelf_books(
             detail=f"Shelf {shelf_id} not found",
         )
 
-    # Verify shelf belongs to active library
-    if shelf.library_id != library_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Shelf {shelf_id} not found",
-        )
+    # Verify shelf belongs to a visible library
+    _check_shelf_visible(shelf, visible_library_ids, shelf_id)
 
     if not shelf_service.can_view_shelf(shelf, current_user.id):
         raise HTTPException(
@@ -955,7 +1034,11 @@ def get_shelf_books(
                 sort_order=sort_order,
                 full=False,
             )
-            return [book.book.id for book in books if book.book.id is not None]
+            return [
+                ShelfBookRef(book_id=book.book.id, library_id=shelf.library_id)
+                for book in books
+                if book.book.id is not None
+            ]
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -968,13 +1051,14 @@ def get_shelf_books(
     if sort_by == "random":
         # SQL-level random ordering; ignores sort_order.
         stmt = (
-            select(BookShelfLink.book_id)
+            select(BookShelfLink.book_id, BookShelfLink.library_id)
             .where(BookShelfLink.shelf_id == shelf_id)
             .order_by(func.random())
             .offset(offset)
             .limit(page_size)
         )
-        return list(session.exec(stmt).all())
+        rows = session.exec(stmt).all()
+        return [ShelfBookRef(book_id=row[0], library_id=row[1]) for row in rows]
 
     links = link_repo.find_by_shelf(shelf_id)
 
@@ -987,7 +1071,10 @@ def get_shelf_books(
         links.sort(key=lambda x: x.book_id, reverse=(sort_order == "desc"))
 
     paginated_links = links[offset : offset + page_size]
-    return [link.book_id for link in paginated_links]
+    return [
+        ShelfBookRef(book_id=link.book_id, library_id=link.library_id)
+        for link in paginated_links
+    ]
 
 
 @router.post("/{shelf_id}/cover-picture", response_model=ShelfRead)
@@ -997,7 +1084,7 @@ def upload_shelf_cover_picture(
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
     magic_shelf_service: MagicShelfServiceDep,
-    library_id: ActiveLibraryIdDep,
+    visible_library_ids: VisibleLibraryIdsDep,
     file: Annotated[UploadFile, File()],
 ) -> ShelfRead:
     """Upload a shelf's cover picture.
@@ -1007,8 +1094,6 @@ def upload_shelf_cover_picture(
 
     Parameters
     ----------
-    request : Request
-        FastAPI request object.
     shelf_id : int
         Shelf identifier.
     session : SessionDep
@@ -1017,8 +1102,8 @@ def upload_shelf_cover_picture(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
-    library_id : ActiveLibraryIdDep
-        Active library ID dependency.
+    visible_library_ids : VisibleLibraryIdsDep
+        Library IDs visible to the current user.
     file : UploadFile
         Image file to upload (JPEG, PNG, GIF, WebP, or SVG).
 
@@ -1033,14 +1118,15 @@ def upload_shelf_cover_picture(
         If shelf not found (404), permission denied (403), invalid file type (400),
         or file save fails (500).
     """
-    # Verify shelf belongs to active library
+    # Verify shelf belongs to a visible library
     shelf_repo = ShelfRepository(session)
     shelf_check = shelf_repo.get(shelf_id)
-    if shelf_check is None or shelf_check.library_id != library_id:
+    if shelf_check is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Shelf {shelf_id} not found",
         )
+    _check_shelf_visible(shelf_check, visible_library_ids, shelf_id)
 
     if not file.filename:
         raise HTTPException(
@@ -1101,7 +1187,7 @@ def get_shelf_cover_picture(
     request: Request,
     shelf_id: int,
     session: SessionDep,
-    library_id: ActiveLibraryIdDep,
+    visible_library_ids: VisibleLibraryIdsDep,
 ) -> FileResponse | Response:
     """Get a shelf's cover picture.
 
@@ -1116,8 +1202,8 @@ def get_shelf_cover_picture(
         Shelf identifier.
     session : SessionDep
         Database session dependency.
-    library_id : ActiveLibraryIdDep
-        Active library ID dependency.
+    visible_library_ids : VisibleLibraryIdsDep
+        Library IDs visible to the current user.
 
     Returns
     -------
@@ -1128,8 +1214,10 @@ def get_shelf_cover_picture(
     shelf_repo = ShelfRepository(session)
     shelf = shelf_repo.get(shelf_id)
 
-    if shelf is None or shelf.library_id != library_id:
+    if shelf is None:
         return Response(status_code=status.HTTP_404_NOT_FOUND)
+
+    _check_shelf_visible(shelf, visible_library_ids, shelf_id)
 
     if not shelf.cover_picture:
         return Response(status_code=status.HTTP_404_NOT_FOUND)
@@ -1167,7 +1255,7 @@ def delete_shelf_cover_picture(
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
     magic_shelf_service: MagicShelfServiceDep,
-    library_id: ActiveLibraryIdDep,
+    visible_library_ids: VisibleLibraryIdsDep,
 ) -> ShelfRead:
     """Delete a shelf's cover picture.
 
@@ -1183,8 +1271,8 @@ def delete_shelf_cover_picture(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
-    library_id : ActiveLibraryIdDep
-        Active library ID dependency.
+    visible_library_ids : VisibleLibraryIdsDep
+        Library IDs visible to the current user.
 
     Returns
     -------
@@ -1196,14 +1284,15 @@ def delete_shelf_cover_picture(
     HTTPException
         If shelf not found (404) or permission denied (403).
     """
-    # Verify shelf belongs to active library
+    # Verify shelf belongs to a visible library
     shelf_repo = ShelfRepository(session)
     shelf_check = shelf_repo.get(shelf_id)
-    if shelf_check is None or shelf_check.library_id != library_id:
+    if shelf_check is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Shelf {shelf_id} not found",
         )
+    _check_shelf_visible(shelf_check, visible_library_ids, shelf_id)
 
     try:
         shelf = shelf_service.delete_cover_picture(
@@ -1264,7 +1353,7 @@ def import_read_list(
     session: SessionDep,
     current_user: CurrentUserDep,
     shelf_service: ShelfServiceDep,
-    library_id: ActiveLibraryIdDep,
+    visible_library_ids: VisibleLibraryIdsDep,
     file: Annotated[UploadFile, File()],
     importer: Annotated[str, Form()] = "comicrack",
     auto_match: Annotated[bool, Form()] = False,
@@ -1281,8 +1370,8 @@ def import_read_list(
         Current authenticated user.
     shelf_service : ShelfServiceDep
         Shelf service dependency.
-    library_id : ActiveLibraryIdDep
-        Active library ID dependency.
+    visible_library_ids : VisibleLibraryIdsDep
+        Library IDs visible to the current user.
     file : UploadFile
         Read list file to import (.cbl, etc.).
     importer : str
@@ -1300,14 +1389,15 @@ def import_read_list(
     HTTPException
         If shelf not found, permission denied, or import fails.
     """
-    # Verify shelf belongs to active library
+    # Verify shelf belongs to a visible library
     shelf_repo = ShelfRepository(session)
     shelf_check = shelf_repo.get(shelf_id)
-    if shelf_check is None or shelf_check.library_id != library_id:
+    if shelf_check is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Shelf {shelf_id} not found",
         )
+    _check_shelf_visible(shelf_check, visible_library_ids, shelf_id)
 
     # Check permission
     permission_service = PermissionService(session)
