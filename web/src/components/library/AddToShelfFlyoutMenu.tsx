@@ -152,7 +152,11 @@ export function AddToShelfFlyoutMenu({
       }
 
       const results = await Promise.allSettled(
-        books.map((book) => addBook(shelfId, book.id)),
+        books
+          .filter(
+            (b): b is typeof b & { library_id: number } => b.library_id != null,
+          )
+          .map((book) => addBook(shelfId, book.id, book.library_id)),
       );
 
       const successful = results.filter((r) => r.status === "fulfilled").length;

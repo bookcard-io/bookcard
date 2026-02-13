@@ -122,6 +122,49 @@ class ShelfRepository:
             )
         return list(self._session.exec(stmt).all())
 
+    def find_by_libraries_and_user(
+        self,
+        library_ids: list[int],
+        user_id: int,
+        include_public: bool = True,
+    ) -> list[Shelf]:
+        """Find shelves across multiple libraries for a user.
+
+        Parameters
+        ----------
+        library_ids : list[int]
+            Library IDs to include.
+        user_id : int
+            User ID to find shelves for.
+        include_public : bool
+            Whether to include public shelves (default: True).
+
+        Returns
+        -------
+        list[Shelf]
+            Shelves accessible to the user across the given libraries,
+            sorted by created_at descending.
+        """
+        if not library_ids:
+            return []
+
+        base = select(Shelf).where(
+            Shelf.library_id.in_(library_ids),  # type: ignore[union-attr]
+            Shelf.is_active == True,  # noqa: E712
+        )
+        if include_public:
+            base = base.where(
+                or_(
+                    Shelf.user_id == user_id,
+                    Shelf.is_public == True,  # noqa: E712
+                ),
+            )
+        else:
+            base = base.where(Shelf.user_id == user_id)
+
+        stmt = base.order_by(desc(Shelf.created_at))  # type: ignore[invalid-argument-type]
+        return list(self._session.exec(stmt).all())
+
     def find_by_library(self, library_id: int) -> list[Shelf]:
         """Find all shelves for a library (regardless of user or active status).
 
@@ -348,26 +391,32 @@ class BookShelfLinkRepository:
         )
         return list(self._session.exec(stmt).all())
 
-    def find_by_book(self, book_id: int) -> list[BookShelfLink]:
-        """Find all shelf links for a book.
+    def find_by_book(self, book_id: int, library_id: int) -> list[BookShelfLink]:
+        """Find all shelf links for a book in a specific library.
 
         Parameters
         ----------
         book_id : int
             Calibre book ID.
+        library_id : int
+            Library ID that the book belongs to.
 
         Returns
         -------
         list[BookShelfLink]
             List of book-shelf links for the book.
         """
-        stmt = select(BookShelfLink).where(BookShelfLink.book_id == book_id)
+        stmt = select(BookShelfLink).where(
+            BookShelfLink.book_id == book_id,
+            BookShelfLink.library_id == library_id,
+        )
         return list(self._session.exec(stmt).all())
 
     def find_by_shelf_and_book(
         self,
         shelf_id: int,
         book_id: int,
+        library_id: int | None = None,
     ) -> BookShelfLink | None:
         """Find a specific book-shelf link.
 
@@ -377,6 +426,10 @@ class BookShelfLinkRepository:
             Shelf ID.
         book_id : int
             Calibre book ID.
+        library_id : int | None
+            Library ID.  When provided the lookup is unambiguous across
+            libraries.  ``None`` preserves backward compatibility for
+            callers that operate on single-library shelves.
 
         Returns
         -------
@@ -387,6 +440,8 @@ class BookShelfLinkRepository:
             BookShelfLink.shelf_id == shelf_id,
             BookShelfLink.book_id == book_id,
         )
+        if library_id is not None:
+            stmt = stmt.where(BookShelfLink.library_id == library_id)
         return self._session.exec(stmt).first()
 
     def get_max_order(self, shelf_id: int) -> int:
@@ -411,7 +466,7 @@ class BookShelfLinkRepository:
     def reorder_books(
         self,
         shelf_id: int,
-        book_orders: dict[int, int],
+        book_orders: list[tuple[int, int, int]],
     ) -> None:
         """Update order values for books in a shelf.
 
@@ -419,11 +474,11 @@ class BookShelfLinkRepository:
         ----------
         shelf_id : int
             Shelf ID.
-        book_orders : dict[int, int]
-            Mapping of book_id to new order value.
+        book_orders : list[tuple[int, int, int]]
+            List of ``(book_id, library_id, order)`` tuples.
         """
-        for book_id, order in book_orders.items():
-            link = self.find_by_shelf_and_book(shelf_id, book_id)
+        for book_id, library_id, order in book_orders:
+            link = self.find_by_shelf_and_book(shelf_id, book_id, library_id)
             if link is not None:
                 link.order = order
                 self._session.add(link)

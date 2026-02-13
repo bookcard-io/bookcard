@@ -198,7 +198,11 @@ export function AddToShelfModal({
       }
 
       const results = await Promise.allSettled(
-        books.map((book) => addBook(shelfId, book.id)),
+        books
+          .filter(
+            (b): b is typeof b & { library_id: number } => b.library_id != null,
+          )
+          .map((book) => addBook(shelfId, book.id, book.library_id)),
       );
 
       const failed = results.filter((r) => r.status === "rejected").length;
@@ -272,9 +276,14 @@ export function AddToShelfModal({
       const newShelf = await createShelf(shelfData, options);
 
       // Automatically add all books to the newly created shelf
-      if (books.length > 0) {
+      const booksWithLibrary = books.filter(
+        (b): b is typeof b & { library_id: number } => b.library_id != null,
+      );
+      if (booksWithLibrary.length > 0) {
         const results = await Promise.allSettled(
-          books.map((book) => addBook(newShelf.id, book.id)),
+          booksWithLibrary.map((book) =>
+            addBook(newShelf.id, book.id, book.library_id),
+          ),
         );
 
         const failed = results.filter((r) => r.status === "rejected").length;

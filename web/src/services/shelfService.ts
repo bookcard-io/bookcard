@@ -23,6 +23,7 @@
 import type {
   ImportResult,
   Shelf,
+  ShelfBookRef,
   ShelfCreate,
   ShelfListResponse,
   ShelfUpdate,
@@ -237,11 +238,15 @@ export async function deleteShelf(id: number): Promise<void> {
 export async function addBookToShelf(
   shelfId: number,
   bookId: number,
+  libraryId: number,
 ): Promise<void> {
-  const response = await fetch(`${API_BASE}/${shelfId}/books/${bookId}`, {
-    method: "POST",
-    credentials: "include",
-  });
+  const response = await fetch(
+    `${API_BASE}/${shelfId}/books/${bookId}?library_id=${libraryId}`,
+    {
+      method: "POST",
+      credentials: "include",
+    },
+  );
 
   if (!response.ok) {
     const error = await response
@@ -268,11 +273,15 @@ export async function addBookToShelf(
 export async function removeBookFromShelf(
   shelfId: number,
   bookId: number,
+  libraryId: number,
 ): Promise<void> {
-  const response = await fetch(`${API_BASE}/${shelfId}/books/${bookId}`, {
-    method: "DELETE",
-    credentials: "include",
-  });
+  const response = await fetch(
+    `${API_BASE}/${shelfId}/books/${bookId}?library_id=${libraryId}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
 
   if (!response.ok) {
     const error = await response
@@ -289,8 +298,8 @@ export async function removeBookFromShelf(
  * ----------
  * shelfId : number
  *     Shelf ID.
- * bookOrders : Record<number, number>
- *     Mapping of book_id to new order value.
+ * bookOrders : { book_id: number; library_id: number; order: number }[]
+ *     List of book-order entries with book_id, library_id, and order.
  *
  * Returns
  * -------
@@ -298,7 +307,7 @@ export async function removeBookFromShelf(
  */
 export async function reorderShelfBooks(
   shelfId: number,
-  bookOrders: Record<number, number>,
+  bookOrders: { book_id: number; library_id: number; order: number }[],
 ): Promise<void> {
   const response = await fetch(`${API_BASE}/${shelfId}/books/reorder`, {
     method: "POST",
@@ -382,7 +391,7 @@ export async function getShelfBooks(
   sortBy: string = "order",
   pageSize: number = 20,
   sortOrder: string = "asc",
-): Promise<number[]> {
+): Promise<ShelfBookRef[]> {
   const params = new URLSearchParams({
     page: page.toString(),
     page_size: pageSize.toString(),
@@ -455,6 +464,18 @@ export async function fetchMagicShelfCoverBooks(
   }
 
   const data = (await response.json()) as unknown;
+  // Backend now returns ShelfBookRef[] - extract book_ids
+  if (Array.isArray(data)) {
+    return data
+      .map((item: unknown) => {
+        if (typeof item === "number") return item;
+        if (typeof item === "object" && item !== null && "book_id" in item) {
+          return (item as ShelfBookRef).book_id;
+        }
+        return null;
+      })
+      .filter((id): id is number => id !== null);
+  }
   return extractShelfBookIds(data);
 }
 

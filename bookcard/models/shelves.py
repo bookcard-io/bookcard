@@ -25,7 +25,7 @@ from typing import Any, ClassVar
 from uuid import uuid4
 
 from pydantic import ConfigDict
-from sqlalchemy import JSON, Column, Enum, ForeignKey, Integer
+from sqlalchemy import JSON, Column, Enum, ForeignKey, Integer, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -150,7 +150,9 @@ class BookShelfLink(SQLModel, table=True):
     """Link table for books and shelves many-to-many relationship.
 
     Associates Calibre books (by ID) with shelves, maintaining order
-    and tracking when books were added.
+    and tracking when books were added.  A shelf may contain books from
+    multiple libraries, so ``library_id`` disambiguates Calibre book IDs
+    that are only unique within a single library.
 
     Attributes
     ----------
@@ -160,6 +162,8 @@ class BookShelfLink(SQLModel, table=True):
         Foreign key to Shelf.
     book_id : int
         Calibre book ID (not a foreign key to avoid coupling with Calibre DB).
+    library_id : int
+        Foreign key to Library identifying which library the book belongs to.
     order : int
         Display order within the shelf (0-based).
     date_added : datetime
@@ -175,6 +179,14 @@ class BookShelfLink(SQLModel, table=True):
         ),
     )
     book_id: int = Field(index=True)
+    library_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("libraries.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+    )
     order: int = Field(default=0, index=True)
     date_added: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
@@ -184,9 +196,14 @@ class BookShelfLink(SQLModel, table=True):
     # Relationships
     shelf: Shelf = Relationship(back_populates="book_links")
 
+    __table_args__ = (
+        UniqueConstraint(
+            "shelf_id", "book_id", "library_id", name="uq_shelf_book_library"
+        ),
+    )
+
     model_config = ConfigDict()
     indexes: ClassVar[list[tuple[str, ...]]] = [
-        ("shelf_id", "book_id"),  # Composite unique index
         ("shelf_id", "order"),  # Composite index for ordered listing
     ]
 

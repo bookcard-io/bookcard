@@ -51,12 +51,12 @@ describe("useShelfActions", () => {
       expect(result.current.error).toBeNull();
 
       await act(async () => {
-        await result.current.addBook(1, 10);
+        await result.current.addBook(1, 10, 1);
       });
 
       expect(result.current.isProcessing).toBe(false);
       expect(result.current.error).toBeNull();
-      expect(addBookToShelf).toHaveBeenCalledWith(1, 10);
+      expect(addBookToShelf).toHaveBeenCalledWith(1, 10, 1);
     });
 
     it("should handle error when adding book", async () => {
@@ -67,7 +67,7 @@ describe("useShelfActions", () => {
 
       await act(async () => {
         try {
-          await result.current.addBook(1, 10);
+          await result.current.addBook(1, 10, 1);
         } catch {
           // Expected to throw
         }
@@ -84,7 +84,7 @@ describe("useShelfActions", () => {
 
       await act(async () => {
         try {
-          await result.current.addBook(1, 10);
+          await result.current.addBook(1, 10, 1);
         } catch {
           // Expected to throw
         }
@@ -103,7 +103,7 @@ describe("useShelfActions", () => {
       const { result } = renderHook(() => useShelfActions());
 
       act(() => {
-        void result.current.addBook(1, 10);
+        void result.current.addBook(1, 10, 1);
       });
 
       expect(result.current.isProcessing).toBe(true);
@@ -129,12 +129,12 @@ describe("useShelfActions", () => {
       const { result } = renderHook(() => useShelfActions());
 
       await act(async () => {
-        await result.current.removeBook(1, 10);
+        await result.current.removeBook(1, 10, 1);
       });
 
       expect(result.current.isProcessing).toBe(false);
       expect(result.current.error).toBeNull();
-      expect(removeBookFromShelf).toHaveBeenCalledWith(1, 10);
+      expect(removeBookFromShelf).toHaveBeenCalledWith(1, 10, 1);
     });
 
     it("should handle error when removing book", async () => {
@@ -145,7 +145,7 @@ describe("useShelfActions", () => {
 
       await act(async () => {
         try {
-          await result.current.removeBook(1, 10);
+          await result.current.removeBook(1, 10, 1);
         } catch {
           // Expected to throw
         }
@@ -162,7 +162,7 @@ describe("useShelfActions", () => {
 
       await act(async () => {
         try {
-          await result.current.removeBook(1, 10);
+          await result.current.removeBook(1, 10, 1);
         } catch {
           // Expected to throw
         }
@@ -174,7 +174,11 @@ describe("useShelfActions", () => {
 
   describe("reorderBooks", () => {
     it("should reorder books successfully", async () => {
-      const bookOrders = { 1: 0, 2: 1, 3: 2 };
+      const bookOrders = [
+        { book_id: 1, library_id: 1, order: 0 },
+        { book_id: 2, library_id: 1, order: 1 },
+        { book_id: 3, library_id: 1, order: 2 },
+      ];
       vi.mocked(reorderShelfBooks).mockResolvedValue(undefined);
 
       const { result } = renderHook(() => useShelfActions());
@@ -190,7 +194,10 @@ describe("useShelfActions", () => {
 
     it("should handle error when reordering books", async () => {
       const errorMessage = "Failed to reorder books";
-      const bookOrders = { 1: 0, 2: 1 };
+      const bookOrders = [
+        { book_id: 1, library_id: 1, order: 0 },
+        { book_id: 2, library_id: 1, order: 1 },
+      ];
       vi.mocked(reorderShelfBooks).mockRejectedValue(new Error(errorMessage));
 
       const { result } = renderHook(() => useShelfActions());
@@ -208,7 +215,10 @@ describe("useShelfActions", () => {
     });
 
     it("should handle non-Error rejection when reordering books", async () => {
-      const bookOrders = { 1: 0, 2: 1 };
+      const bookOrders = [
+        { book_id: 1, library_id: 1, order: 0 },
+        { book_id: 2, library_id: 1, order: 1 },
+      ];
       vi.mocked(reorderShelfBooks).mockRejectedValue("String error");
 
       const { result } = renderHook(() => useShelfActions());

@@ -95,6 +95,7 @@ export function BookCard({
   });
   const shelfCreation = useCreateShelfWithBook({
     bookId: book.id,
+    libraryId: book.library_id ?? 0,
   });
   const modals = useBookCardModals();
 

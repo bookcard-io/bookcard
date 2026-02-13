@@ -32,13 +32,21 @@ interface UseShelfActionsReturn {
   /** Error message if any. */
   error: string | null;
   /** Add a book to a shelf. */
-  addBook: (shelfId: number, bookId: number) => Promise<void>;
+  addBook: (
+    shelfId: number,
+    bookId: number,
+    libraryId: number,
+  ) => Promise<void>;
   /** Remove a book from a shelf. */
-  removeBook: (shelfId: number, bookId: number) => Promise<void>;
+  removeBook: (
+    shelfId: number,
+    bookId: number,
+    libraryId: number,
+  ) => Promise<void>;
   /** Reorder books in a shelf. */
   reorderBooks: (
     shelfId: number,
-    bookOrders: Record<number, number>,
+    bookOrders: { book_id: number; library_id: number; order: number }[],
   ) => Promise<void>;
 }
 
@@ -55,11 +63,15 @@ export function useShelfActions(): UseShelfActionsReturn {
   const [error, setError] = useState<string | null>(null);
 
   const addBook = useCallback(
-    async (shelfId: number, bookId: number): Promise<void> => {
+    async (
+      shelfId: number,
+      bookId: number,
+      libraryId: number,
+    ): Promise<void> => {
       setIsProcessing(true);
       setError(null);
       try {
-        await addBookToShelfApi(shelfId, bookId);
+        await addBookToShelfApi(shelfId, bookId, libraryId);
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to add book to shelf";
@@ -73,11 +85,15 @@ export function useShelfActions(): UseShelfActionsReturn {
   );
 
   const removeBook = useCallback(
-    async (shelfId: number, bookId: number): Promise<void> => {
+    async (
+      shelfId: number,
+      bookId: number,
+      libraryId: number,
+    ): Promise<void> => {
       setIsProcessing(true);
       setError(null);
       try {
-        await removeBookFromShelfApi(shelfId, bookId);
+        await removeBookFromShelfApi(shelfId, bookId, libraryId);
       } catch (err) {
         const errorMessage =
           err instanceof Error
@@ -95,7 +111,7 @@ export function useShelfActions(): UseShelfActionsReturn {
   const reorderBooks = useCallback(
     async (
       shelfId: number,
-      bookOrders: Record<number, number>,
+      bookOrders: { book_id: number; library_id: number; order: number }[],
     ): Promise<void> => {
       setIsProcessing(true);
       setError(null);

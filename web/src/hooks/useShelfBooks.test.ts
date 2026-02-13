@@ -22,7 +22,13 @@ vi.mock("@/services/shelfService", () => ({
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getShelfBooks } from "@/services/shelfService";
+import type { ShelfBookRef } from "@/types/shelf";
 import { useShelfBooks } from "./useShelfBooks";
+
+/** Helper to create ShelfBookRef[] from book IDs (all with library_id=1). */
+function toRefs(ids: number[]): ShelfBookRef[] {
+  return ids.map((id) => ({ book_id: id, library_id: 1 }));
+}
 
 describe("useShelfBooks", () => {
   beforeEach(() => {
@@ -37,7 +43,7 @@ describe("useShelfBooks", () => {
 
   it("should initialize with loading state", () => {
     const bookIds = [1, 2, 3];
-    vi.mocked(getShelfBooks).mockResolvedValue(bookIds);
+    vi.mocked(getShelfBooks).mockResolvedValue(toRefs(bookIds));
 
     const { result } = renderHook(() =>
       useShelfBooks({ shelfId: 1, page: 1, sortBy: "order" }),
@@ -50,7 +56,7 @@ describe("useShelfBooks", () => {
 
   it("should load shelf books successfully", async () => {
     const bookIds = [1, 2, 3];
-    vi.mocked(getShelfBooks).mockResolvedValue(bookIds);
+    vi.mocked(getShelfBooks).mockResolvedValue(toRefs(bookIds));
 
     const { result } = renderHook(() =>
       useShelfBooks({ shelfId: 1, page: 1, sortBy: "order" }),
@@ -112,7 +118,7 @@ describe("useShelfBooks", () => {
 
   it("should use default page and sortBy values", async () => {
     const bookIds = [1, 2];
-    vi.mocked(getShelfBooks).mockResolvedValue(bookIds);
+    vi.mocked(getShelfBooks).mockResolvedValue(toRefs(bookIds));
 
     const { result } = renderHook(() => useShelfBooks({ shelfId: 1 }));
 
@@ -127,8 +133,8 @@ describe("useShelfBooks", () => {
     const bookIds1 = [1, 2];
     const bookIds2 = [3, 4];
     vi.mocked(getShelfBooks)
-      .mockResolvedValueOnce(bookIds1)
-      .mockResolvedValueOnce(bookIds2);
+      .mockResolvedValueOnce(toRefs(bookIds1))
+      .mockResolvedValueOnce(toRefs(bookIds2));
 
     const { result, rerender } = renderHook(
       ({ shelfId }) => useShelfBooks({ shelfId, page: 1, sortBy: "order" }),
@@ -152,8 +158,8 @@ describe("useShelfBooks", () => {
     const bookIds1 = [1, 2];
     const bookIds2 = [3, 4];
     vi.mocked(getShelfBooks)
-      .mockResolvedValueOnce(bookIds1)
-      .mockResolvedValueOnce(bookIds2);
+      .mockResolvedValueOnce(toRefs(bookIds1))
+      .mockResolvedValueOnce(toRefs(bookIds2));
 
     const { result, rerender } = renderHook(
       ({ page }) => useShelfBooks({ shelfId: 1, page, sortBy: "order" }),
@@ -177,8 +183,8 @@ describe("useShelfBooks", () => {
     const bookIds1 = [1, 2];
     const bookIds2 = [3, 4];
     vi.mocked(getShelfBooks)
-      .mockResolvedValueOnce(bookIds1)
-      .mockResolvedValueOnce(bookIds2);
+      .mockResolvedValueOnce(toRefs(bookIds1))
+      .mockResolvedValueOnce(toRefs(bookIds2));
 
     const { result, rerender } = renderHook(
       ({ sortBy }) => useShelfBooks({ shelfId: 1, page: 1, sortBy }),
@@ -202,8 +208,8 @@ describe("useShelfBooks", () => {
     const bookIds1 = [1, 2];
     const bookIds2 = [3, 4];
     vi.mocked(getShelfBooks)
-      .mockResolvedValueOnce(bookIds1)
-      .mockResolvedValueOnce(bookIds2);
+      .mockResolvedValueOnce(toRefs(bookIds1))
+      .mockResolvedValueOnce(toRefs(bookIds2));
 
     const { result } = renderHook(() =>
       useShelfBooks({ shelfId: 1, page: 1, sortBy: "order" }),

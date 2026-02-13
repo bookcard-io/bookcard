@@ -178,6 +178,21 @@ class ShelfListResponse(BaseModel):
     total: int
 
 
+class ShelfBookRef(BaseModel):
+    """Reference to a book within a shelf, including its library context.
+
+    Attributes
+    ----------
+    book_id : int
+        Calibre book ID.
+    library_id : int
+        Library the book belongs to.
+    """
+
+    book_id: int
+    library_id: int
+
+
 class BookShelfLinkRead(BaseModel):
     """Response schema for book-shelf link data.
 
@@ -196,17 +211,35 @@ class BookShelfLinkRead(BaseModel):
     date_added: datetime
 
 
+class ShelfBookOrderItem(BaseModel):
+    """A single book-order entry for reorder requests.
+
+    Attributes
+    ----------
+    book_id : int
+        Calibre book ID.
+    library_id : int
+        Library the book belongs to.
+    order : int
+        New display order value.
+    """
+
+    book_id: int
+    library_id: int
+    order: int
+
+
 class ShelfReorderRequest(BaseModel):
     """Request schema for reordering books in a shelf.
 
     Attributes
     ----------
-    book_orders : dict[int, int]
-        Mapping of book_id to new order value.
+    book_orders : list[ShelfBookOrderItem]
+        List of book-order entries specifying the new order per (book_id, library_id).
     """
 
-    book_orders: dict[int, int] = Field(
-        description="Mapping of book_id to new order value",
+    book_orders: list[ShelfBookOrderItem] = Field(
+        description="List of book-order entries with book_id, library_id, and order",
     )
 
 

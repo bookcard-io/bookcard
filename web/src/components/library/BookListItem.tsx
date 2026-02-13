@@ -82,6 +82,7 @@ export function BookListItem({
 
   const shelfCreation = useCreateShelfWithBook({
     bookId: book.id,
+    libraryId: book.library_id ?? 0,
   });
 
   /**

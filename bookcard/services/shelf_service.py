@@ -309,6 +309,7 @@ class ShelfService:
         shelf_id: int,
         book_id: int,
         user: User,
+        library_id: int | None = None,
     ) -> BookShelfLink:
         """Add a book to a shelf.
 
@@ -320,6 +321,9 @@ class ShelfService:
             Calibre book ID.
         user : User
             User requesting the addition (for permission check).
+        library_id : int | None
+            Library the book belongs to.  When ``None``, falls back to
+            the shelf's own ``library_id`` for backward compatibility.
 
         Returns
         -------
@@ -344,8 +348,12 @@ class ShelfService:
             msg = "Permission denied: cannot add books to this shelf"
             raise ValueError(msg)
 
-        # Check if book is already in shelf
-        existing = self._link_repo.find_by_shelf_and_book(shelf_id, book_id)
+        resolved_library_id = library_id if library_id is not None else shelf.library_id
+
+        # Check if book is already in shelf for this library
+        existing = self._link_repo.find_by_shelf_and_book(
+            shelf_id, book_id, library_id=resolved_library_id
+        )
         if existing is not None:
             msg = f"Book {book_id} is already in shelf {shelf.name}"
             raise ValueError(msg)
@@ -355,6 +363,7 @@ class ShelfService:
         link = BookShelfLink(
             shelf_id=shelf_id,
             book_id=book_id,
+            library_id=resolved_library_id,
             order=max_order + 1,
             date_added=datetime.now(UTC),
         )
@@ -370,6 +379,7 @@ class ShelfService:
         shelf_id: int,
         book_id: int,
         user: User,
+        library_id: int | None = None,
     ) -> None:
         """Remove a book from a shelf.
 
@@ -381,6 +391,9 @@ class ShelfService:
             Calibre book ID.
         user : User
             User requesting the removal (for permission check).
+        library_id : int | None
+            Library the book belongs to.  When ``None``, falls back to
+            the shelf's own ``library_id`` for backward compatibility.
 
         Raises
         ------
@@ -400,7 +413,11 @@ class ShelfService:
             msg = "Permission denied: cannot remove books from this shelf"
             raise ValueError(msg)
 
-        link = self._link_repo.find_by_shelf_and_book(shelf_id, book_id)
+        resolved_library_id = library_id if library_id is not None else shelf.library_id
+
+        link = self._link_repo.find_by_shelf_and_book(
+            shelf_id, book_id, library_id=resolved_library_id
+        )
         if link is None:
             msg = f"Book {book_id} is not in shelf {shelf.name}"
             raise ValueError(msg)
@@ -414,7 +431,7 @@ class ShelfService:
     def reorder_books(
         self,
         shelf_id: int,
-        book_orders: dict[int, int],
+        book_orders: list[tuple[int, int, int]],
         user: User,
     ) -> None:
         """Reorder books in a shelf.
@@ -423,8 +440,8 @@ class ShelfService:
         ----------
         shelf_id : int
             Shelf ID.
-        book_orders : dict[int, int]
-            Mapping of book_id to new order value.
+        book_orders : list[tuple[int, int, int]]
+            List of ``(book_id, library_id, order)`` tuples.
         user : User
             User requesting the reorder (for permission check).
 
@@ -530,7 +547,7 @@ class ShelfService:
         user_id: int,
         include_public: bool = True,
     ) -> list[Shelf]:
-        """List shelves accessible to a user in a library.
+        """List shelves accessible to a user in a single library.
 
         Parameters
         ----------
@@ -548,6 +565,34 @@ class ShelfService:
         """
         return self._shelf_repo.find_by_library_and_user(
             library_id,
+            user_id,
+            include_public=include_public,
+        )
+
+    def list_user_shelves_multi(
+        self,
+        library_ids: list[int],
+        user_id: int,
+        include_public: bool = True,
+    ) -> list[Shelf]:
+        """List shelves accessible to a user across multiple libraries.
+
+        Parameters
+        ----------
+        library_ids : list[int]
+            Library IDs to include.
+        user_id : int
+            User ID.
+        include_public : bool
+            Whether to include public shelves (default: True).
+
+        Returns
+        -------
+        list[Shelf]
+            Shelves across the given libraries, sorted newest first.
+        """
+        return self._shelf_repo.find_by_libraries_and_user(
+            library_ids,
             user_id,
             include_public=include_public,
         )
