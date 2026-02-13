@@ -937,9 +937,13 @@ def reorder_shelf_books(
     permission_service.check_permission(current_user, "shelves", "edit", shelf_context)
 
     try:
+        order_tuples = [
+            (item.book_id, item.library_id, item.order)
+            for item in reorder_data.book_orders
+        ]
         shelf_service.reorder_books(
             shelf_id,
-            reorder_data.book_orders,
+            order_tuples,
             current_user,
         )
         session.commit()
@@ -1035,7 +1039,9 @@ def get_shelf_books(
                 full=False,
             )
             return [
-                ShelfBookRef(book_id=book.book.id, library_id=shelf.library_id)
+                ShelfBookRef(
+                    book_id=book.book.id, library_id=book.library_id or shelf.library_id
+                )
                 for book in books
                 if book.book.id is not None
             ]

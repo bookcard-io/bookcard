@@ -561,7 +561,11 @@ describe("shelfService", () => {
   describe("reorderShelfBooks", () => {
     const shelfId = 1;
     const url = `${apiBase}/${shelfId}/books/reorder`;
-    const bookOrders = { 100: 1, 101: 2, 102: 3 };
+    const bookOrders = [
+      { book_id: 100, library_id: 1, order: 1 },
+      { book_id: 101, library_id: 1, order: 2 },
+      { book_id: 102, library_id: 1, order: 3 },
+    ];
 
     it("should reorder shelf books successfully", async () => {
       const mockResponse = createMockResponse(true);

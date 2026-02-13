@@ -431,7 +431,7 @@ class ShelfService:
     def reorder_books(
         self,
         shelf_id: int,
-        book_orders: dict[int, int],
+        book_orders: list[tuple[int, int, int]],
         user: User,
     ) -> None:
         """Reorder books in a shelf.
@@ -440,8 +440,8 @@ class ShelfService:
         ----------
         shelf_id : int
             Shelf ID.
-        book_orders : dict[int, int]
-            Mapping of book_id to new order value.
+        book_orders : list[tuple[int, int, int]]
+            List of ``(book_id, library_id, order)`` tuples.
         user : User
             User requesting the reorder (for permission check).
 

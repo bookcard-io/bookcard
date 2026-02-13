@@ -174,7 +174,11 @@ describe("useShelfActions", () => {
 
   describe("reorderBooks", () => {
     it("should reorder books successfully", async () => {
-      const bookOrders = { 1: 0, 2: 1, 3: 2 };
+      const bookOrders = [
+        { book_id: 1, library_id: 1, order: 0 },
+        { book_id: 2, library_id: 1, order: 1 },
+        { book_id: 3, library_id: 1, order: 2 },
+      ];
       vi.mocked(reorderShelfBooks).mockResolvedValue(undefined);
 
       const { result } = renderHook(() => useShelfActions());
@@ -190,7 +194,10 @@ describe("useShelfActions", () => {
 
     it("should handle error when reordering books", async () => {
       const errorMessage = "Failed to reorder books";
-      const bookOrders = { 1: 0, 2: 1 };
+      const bookOrders = [
+        { book_id: 1, library_id: 1, order: 0 },
+        { book_id: 2, library_id: 1, order: 1 },
+      ];
       vi.mocked(reorderShelfBooks).mockRejectedValue(new Error(errorMessage));
 
       const { result } = renderHook(() => useShelfActions());
@@ -208,7 +215,10 @@ describe("useShelfActions", () => {
     });
 
     it("should handle non-Error rejection when reordering books", async () => {
-      const bookOrders = { 1: 0, 2: 1 };
+      const bookOrders = [
+        { book_id: 1, library_id: 1, order: 0 },
+        { book_id: 2, library_id: 1, order: 1 },
+      ];
       vi.mocked(reorderShelfBooks).mockRejectedValue("String error");
 
       const { result } = renderHook(() => useShelfActions());

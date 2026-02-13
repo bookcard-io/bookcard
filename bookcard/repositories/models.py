@@ -56,6 +56,8 @@ class BookWithRelations:
         List of tag IDs corresponding to ``tags``.
     formats : list[dict[str, str | int]]
         List of file formats, each with 'format' and 'size' keys.
+    library_id : int | None
+        Library ID this book belongs to (set by multi-library queries).
     """
 
     book: Book
@@ -72,6 +74,7 @@ class BookWithRelations:
     is_virtual: bool = False
     tracking_id: int | None = None
     cover_url: str | None = None
+    library_id: int | None = None
 
 
 @dataclass
@@ -112,6 +115,8 @@ class BookWithFullRelations:
         Rating ID.
     formats : list[dict[str, str | int]]
         List of file formats, each with 'format' and 'size' keys.
+    library_id : int | None
+        Library ID this book belongs to (set by multi-library queries).
     """
 
     book: Book
@@ -134,6 +139,7 @@ class BookWithFullRelations:
     is_virtual: bool = False
     tracking_id: int | None = None
     cover_url: str | None = None
+    library_id: int | None = None
 
 
 @dataclass

@@ -762,13 +762,17 @@ def test_book_shelf_link_repository_reorder_books() -> None:
         date_added=datetime.now(UTC),
     )
 
-    book_orders = {100: 2, 101: 0}
+    book_orders: list[tuple[int, int, int]] = [(100, 1, 2), (101, 1, 0)]
 
     # Mock find_by_shelf_and_book to return links
-    def mock_find(shelf_id: int, book_id: int) -> BookShelfLink | None:
-        if shelf_id == 1 and book_id == 100:
+    def mock_find(
+        shelf_id: int,
+        book_id: int,
+        library_id: int | None = None,
+    ) -> BookShelfLink | None:
+        if shelf_id == 1 and book_id == 100 and library_id == 1:
             return link1
-        if shelf_id == 1 and book_id == 101:
+        if shelf_id == 1 and book_id == 101 and library_id == 1:
             return link2
         return None
 
@@ -786,11 +790,16 @@ def test_book_shelf_link_repository_reorder_books_missing_link() -> None:
     session = DummySession()
     repo = BookShelfLinkRepository(session)  # type: ignore[arg-type]
 
-    book_orders = {100: 2, 999: 0}  # book_id 999 doesn't exist
+    # book_id 999 in library 1 doesn't exist
+    book_orders: list[tuple[int, int, int]] = [(100, 1, 2), (999, 1, 0)]
 
     # Mock find_by_shelf_and_book to return None for missing book
-    def mock_find(shelf_id: int, book_id: int) -> BookShelfLink | None:
-        if shelf_id == 1 and book_id == 100:
+    def mock_find(
+        shelf_id: int,
+        book_id: int,
+        library_id: int | None = None,
+    ) -> BookShelfLink | None:
+        if shelf_id == 1 and book_id == 100 and library_id == 1:
             return BookShelfLink(
                 id=1,
                 shelf_id=1,

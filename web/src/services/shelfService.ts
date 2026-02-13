@@ -298,8 +298,8 @@ export async function removeBookFromShelf(
  * ----------
  * shelfId : number
  *     Shelf ID.
- * bookOrders : Record<number, number>
- *     Mapping of book_id to new order value.
+ * bookOrders : { book_id: number; library_id: number; order: number }[]
+ *     List of book-order entries with book_id, library_id, and order.
  *
  * Returns
  * -------
@@ -307,7 +307,7 @@ export async function removeBookFromShelf(
  */
 export async function reorderShelfBooks(
   shelfId: number,
-  bookOrders: Record<number, number>,
+  bookOrders: { book_id: number; library_id: number; order: number }[],
 ): Promise<void> {
   const response = await fetch(`${API_BASE}/${shelfId}/books/reorder`, {
     method: "POST",

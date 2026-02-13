@@ -316,9 +316,9 @@ class TestMagicShelfServiceMultiLibrary:
         assert total == 3
         assert len(books) == 3
         # Verify library_id tagging
-        assert book_a.book.library_id == 10
-        assert book_b.book.library_id == 20
-        assert book_c.book.library_id == 20
+        assert book_a.library_id == 10
+        assert book_b.library_id == 20
+        assert book_c.library_id == 20
         # Verify desc sort by timestamp: "2025-01-03", "2025-01-02", "2025-01-01"
         assert books[0] is book_a
         assert books[1] is book_c

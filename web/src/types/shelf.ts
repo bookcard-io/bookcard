@@ -141,9 +141,18 @@ export interface BookShelfLink {
   date_added: string;
 }
 
+export interface ShelfBookOrderItem {
+  /** Calibre book ID. */
+  book_id: number;
+  /** Library the book belongs to. */
+  library_id: number;
+  /** New display order value. */
+  order: number;
+}
+
 export interface ShelfReorderRequest {
-  /** Mapping of book_id to new order value. */
-  book_orders: Record<number, number>;
+  /** List of book-order entries with book_id, library_id, and order. */
+  book_orders: ShelfBookOrderItem[];
 }
 
 export interface ShelfBooksResponse {

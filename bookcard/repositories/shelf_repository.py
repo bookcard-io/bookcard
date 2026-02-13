@@ -466,7 +466,7 @@ class BookShelfLinkRepository:
     def reorder_books(
         self,
         shelf_id: int,
-        book_orders: dict[int, int],
+        book_orders: list[tuple[int, int, int]],
     ) -> None:
         """Update order values for books in a shelf.
 
@@ -474,11 +474,11 @@ class BookShelfLinkRepository:
         ----------
         shelf_id : int
             Shelf ID.
-        book_orders : dict[int, int]
-            Mapping of book_id to new order value.
+        book_orders : list[tuple[int, int, int]]
+            List of ``(book_id, library_id, order)`` tuples.
         """
-        for book_id, order in book_orders.items():
-            link = self.find_by_shelf_and_book(shelf_id, book_id)
+        for book_id, library_id, order in book_orders:
+            link = self.find_by_shelf_and_book(shelf_id, book_id, library_id)
             if link is not None:
                 link.order = order
                 self._session.add(link)

@@ -46,7 +46,7 @@ interface UseShelfActionsReturn {
   /** Reorder books in a shelf. */
   reorderBooks: (
     shelfId: number,
-    bookOrders: Record<number, number>,
+    bookOrders: { book_id: number; library_id: number; order: number }[],
   ) => Promise<void>;
 }
 
@@ -111,7 +111,7 @@ export function useShelfActions(): UseShelfActionsReturn {
   const reorderBooks = useCallback(
     async (
       shelfId: number,
-      bookOrders: Record<number, number>,
+      bookOrders: { book_id: number; library_id: number; order: number }[],
     ): Promise<void> => {
       setIsProcessing(true);
       setError(null);

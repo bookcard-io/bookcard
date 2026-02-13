@@ -155,6 +155,7 @@ from bookcard.api.schemas.reading import (
 from bookcard.api.schemas.scheduled_jobs import ScheduledJobRead, ScheduledJobUpdate
 from bookcard.api.schemas.shelves import (
     BookShelfLinkRead,
+    ShelfBookOrderItem,
     ShelfCreate,
     ShelfListResponse,
     ShelfRead,
@@ -279,6 +280,7 @@ __all__ = [
     "SettingRead",
     "SettingUpdate",
     "SettingsRead",
+    "ShelfBookOrderItem",
     "ShelfCreate",
     "ShelfListResponse",
     "ShelfRead",

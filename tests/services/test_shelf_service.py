@@ -824,7 +824,11 @@ def test_reorder_books_success() -> None:
         )
         session.add(shelf)
 
-        book_orders = {100: 0, 101: 1, 102: 2}
+        book_orders: list[tuple[int, int, int]] = [
+            (100, 1, 0),
+            (101, 1, 1),
+            (102, 1, 2),
+        ]
 
         with patch.object(link_repo, "reorder_books"):
             user = _create_user(1)
@@ -849,7 +853,7 @@ def test_reorder_books_not_found() -> None:
 
         user = _create_user(1)
         with pytest.raises(ValueError, match="Shelf 999 not found"):
-            service.reorder_books(shelf_id=999, book_orders={}, user=user)
+            service.reorder_books(shelf_id=999, book_orders=[], user=user)
 
 
 def test_reorder_books_permission_denied() -> None:
@@ -882,7 +886,7 @@ def test_reorder_books_permission_denied() -> None:
         with pytest.raises(
             ValueError, match="Permission denied: cannot reorder books in this shelf"
         ):
-            service.reorder_books(shelf_id=1, book_orders={100: 0}, user=user2)
+            service.reorder_books(shelf_id=1, book_orders=[(100, 1, 0)], user=user2)
 
 
 def test_can_edit_shelf_private_owner() -> None:

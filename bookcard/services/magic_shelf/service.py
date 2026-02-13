@@ -197,7 +197,7 @@ class MagicShelfService:
             )
             # Tag each book with its library_id
             for book in books:
-                book.book.library_id = library_id
+                book.library_id = library_id
             all_books.extend(books)
 
         # Sort merged results

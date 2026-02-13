@@ -28,6 +28,7 @@ from fastapi.responses import FileResponse, Response
 
 import bookcard.api.routes.shelves as shelves
 from bookcard.api.schemas.shelves import (
+    ShelfBookOrderItem,
     ShelfCreate,
     ShelfReorderRequest,
     ShelfUpdate,
@@ -151,7 +152,7 @@ class MockShelfService:
     def reorder_books(
         self,
         shelf_id: int,
-        book_orders: dict[int, int],
+        book_orders: list[tuple[int, int, int]],
         user: User,
     ) -> None:
         """Mock reorder_books method."""
@@ -1058,7 +1059,12 @@ def test_reorder_shelf_books_success(
 
         result = shelves.reorder_shelf_books(
             shelf_id=1,
-            reorder_data=ShelfReorderRequest(book_orders={100: 0, 101: 1}),
+            reorder_data=ShelfReorderRequest(
+                book_orders=[
+                    ShelfBookOrderItem(book_id=100, library_id=1, order=0),
+                    ShelfBookOrderItem(book_id=101, library_id=1, order=1),
+                ]
+            ),
             session=session,
             current_user=mock_user,
             shelf_service=mock_service,
@@ -1081,7 +1087,11 @@ def test_reorder_shelf_books_not_found(mock_user: User, mock_library: Library) -
         with pytest.raises(HTTPException) as exc_info:
             shelves.reorder_shelf_books(
                 shelf_id=999,
-                reorder_data=ShelfReorderRequest(book_orders={100: 0}),
+                reorder_data=ShelfReorderRequest(
+                    book_orders=[
+                        ShelfBookOrderItem(book_id=100, library_id=1, order=0),
+                    ]
+                ),
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
@@ -1110,7 +1120,11 @@ def test_reorder_shelf_books_value_error(
         with pytest.raises(HTTPException) as exc_info:
             shelves.reorder_shelf_books(
                 shelf_id=1,
-                reorder_data=ShelfReorderRequest(book_orders={100: 0}),
+                reorder_data=ShelfReorderRequest(
+                    book_orders=[
+                        ShelfBookOrderItem(book_id=100, library_id=1, order=0),
+                    ]
+                ),
                 session=session,
                 current_user=mock_user,
                 shelf_service=mock_service,
