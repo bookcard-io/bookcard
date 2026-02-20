@@ -123,7 +123,7 @@ class KoboLibraryService:
 
         return self._metadata_service.get_book_metadata(book_with_rels)
 
-    def archive_book(self, user_id: int, book_uuid: str) -> None:
+    def archive_book(self, user_id: int, book_uuid: str, *, library_id: int) -> None:
         """Archive a book for a user.
 
         Parameters
@@ -132,6 +132,8 @@ class KoboLibraryService:
             User ID.
         book_uuid : str
             Book UUID.
+        library_id : int
+            Library ID that scopes the book.
 
         Raises
         ------
@@ -149,12 +151,15 @@ class KoboLibraryService:
 
         # Archive book for this user
         archived_repo = KoboArchivedBookRepository(self._session)
-        archived_book = archived_repo.find_by_user_and_book(user_id, book_id)
+        archived_book = archived_repo.find_by_user_library_and_book(
+            user_id, library_id, book_id
+        )
         if archived_book:
             archived_book.is_archived = True
         else:
             archived_book = KoboArchivedBook(
                 user_id=user_id,
+                library_id=library_id,
                 book_id=book_id,
                 is_archived=True,
             )
@@ -162,7 +167,7 @@ class KoboLibraryService:
 
         # Remove from synced books
         synced_repo = KoboSyncedBookRepository(self._session)
-        synced_repo.delete_by_user_and_book(user_id, book_id)
+        synced_repo.delete_by_user_library_and_book(user_id, library_id, book_id)
 
     async def sync_library(
         self,

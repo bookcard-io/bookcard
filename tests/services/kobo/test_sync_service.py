@@ -80,7 +80,7 @@ def mock_reading_state_repo() -> MagicMock:
         Mock repository instance.
     """
     repo = MagicMock()
-    repo.find_by_user_and_book = MagicMock(return_value=None)
+    repo.find_by_user_library_and_book = MagicMock(return_value=None)
     repo.find_by_user = MagicMock(return_value=[])
     return repo
 
@@ -95,8 +95,8 @@ def mock_synced_book_repo() -> MagicMock:
         Mock repository instance.
     """
     repo = MagicMock()
-    repo.find_book_ids_by_user = MagicMock(return_value=set())
-    repo.find_by_user_and_book = MagicMock(return_value=None)
+    repo.find_book_ids_by_user_and_library = MagicMock(return_value=set())
+    repo.find_by_user_library_and_book = MagicMock(return_value=None)
     repo.add = MagicMock()
     return repo
 
@@ -111,7 +111,7 @@ def mock_archived_book_repo() -> MagicMock:
         Mock repository instance.
     """
     repo = MagicMock()
-    repo.find_by_user_and_book = MagicMock(return_value=None)
+    repo.find_by_user_library_and_book = MagicMock(return_value=None)
     return repo
 
 
@@ -351,7 +351,7 @@ def test_sync_library_new_book(
     assert len(results) == 1
     assert "NewEntitlement" in results[0]
     assert continue_sync is False
-    mock_synced_book_repo.find_by_user_and_book.assert_called()
+    mock_synced_book_repo.find_by_user_library_and_book.assert_called()
 
 
 def test_sync_library_changed_book(
@@ -416,7 +416,7 @@ def test_sync_library_with_archived_book(
         Sync token.
     """
     archived_book = KoboArchivedBook(id=1, user_id=1, book_id=1, is_archived=True)
-    mock_archived_book_repo.find_by_user_and_book.return_value = archived_book
+    mock_archived_book_repo.find_by_user_library_and_book.return_value = archived_book
     # Set book timestamp after last_created to make it "new"
     book_with_rels.book.timestamp = datetime(2025, 1, 12, tzinfo=UTC)
     mock_book_service.list_books.return_value = ([book_with_rels], 1)
@@ -469,7 +469,7 @@ def test_sync_library_with_reading_state(
         book_id=1,
         last_modified=datetime(2025, 1, 15, tzinfo=UTC),
     )
-    mock_reading_state_repo.find_by_user_and_book.return_value = reading_state
+    mock_reading_state_repo.find_by_user_library_and_book.return_value = reading_state
     read_status = ReadStatus(
         id=1, user_id=1, library_id=1, book_id=1, status=ReadStatusEnum.READING
     )
@@ -1005,9 +1005,9 @@ def test_mark_book_synced_new(
     session : DummySession
         Dummy session instance.
     """
-    mock_synced_book_repo.find_by_user_and_book.return_value = None
+    mock_synced_book_repo.find_by_user_library_and_book.return_value = None
 
-    sync_service._mark_book_synced(user_id=1, book_id=1)
+    sync_service._mark_book_synced(user_id=1, library_id=1, book_id=1)
 
     mock_synced_book_repo.add.assert_called_once()
     assert session.flush_count > 0
@@ -1032,9 +1032,9 @@ def test_mark_book_synced_existing(
     synced_book = KoboSyncedBook(
         id=1, user_id=1, book_id=1, synced_at=datetime(2025, 1, 1, tzinfo=UTC)
     )
-    mock_synced_book_repo.find_by_user_and_book.return_value = synced_book
+    mock_synced_book_repo.find_by_user_library_and_book.return_value = synced_book
 
-    sync_service._mark_book_synced(user_id=1, book_id=1)
+    sync_service._mark_book_synced(user_id=1, library_id=1, book_id=1)
 
     mock_synced_book_repo.add.assert_not_called()
     assert synced_book.synced_at > datetime(2025, 1, 1, tzinfo=UTC)

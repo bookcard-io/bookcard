@@ -54,11 +54,7 @@ from bookcard.repositories import (
     CalibreBookRepository,
     ereader_repository,
 )
-from bookcard.repositories.config_repository import LibraryRepository
-from bookcard.services.config_service import (
-    FileHandlingConfigService,
-    LibraryService,
-)
+from bookcard.services.config_service import FileHandlingConfigService
 from bookcard.services.conversion import create_conversion_service
 from bookcard.services.conversion_utils import raise_conversion_error
 from bookcard.services.tracked_book_service import TrackedBookService
@@ -1558,14 +1554,7 @@ class BookService:
             msg = "Session not available for conversion"
             raise ValueError(msg)
 
-        library_repo = LibraryRepository(self._session)
-        library_service = LibraryService(self._session, library_repo)
-        library = library_service.get_active_library()
-        if library is None:
-            msg = "No active library configured for conversion"
-            raise ValueError(msg)
-
-        conversion_service = create_conversion_service(self._session, library)
+        conversion_service = create_conversion_service(self._session, self._library)
 
         try:
             conversion = conversion_service.convert_book(

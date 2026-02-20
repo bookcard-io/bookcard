@@ -26,7 +26,6 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from bookcard.repositories.config_repository import LibraryRepository
-from bookcard.services.config_service import LibraryService
 from bookcard.services.tasks.exceptions import LibraryNotConfiguredError
 
 if TYPE_CHECKING:
@@ -48,7 +47,7 @@ def resolve_task_library(
 
     1. Explicit ``library_id`` in *metadata* (captured at enqueue time).
     2. Per-user active library via ``UserLibrary`` (if *user_id* given).
-    3. Global active library (``Library.is_active``).
+    3. First available library (single-library setups).
 
     Parameters
     ----------
@@ -101,12 +100,12 @@ def resolve_task_library(
             )
             return library
 
-    # 3. Global active library
+    # 3. First available library (for single-library setups / legacy)
     library_repo = LibraryRepository(session)
-    library_service = LibraryService(session, library_repo)
-    library = library_service.get_active_library()
-    if library is not None:
-        logger.debug("Resolved library from global active: id=%s", library.id)
+    all_libraries = library_repo.list_all()
+    if all_libraries:
+        library = all_libraries[0]
+        logger.debug("Resolved library from first available: id=%s", library.id)
         return library
 
     raise LibraryNotConfiguredError

@@ -53,7 +53,6 @@ def _make_user(user_id: int = 1) -> User:
 class TestResolveActiveLibrary:
     """Tests for _resolve_active_library helper."""
 
-    @patch("bookcard.api.deps.LibraryService")
     @patch("bookcard.api.deps.LibraryRepository")
     @patch(
         "bookcard.repositories.user_library_repository.UserLibraryRepository",
@@ -62,7 +61,6 @@ class TestResolveActiveLibrary:
         self,
         mock_ul_repo_cls: MagicMock,
         mock_lib_repo_cls: MagicMock,
-        mock_lib_svc_cls: MagicMock,
     ) -> None:
         """When user has an active UserLibrary, return that library."""
         session = DummySession()
@@ -78,7 +76,6 @@ class TestResolveActiveLibrary:
         # Should NOT have fallen through to global
         mock_lib_repo_cls.assert_not_called()
 
-    @patch("bookcard.api.deps.LibraryService")
     @patch("bookcard.api.deps.LibraryRepository")
     @patch(
         "bookcard.repositories.user_library_repository.UserLibraryRepository",
@@ -87,7 +84,6 @@ class TestResolveActiveLibrary:
         self,
         mock_ul_repo_cls: MagicMock,
         mock_lib_repo_cls: MagicMock,
-        mock_lib_svc_cls: MagicMock,
     ) -> None:
         """When user has no active UserLibrary, fall back to global."""
         session = DummySession()
@@ -96,44 +92,40 @@ class TestResolveActiveLibrary:
         mock_ul_repo.get_active_library_for_user.return_value = None
         mock_ul_repo_cls.return_value = mock_ul_repo
 
-        mock_lib_svc = MagicMock()
-        mock_lib_svc.get_active_library.return_value = global_library
-        mock_lib_svc_cls.return_value = mock_lib_svc
+        mock_lib_repo = MagicMock()
+        mock_lib_repo.list_all.return_value = [global_library]
+        mock_lib_repo_cls.return_value = mock_lib_repo
 
         result = _resolve_active_library(session, user_id=1)  # type: ignore[arg-type]
 
         assert result is global_library
 
-    @patch("bookcard.api.deps.LibraryService")
     @patch("bookcard.api.deps.LibraryRepository")
     def test_falls_back_to_global_when_no_user(
         self,
         mock_lib_repo_cls: MagicMock,
-        mock_lib_svc_cls: MagicMock,
     ) -> None:
         """When user_id is None, go directly to global fallback."""
         session = DummySession()
         global_library = _make_library(lib_id=99, name="Global Library")
-        mock_lib_svc = MagicMock()
-        mock_lib_svc.get_active_library.return_value = global_library
-        mock_lib_svc_cls.return_value = mock_lib_svc
+        mock_lib_repo = MagicMock()
+        mock_lib_repo.list_all.return_value = [global_library]
+        mock_lib_repo_cls.return_value = mock_lib_repo
 
         result = _resolve_active_library(session, user_id=None)  # type: ignore[arg-type]
 
         assert result is global_library
 
-    @patch("bookcard.api.deps.LibraryService")
     @patch("bookcard.api.deps.LibraryRepository")
     def test_returns_none_when_no_global_library(
         self,
         mock_lib_repo_cls: MagicMock,
-        mock_lib_svc_cls: MagicMock,
     ) -> None:
         """When no global active library exists, return None."""
         session = DummySession()
-        mock_lib_svc = MagicMock()
-        mock_lib_svc.get_active_library.return_value = None
-        mock_lib_svc_cls.return_value = mock_lib_svc
+        mock_lib_repo = MagicMock()
+        mock_lib_repo.list_all.return_value = []
+        mock_lib_repo_cls.return_value = mock_lib_repo
 
         result = _resolve_active_library(session, user_id=None)  # type: ignore[arg-type]
 

@@ -20,13 +20,18 @@ Delegates to AuthorCoreService, AuthorPhotoService, AuthorMetadataService,
 and AuthorSerializationService for focused responsibilities.
 """
 
+from __future__ import annotations
+
 import contextlib
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from sqlmodel import Session
+if TYPE_CHECKING:
+    from sqlmodel import Session
 
-from bookcard.models.author_metadata import AuthorUserPhoto
+    from bookcard.models.author_metadata import AuthorUserPhoto
+    from bookcard.models.config import Library
 from bookcard.repositories.author_repository import AuthorRepository
 from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.services.author.core_service import AuthorCoreService
@@ -134,6 +139,7 @@ class AuthorService:
         self,
         author_id: str,
         include_similar: bool = True,
+        library_id: int | None = None,
     ) -> dict[str, object]:
         """Get a single author by ID or OpenLibrary key.
 
@@ -146,6 +152,10 @@ class AuthorService:
             Author ID (numeric) or OpenLibrary key (e.g., "OL23919A").
         include_similar : bool
             Whether to include similar authors (default: True).
+        library_id : int | None
+            Explicit library ID for Calibre fallback and similar-author
+            queries.  When ``None`` the caller's active library is resolved
+            via ``LibraryService``.
 
         Returns
         -------
@@ -159,36 +169,58 @@ class AuthorService:
         NoActiveLibraryError
             If no active library exists.
         """
+        resolved_library = self._resolve_library(library_id)
+
         try:
             author = self._core_service.get_author(author_id)
         except AuthorNotFoundError:
             # If not found and it's a calibre-{id} format, try fetching from Calibre
-            if author_id.startswith("calibre-"):
+            if author_id.startswith("calibre-") and resolved_library:
                 with contextlib.suppress(ValueError):
-                    active_library = self._library_service.get_active_library()
-                    if active_library and active_library.id:
-                        calibre_id = int(author_id.replace("calibre-", ""))
-                        return self._core_service.get_calibre_author_dict(
-                            active_library, calibre_id
-                        )
+                    calibre_id = int(author_id.replace("calibre-", ""))
+                    return self._core_service.get_calibre_author_dict(
+                        resolved_library, calibre_id
+                    )
             raise
 
         author_data = self._serialization_service.to_dict(author)
 
         # Add similar authors if requested
-        if include_similar and author.id:
-            active_library = self._library_service.get_active_library()
-            if active_library and active_library.id:
-                similar_authors = self._core_service.get_similar_authors(
-                    author.id,
-                    active_library.id,
-                )
-                if similar_authors:
-                    author_data["similar_authors"] = [
-                        self._serialization_service.to_dict(a) for a in similar_authors
-                    ]
+        if (
+            include_similar
+            and author.id
+            and resolved_library
+            and resolved_library.id is not None
+        ):
+            similar_authors = self._core_service.get_similar_authors(
+                author.id,
+                resolved_library.id,
+            )
+            if similar_authors:
+                author_data["similar_authors"] = [
+                    self._serialization_service.to_dict(a) for a in similar_authors
+                ]
 
         return author_data
+
+    def _resolve_library(self, library_id: int | None = None) -> Library | None:
+        """Resolve a library by explicit ID.
+
+        Parameters
+        ----------
+        library_id : int | None
+            Explicit library ID.  When ``None``, returns ``None``
+            (callers should pass the library ID from the request context).
+
+        Returns
+        -------
+        Library | None
+            Resolved library, or ``None`` when *library_id* is not provided.
+        """
+        if library_id is None:
+            return None
+        lib_repo = LibraryRepository(self._session)
+        return lib_repo.get(library_id)
 
     def fetch_author_metadata(
         self,

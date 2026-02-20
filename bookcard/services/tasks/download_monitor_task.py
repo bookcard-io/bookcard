@@ -22,9 +22,17 @@ import logging
 import os
 from typing import Any
 
+from sqlalchemy import Engine
+from sqlmodel import Session, select
+
 from bookcard.database import EngineSessionFactory
-from bookcard.repositories.config_repository import LibraryRepository
-from bookcard.services.config_service import LibraryService
+from bookcard.models.config import Library
+from bookcard.models.pvr import (
+    DownloadItem,
+    DownloadItemStatus,
+    TrackedBook,
+    TrackedBookStatus,
+)
 from bookcard.services.download_monitor_service import DownloadMonitorService
 from bookcard.services.pvr_import_service import PVRImportService
 from bookcard.services.security import DataEncryptor
@@ -39,6 +47,10 @@ class DownloadMonitorTask(BaseTask):
     def run(self, worker_context: dict[str, Any]) -> None:
         """Execute the download monitor task.
 
+        Checks for completed downloads and imports them grouped by their
+        target ``library_id`` so each batch is processed against the correct
+        Calibre library.
+
         Parameters
         ----------
         worker_context : dict[str, Any]
@@ -52,39 +64,15 @@ class DownloadMonitorTask(BaseTask):
             service = DownloadMonitorService(session, encryptor=encryptor)
             service.check_downloads()
 
-            # Process any completed downloads
-            # We need the active library
-            library_repo = LibraryRepository(session)
-            library_service = LibraryService(session, library_repo)
-            active_library = library_service.get_active_library()
+            # Discover distinct library_ids with pending completed downloads
+            library_ids = self._get_pending_library_ids(session)
 
-            if active_library:
-                # We need to construct a session factory from the session's engine
-                # The session in worker_context should be bound to an engine
-                engine = session.bind
-                if not engine:
-                    logger.warning(
-                        "Session has no bound engine, cannot create session factory"
-                    )
-                else:
-                    session_factory = EngineSessionFactory(engine)
-                    import_service = PVRImportService(
-                        session, session_factory, active_library
-                    )
-                    results = import_service.import_pending_downloads()
-                    if results.successful > 0:
-                        logger.info("Imported %d pending downloads", results.successful)
-                    if results.failed > 0:
-                        logger.warning(
-                            "Failed to import %d pending downloads", results.failed
-                        )
+            if not library_ids:
+                logger.debug("No pending completed downloads to import.")
             else:
-                logger.info(
-                    "No active library found. Skipping pending downloads import."
-                )
+                self._import_by_library(session, library_ids)
 
-            # Since this is a periodic check, we mark it as 100% complete when done
-            # The next run will be a new task instance
+            # Since this is a periodic check, we mark it as 100% complete
             update_progress = worker_context.get("update_progress")
             if update_progress:
                 update_progress(1.0)
@@ -92,3 +80,73 @@ class DownloadMonitorTask(BaseTask):
         except Exception:
             logger.exception("Error executing download monitor task")
             raise
+
+    @staticmethod
+    def _get_pending_library_ids(session: Session) -> list[int]:
+        """Return distinct library_ids for pending completed downloads.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+
+        Returns
+        -------
+        list[int]
+            Distinct library IDs with pending imports.
+        """
+        stmt = (
+            select(TrackedBook.library_id)
+            .join(DownloadItem)
+            .where(DownloadItem.status == DownloadItemStatus.COMPLETED)
+            .where(TrackedBook.status != TrackedBookStatus.COMPLETED)
+            .where(TrackedBook.status != TrackedBookStatus.FAILED)
+            .distinct()
+        )
+        return list(session.exec(stmt).all())
+
+    @staticmethod
+    def _import_by_library(session: Session, library_ids: list[int]) -> None:
+        """Import pending downloads grouped by library.
+
+        Parameters
+        ----------
+        session : Session
+            Database session.
+        library_ids : list[int]
+            Library IDs with pending downloads.
+        """
+        engine = session.bind
+        if not isinstance(engine, Engine):
+            logger.warning("Session has no bound engine, cannot create session factory")
+            return
+
+        session_factory = EngineSessionFactory(engine)
+
+        for library_id in library_ids:
+            library = session.get(Library, library_id)
+            if library is None:
+                logger.warning(
+                    "Library id=%d referenced by pending download no longer exists; "
+                    "skipping.",
+                    library_id,
+                )
+                continue
+
+            import_service = PVRImportService(session, session_factory, library)
+            results = import_service.import_pending_downloads()
+
+            if results.successful > 0:
+                logger.info(
+                    "Imported %d pending downloads for library '%s' (id=%d)",
+                    results.successful,
+                    library.name,
+                    library_id,
+                )
+            if results.failed > 0:
+                logger.warning(
+                    "Failed to import %d pending downloads for library '%s' (id=%d)",
+                    results.failed,
+                    library.name,
+                    library_id,
+                )

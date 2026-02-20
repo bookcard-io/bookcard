@@ -492,12 +492,11 @@ class TrackedBook(SQLModel, table=True):
     title: str = Field(max_length=500, index=True)
     author: str = Field(max_length=500, index=True)
     isbn: str | None = Field(default=None, max_length=20, index=True)
-    library_id: int | None = Field(
-        default=None,
+    library_id: int = Field(
         sa_column=Column(
             Integer,
-            ForeignKey("libraries.id", ondelete="SET NULL"),
-            nullable=True,
+            ForeignKey("libraries.id", ondelete="CASCADE"),
+            nullable=False,
             index=True,
         ),
     )

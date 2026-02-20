@@ -167,8 +167,9 @@ class EmailServerConfig(SQLModel, table=True):
 class Library(SQLModel, table=True):
     """Calibre library configuration.
 
-    Supports multiple libraries, with one active library at a time.
-    Each library points to a separate Calibre metadata.db file.
+    Supports multiple libraries.  Active-library semantics are per-user
+    via the ``UserLibrary`` table; the legacy ``is_active`` column has
+    been dropped.
 
     Attributes
     ----------
@@ -213,6 +214,7 @@ class Library(SQLModel, table=True):
         CREATE_NEW (create new entry even if duplicate exists)
         (default: IGNORE).
     is_active : bool
+        .. deprecated:: Retained for migration compatibility only.
         Whether this is the currently active library (only one can be active).
     created_at : datetime
         Library creation timestamp.

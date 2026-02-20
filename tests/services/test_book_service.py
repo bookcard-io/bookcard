@@ -2450,9 +2450,8 @@ def test_ensure_epub_for_kindle_no_session(library: Library, book: Book) -> None
 
 
 def test_ensure_epub_for_kindle_no_library(library: Library, book: Book) -> None:
-    """Test _ensure_epub_for_kindle when no active library (covers lines 1155-1157)."""
+    """Test _ensure_epub_for_kindle when session is None (covers lines 1148-1150)."""
     from bookcard.repositories import BookWithFullRelations
-    from tests.conftest import DummySession
 
     book_with_rels = BookWithFullRelations(
         book=book,
@@ -2479,21 +2478,11 @@ def test_ensure_epub_for_kindle_no_library(library: Library, book: Book) -> None
         formats=[EBookFormat.EPUB],
     )
 
-    with (
-        patch("bookcard.services.book_service.CalibreBookRepository"),
-        patch("bookcard.services.book_service.LibraryRepository"),
-        patch(
-            "bookcard.services.book_service.LibraryService"
-        ) as mock_lib_service_class,
-    ):
-        mock_lib_service = MagicMock()
-        mock_lib_service.get_active_library.return_value = None
-        mock_lib_service_class.return_value = mock_lib_service
-
+    with patch("bookcard.services.book_service.CalibreBookRepository"):
         service = BookService(library)
-        service._session = DummySession()
+        service._session = None
 
-        with pytest.raises(ValueError, match="No active library configured"):
+        with pytest.raises(ValueError, match="Session not available"):
             service._ensure_epub_for_kindle(1, book_with_rels, device)
 
 
@@ -2557,18 +2546,10 @@ def test_ensure_epub_for_kindle_conversion_success(
 
     with (
         patch("bookcard.services.book_service.CalibreBookRepository"),
-        patch("bookcard.services.book_service.LibraryRepository"),
-        patch(
-            "bookcard.services.book_service.LibraryService"
-        ) as mock_lib_service_class,
         patch(
             "bookcard.services.book_service.create_conversion_service"
         ) as mock_create_conversion,
     ):
-        mock_lib_service = MagicMock()
-        mock_lib_service.get_active_library.return_value = library
-        mock_lib_service_class.return_value = mock_lib_service
-
         mock_conv_service = MagicMock()
         mock_conv_service.convert_book.return_value = conversion
         mock_create_conversion.return_value = mock_conv_service
@@ -2632,18 +2613,10 @@ def test_ensure_epub_for_kindle_conversion_failed(library: Library, book: Book) 
 
     with (
         patch("bookcard.services.book_service.CalibreBookRepository"),
-        patch("bookcard.services.book_service.LibraryRepository"),
-        patch(
-            "bookcard.services.book_service.LibraryService"
-        ) as mock_lib_service_class,
         patch(
             "bookcard.services.book_service.create_conversion_service"
         ) as mock_create_conversion,
     ):
-        mock_lib_service = MagicMock()
-        mock_lib_service.get_active_library.return_value = library
-        mock_lib_service_class.return_value = mock_lib_service
-
         mock_conv_service = MagicMock()
         mock_conv_service.convert_book.return_value = conversion
         mock_create_conversion.return_value = mock_conv_service
@@ -2689,18 +2662,10 @@ def test_ensure_epub_for_kindle_exception_handling(
 
     with (
         patch("bookcard.services.book_service.CalibreBookRepository"),
-        patch("bookcard.services.book_service.LibraryRepository"),
-        patch(
-            "bookcard.services.book_service.LibraryService"
-        ) as mock_lib_service_class,
         patch(
             "bookcard.services.book_service.create_conversion_service"
         ) as mock_create_conversion,
     ):
-        mock_lib_service = MagicMock()
-        mock_lib_service.get_active_library.return_value = library
-        mock_lib_service_class.return_value = mock_lib_service
-
         mock_conv_service = MagicMock()
         mock_conv_service.convert_book.side_effect = ValueError("Conversion error")
         mock_create_conversion.return_value = mock_conv_service
@@ -2770,18 +2735,10 @@ def test_ensure_epub_for_kindle_refresh_no_epub(library: Library, book: Book) ->
 
     with (
         patch("bookcard.services.book_service.CalibreBookRepository"),
-        patch("bookcard.services.book_service.LibraryRepository"),
-        patch(
-            "bookcard.services.book_service.LibraryService"
-        ) as mock_lib_service_class,
         patch(
             "bookcard.services.book_service.create_conversion_service"
         ) as mock_create_conversion,
     ):
-        mock_lib_service = MagicMock()
-        mock_lib_service.get_active_library.return_value = library
-        mock_lib_service_class.return_value = mock_lib_service
-
         mock_conv_service = MagicMock()
         mock_conv_service.convert_book.return_value = conversion
         mock_create_conversion.return_value = mock_conv_service
@@ -2837,18 +2794,10 @@ def test_ensure_epub_for_kindle_refresh_none(library: Library, book: Book) -> No
 
     with (
         patch("bookcard.services.book_service.CalibreBookRepository"),
-        patch("bookcard.services.book_service.LibraryRepository"),
-        patch(
-            "bookcard.services.book_service.LibraryService"
-        ) as mock_lib_service_class,
         patch(
             "bookcard.services.book_service.create_conversion_service"
         ) as mock_create_conversion,
     ):
-        mock_lib_service = MagicMock()
-        mock_lib_service.get_active_library.return_value = library
-        mock_lib_service_class.return_value = mock_lib_service
-
         mock_conv_service = MagicMock()
         mock_conv_service.convert_book.return_value = conversion
         mock_create_conversion.return_value = mock_conv_service
@@ -2904,18 +2853,10 @@ def test_ensure_epub_for_kindle_no_user_id(library: Library, book: Book) -> None
 
     with (
         patch("bookcard.services.book_service.CalibreBookRepository"),
-        patch("bookcard.services.book_service.LibraryRepository"),
-        patch(
-            "bookcard.services.book_service.LibraryService"
-        ) as mock_lib_service_class,
         patch(
             "bookcard.services.book_service.create_conversion_service"
         ) as mock_create_conversion,
     ):
-        mock_lib_service = MagicMock()
-        mock_lib_service.get_active_library.return_value = library
-        mock_lib_service_class.return_value = mock_lib_service
-
         mock_conv_service = MagicMock()
         mock_conv_service.convert_book.return_value = conversion
         mock_create_conversion.return_value = mock_conv_service

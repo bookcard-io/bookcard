@@ -135,14 +135,14 @@ class KoboSyncService:
                 continue
 
             # Check if archived
-            archived_book = self._archived_book_repo.find_by_user_and_book(
-                user_id, book.id
+            archived_book = self._archived_book_repo.find_by_user_library_and_book(
+                user_id, library_id, book.id
             )
             is_archived = archived_book.is_archived if archived_book else False
 
             # Get or create reading state
-            reading_state = self._reading_state_repo.find_by_user_and_book(
-                user_id, book.id
+            reading_state = self._reading_state_repo.find_by_user_library_and_book(
+                user_id, library_id, book.id
             )
 
             # Create entitlement and metadata
@@ -189,7 +189,7 @@ class KoboSyncService:
             new_books_last_created = max(new_books_last_created, book_timestamp)
 
             # Mark as synced
-            self._mark_book_synced(user_id, book.id)
+            self._mark_book_synced(user_id, library_id, book.id)
 
         # Update sync token
         sync_token.books_last_modified = new_books_last_modified
@@ -263,7 +263,9 @@ class KoboSyncService:
         list[BookWithRelations | BookWithFullRelations]
             List of books to sync.
         """
-        synced_book_ids = self._synced_book_repo.find_book_ids_by_user(user_id)
+        synced_book_ids = self._synced_book_repo.find_book_ids_by_user_and_library(
+            user_id, library_id
+        )
         shelf_book_ids = self._get_shelf_book_ids(user_id, library_id, only_shelves)
         books, _total = self._book_service.list_books(
             page=1,
@@ -428,17 +430,21 @@ class KoboSyncService:
         # Filter out excluded book IDs
         return [rs for rs in reading_states if rs.book_id not in exclude_book_ids]
 
-    def _mark_book_synced(self, user_id: int, book_id: int) -> None:
+    def _mark_book_synced(self, user_id: int, library_id: int, book_id: int) -> None:
         """Mark a book as synced.
 
         Parameters
         ----------
         user_id : int
             User ID.
+        library_id : int
+            Library ID.
         book_id : int
             Book ID.
         """
-        existing = self._synced_book_repo.find_by_user_and_book(user_id, book_id)
+        existing = self._synced_book_repo.find_by_user_library_and_book(
+            user_id, library_id, book_id
+        )
         if existing:
             existing.synced_at = datetime.now(UTC)
         else:
@@ -446,6 +452,7 @@ class KoboSyncService:
 
             synced_book = KoboSyncedBook(
                 user_id=user_id,
+                library_id=library_id,
                 book_id=book_id,
             )
             self._synced_book_repo.add(synced_book)

@@ -36,7 +36,7 @@ from bookcard.repositories.user_repository import (
     TokenBlacklistRepository,
     UserRepository,
 )
-from bookcard.services.config_service import BasicConfigService, LibraryService
+from bookcard.services.config_service import BasicConfigService
 from bookcard.services.kobo.auth_service import KoboAuthService
 from bookcard.services.oidc_auth_service import OIDCAuthError, OIDCAuthService
 from bookcard.services.opds.auth_service import OpdsAuthService
@@ -256,11 +256,10 @@ def get_optional_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_token"
         )
 
-    # Bootstrap: if there is no active library, allow anonymous access so the
-    # UI can discover "no library configured" without requiring auth.
+    # Bootstrap: if there are no libraries at all, allow anonymous access so
+    # the UI can discover "no library configured" without requiring auth.
     library_repo = LibraryRepository(session)
-    library_service = LibraryService(session, library_repo)
-    if library_service.get_active_library() is None:
+    if not library_repo.list_all():
         return None
 
     basic_config_service = BasicConfigService(session)
@@ -303,12 +302,12 @@ def get_admin_user(
 def _resolve_active_library(
     session: Session, user_id: int | None = None
 ) -> Library | None:
-    """Resolve the active library for a user, falling back to global.
+    """Resolve the active library for a user.
 
-    When *user_id* is provided the function first checks the
-    ``UserLibrary`` table for the user's active library.  If none is
-    found (or *user_id* is ``None``), it falls back to the legacy
-    global ``Library.is_active`` flag.
+    Resolution order:
+
+    1. Per-user active library via ``UserLibrary`` (when *user_id* is given).
+    2. First available library (bootstrap / single-library setups).
 
     Parameters
     ----------
@@ -320,7 +319,7 @@ def _resolve_active_library(
     Returns
     -------
     Library | None
-        The resolved library, or ``None`` when no active library exists.
+        The resolved library, or ``None`` when no library exists.
     """
     if user_id is not None:
         from bookcard.repositories.user_library_repository import (
@@ -332,10 +331,10 @@ def _resolve_active_library(
         if library is not None:
             return library
 
-    # Fallback: global active library
+    # Fallback: first available library (for bootstrap / anonymous access)
     library_repo = LibraryRepository(session)
-    library_service = LibraryService(session, library_repo)
-    return library_service.get_active_library()
+    all_libraries = library_repo.list_all()
+    return all_libraries[0] if all_libraries else None
 
 
 def get_active_library_id(

@@ -103,12 +103,11 @@ class BookConversion(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     book_id: int = Field(index=True)  # No FK constraint - books are in Calibre DB
-    library_id: int | None = Field(
-        default=None,
+    library_id: int = Field(
         sa_column=Column(
             Integer,
-            ForeignKey("libraries.id", ondelete="SET NULL"),
-            nullable=True,
+            ForeignKey("libraries.id", ondelete="CASCADE"),
+            nullable=False,
             index=True,
         ),
     )

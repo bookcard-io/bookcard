@@ -82,7 +82,7 @@ def mock_library_repo() -> MagicMock:
         calibre_db_file="metadata.db",
         is_active=True,
     )
-    repo.get_active.return_value = library
+    repo.list_all.return_value = [library]
     return repo
 
 
@@ -595,7 +595,7 @@ class TestAddBookToLibrary:
         file_path = temp_dir / "book.epub"
         file_path.touch()
         mock_history_repo.get.return_value = ingest_history
-        mock_library_repo.get_active.return_value = None
+        mock_library_repo.list_all.return_value = []
 
         with pytest.raises(NoActiveLibraryError):
             service.add_book_to_library(
@@ -696,7 +696,7 @@ class TestSetBookCover:
         mock_library_repo: MagicMock,
     ) -> None:
         """Test cover setting when no active library."""
-        mock_library_repo.get_active.return_value = None
+        mock_library_repo.list_all.return_value = []
 
         with pytest.raises(NoActiveLibraryError):
             service.set_book_cover(
@@ -882,7 +882,7 @@ class TestPrivateHelpers:
             calibre_db_file="metadata.db",
             is_active=True,
         )
-        mock_library_repo.get_active.return_value = library
+        mock_library_repo.list_all.return_value = [library]
 
         result = service._get_active_library_or_raise()
 
@@ -894,7 +894,7 @@ class TestPrivateHelpers:
         mock_library_repo: MagicMock,
     ) -> None:
         """Test getting active library when none exists."""
-        mock_library_repo.get_active.return_value = None
+        mock_library_repo.list_all.return_value = []
 
         with pytest.raises(NoActiveLibraryError):
             service._get_active_library_or_raise()
