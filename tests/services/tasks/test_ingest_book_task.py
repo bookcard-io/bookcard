@@ -653,7 +653,7 @@ class TestProcessSingleFile:
 
         assert book_id == 101
         mock_processor.set_book_cover.assert_called_once_with(
-            101, "http://example.com/cover.jpg"
+            101, "http://example.com/cover.jpg", library_id=None, user_id=1
         )
         mock_run_post_processors.assert_called_once()
 
@@ -706,7 +706,7 @@ class TestProcessSingleFile:
 
         assert book_id == 101
         mock_processor.set_book_cover.assert_called_once_with(
-            101, "http://example.com/cover2.jpg"
+            101, "http://example.com/cover2.jpg", library_id=None, user_id=1
         )
         mock_run_post_processors.assert_called_once()
 
@@ -760,7 +760,7 @@ class TestProcessSingleFile:
 
         assert book_id == 101
         mock_processor.set_book_cover.assert_called_once_with(
-            101, "http://example.com/fetched.jpg"
+            101, "http://example.com/fetched.jpg", library_id=None, user_id=1
         )
         mock_run_post_processors.assert_called_once()
 

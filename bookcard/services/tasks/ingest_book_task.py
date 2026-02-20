@@ -291,7 +291,10 @@ class IngestBookTask(BaseTask):
         skipped_duplicates = 0
 
         # Get library once for all files (used by post-processors)
-        library = processor_service.get_active_library()
+        library = processor_service.get_active_library(
+            library_id=self.metadata.get("library_id"),
+            user_id=self.user_id,
+        )
 
         for i, file_path in enumerate(file_paths):
             self._check_cancellation()
@@ -485,6 +488,7 @@ class IngestBookTask(BaseTask):
 
         # Extract and convert published_date to pubdate
         pubdate = self._extract_pubdate(fetched_metadata, metadata_hint)
+        task_library_id = self.metadata.get("library_id")
         book_id = processor_service.add_book_to_library(
             history_id=history_id,
             file_path=file_path,
@@ -492,6 +496,8 @@ class IngestBookTask(BaseTask):
             title=title,
             author_name=author_name,
             pubdate=pubdate,
+            library_id=task_library_id,
+            user_id=self.user_id,
         )
 
         # Handle cover download if URL is available
@@ -502,7 +508,9 @@ class IngestBookTask(BaseTask):
             cover_url = metadata_hint["cover_url"]
 
         if cover_url:
-            processor_service.set_book_cover(book_id, cover_url)
+            processor_service.set_book_cover(
+                book_id, cover_url, library_id=task_library_id, user_id=self.user_id
+            )
 
         # Run post-processors (e.g., auto-conversion, EPUB fixing)
         self._run_post_processors(
