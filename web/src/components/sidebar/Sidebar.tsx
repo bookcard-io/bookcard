@@ -16,6 +16,7 @@
 "use client";
 
 import { useState } from "react";
+import { useActiveLibrary } from "@/contexts/ActiveLibraryContext";
 import { ShelfEditModal } from "@/components/shelves/ShelfEditModal";
 import { useSelectedShelf } from "@/contexts/SelectedShelfContext";
 import { useShelvesContext } from "@/contexts/ShelvesContext";
@@ -53,6 +54,7 @@ import { SidebarNav } from "./SidebarNav";
  */
 export function Sidebar() {
   const { isCollapsed, setIsCollapsed } = useSidebar();
+  const { visibleLibraries } = useActiveLibrary();
   const {
     shelves,
     isLoading: shelvesLoading,
@@ -130,6 +132,7 @@ export function Sidebar() {
           onShelfClick={handleShelfClick}
           onManageShelvesClick={navigateToShelves}
           onIconClick={navigateToShelves}
+          visibleLibraries={visibleLibraries}
         />
 
         <SidebarDevicesSection

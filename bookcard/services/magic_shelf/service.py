@@ -26,11 +26,9 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from bookcard.models.magic_shelf_rules import GroupRule
-from bookcard.models.shelves import ShelfTypeEnum
+from bookcard.models.shelves import Shelf, ShelfTypeEnum
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from bookcard.repositories.interfaces import IBookRepository
     from bookcard.repositories.models import BookWithFullRelations, BookWithRelations
     from bookcard.repositories.shelf_repository import ShelfRepository
@@ -91,6 +89,9 @@ class MagicShelfService:
     def count_books_for_shelf(self, shelf_id: int) -> int:
         """Count books matching the rules of a Magic Shelf.
 
+        The query is scoped to the shelf's own library so that a magic
+        shelf in Library A never accidentally counts books from Library B.
+
         Parameters
         ----------
         shelf_id : int
@@ -104,7 +105,8 @@ class MagicShelfService:
         Raises
         ------
         ValueError
-            If shelf not found or not a magic shelf.
+            If shelf not found, not a magic shelf, or the shelf's library
+            is not among the configured repositories.
         """
         shelf = self._shelf_repo.get(shelf_id)
         if not shelf:
@@ -115,15 +117,14 @@ class MagicShelfService:
             msg = f"Shelf {shelf_id} is not a Magic Shelf"
             raise ValueError(msg)
 
+        repo = self._get_repo_for_shelf(shelf)
+
         group_rule = self._parse_rules(shelf.filter_rules, shelf_id)
         if not group_rule:
             return 0
 
         book_ids_query = self._evaluator.build_matching_book_ids_stmt(group_rule)
-        total = 0
-        for repo in self._book_repos.values():
-            total += repo.count_books_by_ids_query(book_ids_query)
-        return total
+        return repo.count_books_by_ids_query(book_ids_query)
 
     def get_books_for_shelf(
         self,
@@ -136,9 +137,8 @@ class MagicShelfService:
     ) -> tuple[list[BookWithRelations | BookWithFullRelations], int]:
         """Get books matching the rules of a Magic Shelf.
 
-        Queries each library's Calibre DB independently then merges the
-        results.  Pagination is applied after merging so page boundaries
-        are consistent.
+        The query is scoped to the shelf's own library so that results
+        only contain books from the Calibre DB the shelf belongs to.
 
         Parameters
         ----------
@@ -163,7 +163,8 @@ class MagicShelfService:
         Raises
         ------
         ValueError
-            If shelf not found or not a magic shelf.
+            If shelf not found, not a magic shelf, or the shelf's library
+            is not among the configured repositories.
         """
         shelf = self._shelf_repo.get(shelf_id)
         if not shelf:
@@ -174,69 +175,55 @@ class MagicShelfService:
             msg = f"Shelf {shelf_id} is not a Magic Shelf"
             raise ValueError(msg)
 
+        repo = self._get_repo_for_shelf(shelf)
+
         group_rule = self._parse_rules(shelf.filter_rules, shelf_id)
         if not group_rule:
             return [], 0
 
         book_ids_query = self._evaluator.build_matching_book_ids_stmt(group_rule)
 
-        # Collect books from all libraries
-        all_books: list[BookWithRelations | BookWithFullRelations] = []
-        total_count = 0
-        for library_id, repo in self._book_repos.items():
-            count = repo.count_books_by_ids_query(book_ids_query)
-            total_count += count
-            # Fetch all matched books (we paginate after merge)
-            books = repo.list_books_by_ids_query(
-                book_ids_query,
-                limit=count or 1,
-                offset=0,
-                sort_by=sort_by,
-                sort_order=sort_order,
-                full=full,
-            )
-            # Tag each book with its library_id
-            for book in books:
-                book.library_id = library_id
-            all_books.extend(books)
-
-        # Sort merged results
-        reverse = sort_order == "desc"
-        sort_key = self._get_sort_key(sort_by)
-        all_books.sort(key=sort_key, reverse=reverse)
-
-        # Paginate
+        total_count = repo.count_books_by_ids_query(book_ids_query)
         offset = (page - 1) * page_size
-        paginated = all_books[offset : offset + page_size]
+        books = repo.list_books_by_ids_query(
+            book_ids_query,
+            limit=page_size,
+            offset=offset,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            full=full,
+        )
+        for book in books:
+            book.library_id = shelf.library_id
 
-        return paginated, total_count
+        return books, total_count
 
-    @staticmethod
-    def _get_sort_key(
-        sort_by: str,
-    ) -> Callable[[BookWithRelations | BookWithFullRelations], str | int]:
-        """Return a sort key function for the given field name.
+    def _get_repo_for_shelf(self, shelf: Shelf) -> IBookRepository:
+        """Return the book repository for the shelf's library.
 
         Parameters
         ----------
-        sort_by : str
-            Field to sort by (``timestamp``, ``title``, ``id``).
+        shelf : Shelf
+            Shelf model instance.
 
         Returns
         -------
-        Callable
-            Callable suitable for ``list.sort(key=...)``.
+        IBookRepository
+            Repository scoped to the shelf's Calibre database.
+
+        Raises
+        ------
+        ValueError
+            If no repository is configured for the shelf's library.
         """
-
-        def _key(b: BookWithRelations | BookWithFullRelations) -> str | int:
-            if sort_by == "title":
-                return (b.book.sort or b.book.title or "").lower()
-            if sort_by == "id":
-                return b.book.id or 0
-            # Default to timestamp
-            return str(b.book.timestamp or "")
-
-        return _key
+        repo = self._book_repos.get(shelf.library_id)
+        if repo is None:
+            msg = (
+                f"No book repository configured for library "
+                f"{shelf.library_id} (shelf {shelf.id})"
+            )
+            raise ValueError(msg)
+        return repo
 
     def _parse_rules(
         self,

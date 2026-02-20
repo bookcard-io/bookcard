@@ -13,11 +13,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { LibraryOutline } from "@/icons/LibraryOutline";
 import type { Shelf } from "@/types/shelf";
 import { SidebarNavItem } from "./SidebarNavItem";
 import { SidebarSection } from "./SidebarSection";
+
+interface LibraryInfo {
+  id: number;
+  name: string;
+}
 
 export interface ShelvesSectionProps {
   /** Whether the sidebar is collapsed. */
@@ -38,12 +43,15 @@ export interface ShelvesSectionProps {
   onManageShelvesClick: () => void;
   /** Callback when icon is clicked while sidebar is collapsed. */
   onIconClick?: () => void;
+  /** Visible libraries (used for grouping when multiple libraries exist). */
+  visibleLibraries?: LibraryInfo[];
 }
 
 /**
  * Shelves section component for sidebar.
  *
- * Displays recent shelves and manage shelves link.
+ * Displays recent shelves grouped by library when the user has multiple
+ * visible libraries. Falls back to a flat list for single-library users.
  * Follows SRP by handling only shelves section rendering.
  * Follows IOC by accepting all behavior via props.
  *
@@ -62,14 +70,38 @@ export function ShelvesSection({
   onShelfClick,
   onManageShelvesClick,
   onIconClick,
+  visibleLibraries = [],
 }: ShelvesSectionProps) {
   const [shakingShelfId, setShakingShelfId] = useState<number | null>(null);
+
+  const shouldGroup = visibleLibraries.length > 1;
+
+  const libraryNameMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const lib of visibleLibraries) {
+      map.set(lib.id, lib.name);
+    }
+    return map;
+  }, [visibleLibraries]);
+
+  const groupedShelves = useMemo(() => {
+    if (!shouldGroup) return null;
+    const groups = new Map<number, Shelf[]>();
+    for (const shelf of shelves) {
+      const existing = groups.get(shelf.library_id);
+      if (existing) {
+        existing.push(shelf);
+      } else {
+        groups.set(shelf.library_id, [shelf]);
+      }
+    }
+    return groups;
+  }, [shelves, shouldGroup]);
 
   const handleShelfClick = (shelfId: number) => {
     const shelf = shelves.find((s) => s.id === shelfId);
 
     if (shelf && shelf.book_count === 0) {
-      // Empty shelf: trigger shake animation and no-op
       setShakingShelfId(shelfId);
       setTimeout(() => {
         setShakingShelfId(null);
@@ -77,8 +109,52 @@ export function ShelvesSection({
       return;
     }
 
-    // Shelf has books: proceed with normal behavior
     onShelfClick(shelfId);
+  };
+
+  const renderShelfItem = (shelf: Shelf) => (
+    <SidebarNavItem
+      key={shelf.id}
+      label={shelf.name}
+      isActive={selectedShelfId === shelf.id}
+      isShaking={shakingShelfId === shelf.id}
+      onClick={() => handleShelfClick(shelf.id)}
+    />
+  );
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <li className="px-[46px] py-2.5 text-[var(--color-text-a30)] text-sm">
+          Loading...
+        </li>
+      );
+    }
+
+    if (shelves.length === 0) {
+      return (
+        <li className="px-[46px] py-2.5 text-[var(--color-text-a30)] text-sm">
+          No shelves yet
+        </li>
+      );
+    }
+
+    if (groupedShelves) {
+      return Array.from(groupedShelves.entries()).map(
+        ([libraryId, libShelves]) => (
+          <li key={libraryId}>
+            <span className="block px-[46px] pt-3 pb-1 font-medium text-[0.65rem] text-[var(--color-surface-a40)] uppercase tracking-wider">
+              {libraryNameMap.get(libraryId) ?? `Library ${libraryId}`}
+            </span>
+            <ul className="m-0 list-none p-0">
+              {libShelves.map(renderShelfItem)}
+            </ul>
+          </li>
+        ),
+      );
+    }
+
+    return shelves.map(renderShelfItem);
   };
 
   return (
@@ -90,25 +166,7 @@ export function ShelvesSection({
       onToggle={onToggle}
       onIconClick={onIconClick}
     >
-      {isLoading ? (
-        <li className="px-[46px] py-2.5 text-[var(--color-text-a30)] text-sm">
-          Loading...
-        </li>
-      ) : shelves.length === 0 ? (
-        <li className="px-[46px] py-2.5 text-[var(--color-text-a30)] text-sm">
-          No shelves yet
-        </li>
-      ) : (
-        shelves.map((shelf) => (
-          <SidebarNavItem
-            key={shelf.id}
-            label={shelf.name}
-            isActive={selectedShelfId === shelf.id}
-            isShaking={shakingShelfId === shelf.id}
-            onClick={() => handleShelfClick(shelf.id)}
-          />
-        ))
-      )}
+      {renderContent()}
       <SidebarNavItem label="Manage shelves" onClick={onManageShelvesClick} />
     </SidebarSection>
   );
