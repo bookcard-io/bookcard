@@ -233,6 +233,7 @@ class IngestProcessorService:
         rating: int | None = None,
         cover_url: str | None = None,
         library_id: int | None = None,
+        user_id: int | None = None,
     ) -> int:
         """Add a book file to the library.
 
@@ -265,8 +266,10 @@ class IngestProcessorService:
         cover_url : str | None
             Optional cover URL to set.
         library_id : int | None
-            Explicit library ID.  Falls back to the global active
-            library when ``None``.
+            Explicit library ID.  Falls back to per-user active library,
+            then first available library when ``None``.
+        user_id : int | None
+            Optional user identifier for per-user library fallback.
 
         Returns
         -------
@@ -281,7 +284,7 @@ class IngestProcessorService:
             If no active library is configured.
         """
         history = self._get_history_or_raise(history_id)
-        library = self._get_active_library_or_raise(library_id)
+        library = self._get_active_library_or_raise(library_id, user_id=user_id)
 
         # Extract metadata with fallback to filename
         extracted = extract_metadata(history, fallback_title=file_path.stem)
@@ -355,6 +358,7 @@ class IngestProcessorService:
         file_path: Path,
         file_format: str,
         library_id: int | None = None,
+        user_id: int | None = None,
     ) -> None:
         """Add a format to an existing book.
 
@@ -367,10 +371,12 @@ class IngestProcessorService:
         file_format : str
             File format extension.
         library_id : int | None
-            Explicit library ID.  Falls back to the global active
-            library when ``None``.
+            Explicit library ID.  Falls back to per-user active library,
+            then first available library when ``None``.
+        user_id : int | None
+            Optional user identifier for per-user library fallback.
         """
-        library = self._get_active_library_or_raise(library_id)
+        library = self._get_active_library_or_raise(library_id, user_id=user_id)
         book_service = self._book_service_factory(library)
 
         # Attempt to strip DRM
@@ -441,7 +447,11 @@ class IngestProcessorService:
                 logger.warning("Failed to delete temp file: %s", processed_path)
 
     def set_book_cover(
-        self, book_id: int, cover_url: str, library_id: int | None = None
+        self,
+        book_id: int,
+        cover_url: str,
+        library_id: int | None = None,
+        user_id: int | None = None,
     ) -> None:
         """Set book cover from URL.
 
@@ -452,15 +462,17 @@ class IngestProcessorService:
         cover_url : str
             URL of the cover image.
         library_id : int | None
-            Explicit library ID.  Falls back to the global active
-            library when ``None``.
+            Explicit library ID.  Falls back to per-user active library,
+            then first available library when ``None``.
+        user_id : int | None
+            Optional user identifier for per-user library fallback.
 
         Raises
         ------
         NoActiveLibraryError
             If no active library is configured.
         """
-        library = self._get_active_library_or_raise(library_id)
+        library = self._get_active_library_or_raise(library_id, user_id=user_id)
         book_service = self._book_service_factory(library)
 
         # Import lazily to avoid circular imports if any
@@ -574,14 +586,25 @@ class IngestProcessorService:
         """
         return self._get_history_or_raise(history_id)
 
-    def get_active_library(self, library_id: int | None = None) -> Library:
-        """Get library by explicit ID or first available.
+    def get_active_library(
+        self,
+        library_id: int | None = None,
+        user_id: int | None = None,
+    ) -> Library:
+        """Resolve the target library.
+
+        Resolution order:
+
+        1. Explicit *library_id* (e.g. captured at enqueue time).
+        2. Per-user active library via ``UserLibrary`` (if *user_id* given).
+        3. First available library (single-library / headless fallback).
 
         Parameters
         ----------
         library_id : int | None
-            Explicit library ID.  Falls back to the first available
-            library when ``None``.
+            Explicit library ID.
+        user_id : int | None
+            Optional user identifier for per-user fallback.
 
         Returns
         -------
@@ -593,7 +616,7 @@ class IngestProcessorService:
         NoActiveLibraryError
             If no library could be resolved.
         """
-        return self._get_active_library_or_raise(library_id)
+        return self._get_active_library_or_raise(library_id, user_id=user_id)
 
     # Private helper methods
 
@@ -635,14 +658,25 @@ class IngestProcessorService:
         """
         return self._book_service_factory(library)
 
-    def _get_active_library_or_raise(self, library_id: int | None = None) -> Library:
-        """Get library by ID or raise exception if none exists.
+    def _get_active_library_or_raise(
+        self,
+        library_id: int | None = None,
+        user_id: int | None = None,
+    ) -> Library:
+        """Resolve the target library or raise.
+
+        Resolution order mirrors :func:`resolve_task_library`:
+
+        1. Explicit *library_id*.
+        2. Per-user active library (``UserLibrary``).
+        3. First available library (headless / single-library fallback).
 
         Parameters
         ----------
         library_id : int | None
-            Explicit library ID to look up.  When ``None``, falls back
-            to the first available library.
+            Explicit library ID to look up.
+        user_id : int | None
+            Optional user identifier for per-user fallback.
 
         Returns
         -------
@@ -652,13 +686,27 @@ class IngestProcessorService:
         Raises
         ------
         NoActiveLibraryError
-            If no library could be resolved.
+            If no library could be resolved through any strategy.
         """
         if library_id is not None:
             library = self._library_repo.get(library_id)
             if library is not None:
                 return library
-        # Fallback: first available library
+            logger.warning(
+                "library_id=%s not found, falling back to other strategies",
+                library_id,
+            )
+
+        if user_id is not None:
+            from bookcard.repositories.user_library_repository import (
+                UserLibraryRepository,
+            )
+
+            ul_repo = UserLibraryRepository(self._session)
+            library = ul_repo.get_active_library_for_user(user_id)
+            if library is not None:
+                return library
+
         all_libraries = self._library_repo.list_all()
         if all_libraries:
             return all_libraries[0]

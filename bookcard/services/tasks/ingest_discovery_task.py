@@ -125,11 +125,17 @@ class IngestDiscoveryTask(BaseTask):
 
                     # Queue IngestBookTask for this group
                     if context.enqueue_task:
+                        child_metadata: dict[str, Any] = {
+                            "history_id": history_id,
+                        }
+                        parent_library_id = self.metadata.get("library_id")
+                        if parent_library_id is not None:
+                            child_metadata["library_id"] = parent_library_id
                         task_id = context.enqueue_task(
                             TaskType.INGEST_BOOK,
                             {},  # payload
                             self.user_id,
-                            {"history_id": history_id},  # metadata
+                            child_metadata,
                         )
                         logger.info(
                             "Queued ingest book task %d for history %d",

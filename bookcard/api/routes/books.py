@@ -3032,31 +3032,38 @@ def _enqueue_batch_upload_task(
     task_runner: "TaskRunner",
     file_infos: list[dict[str, str | None]],
     user_id: int,
+    library_id: int | None = None,
 ) -> int:
     """Enqueue batch upload task.
 
     Parameters
     ----------
-    task_runner : object
+    task_runner : TaskRunner
         Task runner instance.
     file_infos : list[dict[str, str | None]]
         List of file info dictionaries.
     user_id : int
         User ID for the task.
+    library_id : int | None
+        Target library ID for the upload.
 
     Returns
     -------
-    str
+    int
         Task ID.
     """
+    metadata: dict[str, object] = {
+        "task_type": TaskType.MULTI_BOOK_UPLOAD,
+        "total_files": len(file_infos),
+    }
+    if library_id is not None:
+        metadata["library_id"] = library_id
+
     task_id = task_runner.enqueue(
         task_type=TaskType.MULTI_BOOK_UPLOAD,
         payload={"files": file_infos},
         user_id=user_id,
-        metadata={
-            "task_type": TaskType.MULTI_BOOK_UPLOAD,
-            "total_files": len(file_infos),
-        },
+        metadata=metadata,
     )
     return task_id  # noqa: RET504
 
@@ -3071,6 +3078,7 @@ def upload_books_batch(
     current_user: CurrentUserDep,
     permission_helper: PermissionHelperDep,
     session: SessionDep,
+    library_id: ActiveLibraryIdDep,
     files: Annotated[list[UploadFile], File(...)],
 ) -> BookBatchUploadResponse:
     """Upload multiple book files to the active library (asynchronous).
@@ -3087,6 +3095,8 @@ def upload_books_batch(
         Database session dependency.
     current_user : CurrentUserDep
         Current authenticated user.
+    library_id : ActiveLibraryIdDep
+        Active library ID (resolved automatically).
     files : list[UploadFile]
         List of book files to upload.
 
@@ -3110,7 +3120,7 @@ def upload_books_batch(
     try:
         file_infos, temp_paths = _save_files_to_temp(files, session)
         task_id = _enqueue_batch_upload_task(
-            task_runner, file_infos, current_user.id or 0
+            task_runner, file_infos, current_user.id or 0, library_id=library_id
         )
         return BookBatchUploadResponse(task_id=task_id, total_files=len(file_infos))
     except HTTPException:

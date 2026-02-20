@@ -2630,6 +2630,7 @@ def test_upload_books_batch_success(monkeypatch: pytest.MonkeyPatch) -> None:
             current_user=current_user,
             permission_helper=mock_permission_helper,
             session=session,
+            library_id=1,
             files=[mock_file1, mock_file2],
         )
 
@@ -2696,6 +2697,7 @@ def test_upload_books_batch_unexpected_error(monkeypatch: pytest.MonkeyPatch) ->
                 current_user=current_user,
                 permission_helper=mock_permission_helper,
                 session=session,
+                library_id=1,
                 files=[mock_file],
             )
         assert isinstance(exc_info.value, HTTPException)
@@ -3438,6 +3440,7 @@ def test_upload_books_batch_http_exception(monkeypatch: pytest.MonkeyPatch) -> N
                 current_user=current_user,
                 permission_helper=mock_permission_helper,
                 session=session,
+                library_id=1,
                 files=[mock_file],
             )
         assert isinstance(exc_info.value, HTTPException)
