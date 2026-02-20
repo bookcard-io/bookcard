@@ -60,7 +60,7 @@ class BookReadModelService:
         book_reads: list[BookRead],
         include: str | None,
         user_id: int | None,
-        library_id: int,
+        library_id: int | None,
     ) -> list[BookRead]:
         """Apply optional includes to a list of books.
 
@@ -72,8 +72,10 @@ class BookReadModelService:
             Comma-separated include list (e.g., ``"reading_summary"``).
         user_id : int | None
             Current user ID. If None, user-specific includes are skipped.
-        library_id : int
-            Active library ID (used for user-specific includes).
+        library_id : int | None
+            Library ID for single-library queries.  When ``None``
+            (multi-library), books are grouped by their ``library_id``
+            field and summaries are fetched per group.
 
         Returns
         -------
@@ -84,13 +86,29 @@ class BookReadModelService:
         if "reading_summary" not in includes or user_id is None:
             return book_reads
 
-        summaries = self._summary_query.get_summaries(
-            user_id=user_id,
-            library_id=library_id,
-            book_ids=[b.id for b in book_reads],
-        )
-        for book in book_reads:
-            book.reading_summary = summaries.get(book.id)
+        if library_id is not None:
+            summaries = self._summary_query.get_summaries(
+                user_id=user_id,
+                library_id=library_id,
+                book_ids=[b.id for b in book_reads],
+            )
+            for book in book_reads:
+                book.reading_summary = summaries.get(book.id)
+        else:
+            groups: dict[int, list[BookRead]] = {}
+            for book in book_reads:
+                lib = book.library_id
+                if lib is not None:
+                    groups.setdefault(lib, []).append(book)
+
+            for lib, group in groups.items():
+                summaries = self._summary_query.get_summaries(
+                    user_id=user_id,
+                    library_id=lib,
+                    book_ids=[b.id for b in group],
+                )
+                for book in group:
+                    book.reading_summary = summaries.get(book.id)
 
         return book_reads
 

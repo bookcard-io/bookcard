@@ -30,6 +30,7 @@ from sqlmodel import Session
 
 from bookcard.api.deps import _resolve_active_library, get_current_user, get_db_session
 from bookcard.models.auth import User
+from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.services.book_permission_helper import BookPermissionHelper
 from bookcard.services.book_service import BookService
 from bookcard.services.comic.archive import (
@@ -46,8 +47,9 @@ CurrentUserDep = Annotated[User, Depends(get_current_user)]
 def _get_book_service(
     session: SessionDep,
     current_user: CurrentUserDep,
+    library_id: int | None = None,
 ) -> BookService:
-    """Get book service with the user's active library.
+    """Get book service, optionally for a specific library.
 
     Parameters
     ----------
@@ -55,6 +57,8 @@ def _get_book_service(
         Database session.
     current_user : User
         Authenticated user.
+    library_id : int | None
+        Explicit library ID. When ``None``, the user's active library is used.
 
     Returns
     -------
@@ -64,8 +68,34 @@ def _get_book_service(
     Raises
     ------
     HTTPException
-        If no active library found.
+        If no active library found or access denied.
     """
+    if library_id is not None:
+        from bookcard.repositories.user_library_repository import (
+            UserLibraryRepository,
+        )
+
+        if current_user.id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="authentication_required",
+            )
+        ul_repo = UserLibraryRepository(session)
+        assoc = ul_repo.find_by_user_and_library(current_user.id, library_id)
+        if assoc is None or not assoc.is_visible:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="library_access_denied",
+            )
+        lib_repo = LibraryRepository(session)
+        lib = lib_repo.get(library_id)
+        if lib is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="library_not_found",
+            )
+        return BookService(lib, session=session)
+
     library = _resolve_active_library(session, current_user.id)
 
     if library is None:
@@ -247,6 +277,7 @@ def list_comic_pages(
         False,
         description="If true, compute and return image width/height for each page",
     ),
+    library_id: int | None = Query(None, description="Library this book belongs to"),
 ) -> list[dict]:
     """List all pages in a comic book archive.
 
@@ -260,6 +291,8 @@ def list_comic_pages(
         Database session.
     current_user : User
         Current authenticated user.
+    library_id : int | None
+        Optional library ID override.
 
     Returns
     -------
@@ -271,7 +304,7 @@ def list_comic_pages(
     HTTPException
         If book not found, format not found, or permission denied.
     """
-    book_service = _get_book_service(session, current_user)
+    book_service = _get_book_service(session, current_user, library_id)
     book_with_rels = book_service.get_book_full(book_id)
 
     if book_with_rels is None:
@@ -327,6 +360,7 @@ def get_comic_page(
         None,
         description="Maximum width for thumbnail (pixels)",
     ),
+    library_id: int | None = Query(None, description="Library this book belongs to"),
 ) -> Response:
     """Get a specific page image from a comic book archive.
 
@@ -346,6 +380,8 @@ def get_comic_page(
         Database session.
     current_user : User
         Current authenticated user.
+    library_id : int | None
+        Optional library ID override.
 
     Returns
     -------
@@ -357,7 +393,7 @@ def get_comic_page(
     HTTPException
         If book not found, format not found, page not found, or permission denied.
     """
-    book_service = _get_book_service(session, current_user)
+    book_service = _get_book_service(session, current_user, library_id)
     book_with_rels = book_service.get_book_full(book_id)
 
     if book_with_rels is None:
@@ -428,6 +464,7 @@ def get_comic_page_thumbnail(
     current_user: CurrentUserDep,
     file_format: str = Query(..., description="Comic format (CBZ, CBR, CB7, CBC)"),
     max_width: int = Query(240, description="Maximum width for thumbnail (pixels)"),
+    library_id: int | None = Query(None, description="Library this book belongs to"),
 ) -> Response:
     """Get a thumbnail of a specific page.
 
@@ -447,6 +484,8 @@ def get_comic_page_thumbnail(
         Database session.
     current_user : User
         Current authenticated user.
+    library_id : int | None
+        Optional library ID override.
 
     Returns
     -------
@@ -461,4 +500,5 @@ def get_comic_page_thumbnail(
         max_width=max_width,
         session=session,
         current_user=current_user,
+        library_id=library_id,
     )
