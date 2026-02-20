@@ -71,6 +71,7 @@ class TestMagicShelfService:
         """Test error when shelf is not a magic shelf."""
         shelf = MagicMock(spec=Shelf)
         shelf.shelf_type = ShelfTypeEnum.SHELF
+        shelf.library_id = 1
         mock_shelf_repo.get.return_value = shelf
         with pytest.raises(ValueError, match="Shelf 1 is not a Magic Shelf"):
             service.get_books_for_shelf(1)
@@ -83,9 +84,24 @@ class TestMagicShelfService:
         """Test count error when shelf is not a magic shelf."""
         shelf = MagicMock(spec=Shelf)
         shelf.shelf_type = ShelfTypeEnum.SHELF
+        shelf.library_id = 1
         mock_shelf_repo.get.return_value = shelf
         with pytest.raises(ValueError, match="Shelf 1 is not a Magic Shelf"):
             service.count_books_for_shelf(1)
+
+    def test_get_books_library_not_configured(
+        self,
+        mock_shelf_repo: MagicMock,
+        mock_evaluator: MagicMock,
+    ) -> None:
+        """Test error when shelf's library has no configured repo."""
+        service = MagicShelfService(mock_shelf_repo, {1: MagicMock()}, mock_evaluator)
+        shelf = MagicMock(spec=Shelf)
+        shelf.shelf_type = ShelfTypeEnum.MAGIC_SHELF
+        shelf.library_id = 999
+        mock_shelf_repo.get.return_value = shelf
+        with pytest.raises(ValueError, match="No book repository configured"):
+            service.get_books_for_shelf(1)
 
     def test_get_books_success(
         self,
@@ -94,10 +110,11 @@ class TestMagicShelfService:
         mock_book_repo: MagicMock,
         mock_evaluator: MagicMock,
     ) -> None:
-        """Test successful retrieval of books."""
+        """Test successful retrieval of books from the shelf's library."""
         shelf = MagicMock(spec=Shelf)
         shelf.shelf_type = ShelfTypeEnum.MAGIC_SHELF
-        shelf.filter_rules = {"rules": []}  # Valid empty rules
+        shelf.library_id = 1
+        shelf.filter_rules = {"rules": []}
         mock_shelf_repo.get.return_value = shelf
 
         mock_evaluator.build_matching_book_ids_stmt.return_value = "ids_query"
@@ -117,6 +134,7 @@ class TestMagicShelfService:
         assert call_args[0][0] == "ids_query"
         call_kwargs = call_args[1]
         assert call_kwargs["offset"] == 0
+        assert mock_book.library_id == 1
 
     def test_count_books_success(
         self,
@@ -125,10 +143,11 @@ class TestMagicShelfService:
         mock_book_repo: MagicMock,
         mock_evaluator: MagicMock,
     ) -> None:
-        """Test successful counting of books."""
+        """Test successful counting of books from the shelf's library."""
         shelf = MagicMock(spec=Shelf)
         shelf.shelf_type = ShelfTypeEnum.MAGIC_SHELF
-        shelf.filter_rules = {"rules": []}  # Valid empty rules
+        shelf.library_id = 1
+        shelf.filter_rules = {"rules": []}
         mock_shelf_repo.get.return_value = shelf
 
         mock_evaluator.build_matching_book_ids_stmt.return_value = "ids_query"
@@ -145,30 +164,24 @@ class TestMagicShelfService:
         mock_shelf_repo: MagicMock,
         mock_book_repo: MagicMock,
     ) -> None:
-        """Test pagination is applied after merging results from all libraries."""
+        """Test pagination is delegated to the repository."""
         shelf = MagicMock(spec=Shelf)
         shelf.shelf_type = ShelfTypeEnum.MAGIC_SHELF
+        shelf.library_id = 1
         shelf.filter_rules = {"rules": []}
         mock_shelf_repo.get.return_value = shelf
 
-        # Create 15 mock books
-        mock_books = []
-        for i in range(15):
-            mb = MagicMock()
-            mb.book.sort = f"Book {i:02d}"
-            mb.book.title = f"Book {i:02d}"
-            mb.book.timestamp = f"2025-01-{i + 1:02d}"
-            mb.book.id = i + 1
-            mock_books.append(mb)
-
+        page2_books = [MagicMock() for _ in range(5)]
         mock_book_repo.count_books_by_ids_query.return_value = 15
-        mock_book_repo.list_books_by_ids_query.return_value = mock_books
+        mock_book_repo.list_books_by_ids_query.return_value = page2_books
 
         books, count = service.get_books_for_shelf(1, page=2, page_size=10)
 
         assert count == 15
-        # Page 2 with page_size 10 gives items 10-14 (5 items)
         assert len(books) == 5
+        call_kwargs = mock_book_repo.list_books_by_ids_query.call_args[1]
+        assert call_kwargs["limit"] == 10
+        assert call_kwargs["offset"] == 10
 
     def test_invalid_rules_returns_empty(
         self,
@@ -179,6 +192,7 @@ class TestMagicShelfService:
         """Test that invalid rules result in empty return without error."""
         shelf = MagicMock(spec=Shelf)
         shelf.shelf_type = ShelfTypeEnum.MAGIC_SHELF
+        shelf.library_id = 1
         shelf.filter_rules = {"invalid": "data", "rules": "not_a_list"}
         mock_shelf_repo.get.return_value = shelf
 
@@ -197,6 +211,7 @@ class TestMagicShelfService:
         """Test that invalid rules result in zero without error."""
         shelf = MagicMock(spec=Shelf)
         shelf.shelf_type = ShelfTypeEnum.MAGIC_SHELF
+        shelf.library_id = 1
         shelf.filter_rules = {"invalid": "data", "rules": "not_a_list"}
         mock_shelf_repo.get.return_value = shelf
 
@@ -215,19 +230,22 @@ class TestMagicShelfService:
         """Test that None rules result in empty group rule."""
         shelf = MagicMock(spec=Shelf)
         shelf.shelf_type = ShelfTypeEnum.MAGIC_SHELF
+        shelf.library_id = 1
         shelf.filter_rules = None
         mock_shelf_repo.get.return_value = shelf
 
+        mock_book_repo.count_books_by_ids_query.return_value = 0
+        mock_book_repo.list_books_by_ids_query.return_value = []
+
         service.get_books_for_shelf(1)
 
-        # Should call evaluator with empty GroupRule
         mock_evaluator.build_matching_book_ids_stmt.assert_called_once()
         args = mock_evaluator.build_matching_book_ids_stmt.call_args[0]
         assert args[0].rules == []
 
 
 class TestMagicShelfServiceMultiLibrary:
-    """Tests for multi-library magic shelf query merging."""
+    """Tests verifying that queries are scoped to the shelf's library."""
 
     @pytest.fixture
     def mock_shelf_repo(self) -> MagicMock:
@@ -237,26 +255,12 @@ class TestMagicShelfServiceMultiLibrary:
     def mock_evaluator(self) -> MagicMock:
         return MagicMock()
 
-    def _make_book(
-        self,
-        book_id: int,
-        title: str,
-        timestamp: str = "2025-01-01",
-    ) -> MagicMock:
-        """Create a mock BookWithRelations."""
-        book = MagicMock()
-        book.book.id = book_id
-        book.book.title = title
-        book.book.sort = title
-        book.book.timestamp = timestamp
-        return book
-
-    def test_count_sums_across_libraries(
+    def test_count_scoped_to_shelf_library(
         self,
         mock_shelf_repo: MagicMock,
         mock_evaluator: MagicMock,
     ) -> None:
-        """Test count_books_for_shelf sums counts across libraries."""
+        """Test count_books_for_shelf only queries the shelf's library repo."""
         repo_a = MagicMock()
         repo_a.count_books_by_ids_query.return_value = 3
         repo_b = MagicMock()
@@ -268,33 +272,29 @@ class TestMagicShelfServiceMultiLibrary:
 
         shelf = MagicMock(spec=Shelf)
         shelf.shelf_type = ShelfTypeEnum.MAGIC_SHELF
+        shelf.library_id = 1
         shelf.filter_rules = {"rules": []}
         mock_shelf_repo.get.return_value = shelf
 
         mock_evaluator.build_matching_book_ids_stmt.return_value = "ids_query"
 
         count = service.count_books_for_shelf(1)
-        assert count == 8
+        assert count == 3
         repo_a.count_books_by_ids_query.assert_called_once_with("ids_query")
-        repo_b.count_books_by_ids_query.assert_called_once_with("ids_query")
+        repo_b.count_books_by_ids_query.assert_not_called()
 
-    def test_get_books_merges_and_tags_library_id(
+    def test_get_books_scoped_to_shelf_library(
         self,
         mock_shelf_repo: MagicMock,
         mock_evaluator: MagicMock,
     ) -> None:
-        """Test get_books_for_shelf merges books and tags with library_id."""
-        book_a = self._make_book(1, "Alpha", "2025-01-03")
-        book_b = self._make_book(2, "Beta", "2025-01-01")
-        book_c = self._make_book(3, "Gamma", "2025-01-02")
-
+        """Test get_books_for_shelf only queries the shelf's library repo."""
+        mock_book = MagicMock()
         repo_a = MagicMock()
         repo_a.count_books_by_ids_query.return_value = 1
-        repo_a.list_books_by_ids_query.return_value = [book_a]
+        repo_a.list_books_by_ids_query.return_value = [mock_book]
 
         repo_b = MagicMock()
-        repo_b.count_books_by_ids_query.return_value = 2
-        repo_b.list_books_by_ids_query.return_value = [book_b, book_c]
 
         service = MagicShelfService(
             mock_shelf_repo,
@@ -304,71 +304,36 @@ class TestMagicShelfServiceMultiLibrary:
 
         shelf = MagicMock(spec=Shelf)
         shelf.shelf_type = ShelfTypeEnum.MAGIC_SHELF
+        shelf.library_id = 10
         shelf.filter_rules = {"rules": []}
         mock_shelf_repo.get.return_value = shelf
 
         mock_evaluator.build_matching_book_ids_stmt.return_value = "ids_query"
 
-        books, total = service.get_books_for_shelf(
-            1, sort_by="timestamp", sort_order="desc"
-        )
+        books, total = service.get_books_for_shelf(1)
 
-        assert total == 3
-        assert len(books) == 3
-        # Verify library_id tagging
-        assert book_a.library_id == 10
-        assert book_b.library_id == 20
-        assert book_c.library_id == 20
-        # Verify desc sort by timestamp: "2025-01-03", "2025-01-02", "2025-01-01"
-        assert books[0] is book_a
-        assert books[1] is book_c
-        assert books[2] is book_b
+        assert total == 1
+        assert len(books) == 1
+        assert mock_book.library_id == 10
+        repo_b.count_books_by_ids_query.assert_not_called()
+        repo_b.list_books_by_ids_query.assert_not_called()
 
-    def test_get_books_paginates_after_merge(
+    def test_shelf_library_not_in_repos_raises(
         self,
         mock_shelf_repo: MagicMock,
         mock_evaluator: MagicMock,
     ) -> None:
-        """Test pagination is applied after merging across libraries."""
-        books_a = [
-            self._make_book(i, f"A{i}", f"2025-01-{20 - i:02d}") for i in range(5)
-        ]
-        books_b = [
-            self._make_book(i, f"B{i}", f"2025-01-{15 - i:02d}") for i in range(5)
-        ]
-
-        repo_a = MagicMock()
-        repo_a.count_books_by_ids_query.return_value = 5
-        repo_a.list_books_by_ids_query.return_value = books_a
-
-        repo_b = MagicMock()
-        repo_b.count_books_by_ids_query.return_value = 5
-        repo_b.list_books_by_ids_query.return_value = books_b
-
-        service = MagicShelfService(
-            mock_shelf_repo,
-            {1: repo_a, 2: repo_b},
-            mock_evaluator,
-        )
+        """Test error when shelf's library has no matching repo."""
+        service = MagicShelfService(mock_shelf_repo, {1: MagicMock()}, mock_evaluator)
 
         shelf = MagicMock(spec=Shelf)
+        shelf.id = 99
         shelf.shelf_type = ShelfTypeEnum.MAGIC_SHELF
-        shelf.filter_rules = {"rules": []}
+        shelf.library_id = 42
         mock_shelf_repo.get.return_value = shelf
 
-        mock_evaluator.build_matching_book_ids_stmt.return_value = "q"
-
-        books, total = service.get_books_for_shelf(
-            1,
-            page=2,
-            page_size=4,
-            sort_by="timestamp",
-            sort_order="desc",
-        )
-
-        assert total == 10
-        # Page 2, size 4 → items 4..7
-        assert len(books) == 4
+        with pytest.raises(ValueError, match="No book repository configured"):
+            service.get_books_for_shelf(99)
 
     def test_from_single_repo_factory(
         self,
