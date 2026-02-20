@@ -1155,6 +1155,10 @@ def test_handle_library_delete_success(
             "bookcard.api.routes.kobo._get_kobo_library_service",
             return_value=mock_library_service,
         ),
+        patch(
+            "bookcard.api.routes.kobo._resolve_active_library",
+            return_value=mock_library,
+        ),
     ):
         result = kobo_routes.handle_library_delete(
             session,
@@ -1165,7 +1169,7 @@ def test_handle_library_delete_success(
 
         assert result.status_code == status.HTTP_204_NO_CONTENT
         mock_library_service.archive_book.assert_called_once_with(
-            kobo_user.id, book_uuid
+            kobo_user.id, book_uuid, library_id=mock_library.id
         )
 
 
@@ -1211,7 +1215,7 @@ def test_handle_library_delete_user_no_id(
 
 
 def test_handle_library_delete_proxy_redirect(
-    session: DummySession, kobo_user: User
+    session: DummySession, kobo_user: User, mock_library: Library
 ) -> None:
     """Test handle_library_delete proxy redirect (lines 752-759).
 
@@ -1221,6 +1225,8 @@ def test_handle_library_delete_proxy_redirect(
         Dummy session.
     kobo_user : User
         Kobo user.
+    mock_library : Library
+        Mock library.
     """
     mock_config = IntegrationConfig(
         kobo_sync_enabled=True, kobo_store_proxy_enabled=True
@@ -1241,6 +1247,10 @@ def test_handle_library_delete_proxy_redirect(
         patch(
             "bookcard.api.routes.kobo._get_kobo_store_proxy_service"
         ) as mock_proxy_func,
+        patch(
+            "bookcard.api.routes.kobo._resolve_active_library",
+            return_value=mock_library,
+        ),
     ):
         mock_proxy_service = MagicMock()
         mock_proxy_service.should_proxy.return_value = True
@@ -1258,7 +1268,7 @@ def test_handle_library_delete_proxy_redirect(
 
 
 def test_handle_library_delete_no_proxy_raises(
-    session: DummySession, kobo_user: User
+    session: DummySession, kobo_user: User, mock_library: Library
 ) -> None:
     """Test handle_library_delete raises when proxy disabled (line 759).
 
@@ -1268,6 +1278,8 @@ def test_handle_library_delete_no_proxy_raises(
         Dummy session.
     kobo_user : User
         Kobo user.
+    mock_library : Library
+        Mock library.
     """
     mock_config = IntegrationConfig(
         kobo_sync_enabled=True, kobo_store_proxy_enabled=False
@@ -1288,6 +1300,10 @@ def test_handle_library_delete_no_proxy_raises(
         patch(
             "bookcard.api.routes.kobo._get_kobo_store_proxy_service"
         ) as mock_proxy_func,
+        patch(
+            "bookcard.api.routes.kobo._resolve_active_library",
+            return_value=mock_library,
+        ),
     ):
         mock_proxy_service = MagicMock()
         mock_proxy_service.should_proxy.return_value = False

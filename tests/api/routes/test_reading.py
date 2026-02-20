@@ -675,17 +675,14 @@ def _mock_library_service_with_none(
     library : object | None
         Library to return (default: None).
     """
-    mock_library_service = MagicMock()
-    mock_library_service.get_active_library.return_value = library
-
     mock_library_repo = MagicMock()
+    if library is not None:
+        mock_library_repo.list_all.return_value = [library]
+    else:
+        mock_library_repo.list_all.return_value = []
     monkeypatch.setattr(
         "bookcard.api.deps.LibraryRepository",
         lambda session: mock_library_repo,
-    )
-    monkeypatch.setattr(
-        "bookcard.api.deps.LibraryService",
-        lambda session, repo: mock_library_service,
     )
 
 

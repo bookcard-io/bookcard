@@ -21,7 +21,7 @@ Tracks automatic enforcement of metadata and cover changes to ebook files.
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, ForeignKey, Integer
 from sqlalchemy import Enum as SQLEnum
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -94,8 +94,13 @@ class MetadataEnforcementOperation(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     book_id: int = Field(index=True)
-    library_id: int | None = Field(
-        default=None, foreign_key="libraries.id", index=True, nullable=True
+    library_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("libraries.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
     )
     user_id: int | None = Field(default=None, foreign_key="users.id", nullable=True)
     status: EnforcementStatus = Field(

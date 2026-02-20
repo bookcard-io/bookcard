@@ -36,7 +36,7 @@ from fastapi import (
 from fastapi.responses import FileResponse, Response
 from sqlmodel import Session
 
-from bookcard.api.deps import get_current_user, get_db_session
+from bookcard.api.deps import get_active_library_id, get_current_user, get_db_session
 from bookcard.api.schemas.author import (
     AuthorMergeRecommendRequest,
     AuthorMergeRequest,
@@ -65,6 +65,7 @@ router = APIRouter(prefix="/authors", tags=["authors"])
 
 SessionDep = Annotated[Session, Depends(get_db_session)]
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
+ActiveLibraryIdDep = Annotated[int, Depends(get_active_library_id)]
 
 
 def _get_author_service(
@@ -218,6 +219,7 @@ async def _parse_rematch_request(request: Request) -> dict[str, object] | None:
 def _get_author_or_raise(
     author_id: str,
     author_service: AuthorService,
+    library_id: int | None = None,
 ) -> dict[str, object]:
     """Get author data or raise HTTPException.
 
@@ -227,6 +229,9 @@ def _get_author_or_raise(
         Author ID (numeric) or OpenLibrary key.
     author_service : AuthorService
         Author service instance.
+    library_id : int | None
+        Explicit library ID for Calibre fallback and similar-author
+        queries.
 
     Returns
     -------
@@ -239,7 +244,9 @@ def _get_author_or_raise(
         If author is not found or no active library exists.
     """
     try:
-        author_data = author_service.get_author_by_id_or_key(author_id)
+        author_data = author_service.get_author_by_id_or_key(
+            author_id, library_id=library_id
+        )
         logger.debug(
             "Author data retrieved: id=%s, key=%s, name=%s, is_unmatched=%s",
             author_data.get("id"),
@@ -326,6 +333,7 @@ def list_authors(
 def get_author(
     author_id: str,
     current_user: CurrentUserDep,
+    library_id: ActiveLibraryIdDep,
     author_service: AuthorServiceDep,
     permission_helper: PermissionHelperDep,
 ) -> dict[str, object]:
@@ -337,6 +345,8 @@ def get_author(
         Author ID (numeric) or OpenLibrary key (e.g., "OL23919A").
     current_user : CurrentUserDep
         Current authenticated user.
+    library_id : ActiveLibraryIdDep
+        Active library ID (resolved automatically).
     author_service : AuthorServiceDep
         Author service instance.
     permission_helper : PermissionHelperDep
@@ -352,7 +362,7 @@ def get_author(
     HTTPException
         If author is not found, no active library exists, or permission denied (403).
     """
-    author_data = _get_author_or_raise(author_id, author_service)
+    author_data = _get_author_or_raise(author_id, author_service, library_id=library_id)
     # Check books:read permission with author context
     permission_helper.check_read_permission(current_user, author_data)
     return author_data

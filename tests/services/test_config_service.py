@@ -130,23 +130,14 @@ def test_create_library_path_already_exists() -> None:
 
 
 def test_create_library_set_as_active() -> None:
-    """Test create_library deactivates others when is_active=True (covers lines 143-144)."""
+    """Test create_library creates library (is_active no longer managed by service)."""
     from unittest.mock import MagicMock, patch
 
     session = DummySession()
     repo = LibraryRepository(session)  # type: ignore[arg-type]
     service = LibraryService(session, repo)  # type: ignore[arg-type]
 
-    active_library = Library(
-        id=1,
-        name="Active Library",
-        calibre_db_path="/path1",
-        calibre_db_file="metadata.db",
-        is_active=True,
-    )
-
     session.add_exec_result([])  # find_by_path() call
-    session.add_exec_result([active_library])  # find active libraries
 
     # Mock the database initializer to prevent actual file system operations
     with (
@@ -165,8 +156,7 @@ def test_create_library_set_as_active() -> None:
             is_active=True,
         )
 
-        assert library.is_active is True
-        assert active_library.is_active is False
+        assert library.name == "New Library"
 
 
 def test_update_library_success() -> None:
@@ -189,7 +179,6 @@ def test_update_library_success() -> None:
 
     session.add(library)  # Add to session for get() lookup
     session.add_exec_result([])  # find_by_path() call (no conflict)
-    session.add_exec_result([])  # list_all() call in _deactivate_all_libraries (if is_active is set)
 
     updated = service.update_library(
         1,
@@ -200,7 +189,6 @@ def test_update_library_success() -> None:
         use_split_library=True,
         split_library_dir="/split/dir",
         auto_reconnect=False,
-        is_active=True,
     )
 
     assert updated.name == "Updated Name"
@@ -210,7 +198,6 @@ def test_update_library_success() -> None:
     assert updated.use_split_library is True
     assert updated.split_library_dir == "/split/dir"
     assert updated.auto_reconnect is False
-    assert updated.is_active is True
 
 
 def test_update_library_not_found() -> None:
@@ -347,8 +334,8 @@ def test_update_library_fields_updates_all() -> None:
     assert library.auto_reconnect is False
 
 
-def test_handle_active_status_change_activates() -> None:
-    """Test _handle_active_status_change activates library (covers lines 317-323)."""
+def test_handle_active_status_change_is_noop() -> None:
+    """Test _handle_active_status_change is a no-op (deprecated)."""
     session = DummySession()
     repo = LibraryRepository(session)  # type: ignore[arg-type]
     service = LibraryService(session, repo)  # type: ignore[arg-type]
@@ -361,92 +348,11 @@ def test_handle_active_status_change_activates() -> None:
         is_active=False,
     )
 
-    active_library = Library(
-        id=2,
-        name="Active Library",
-        calibre_db_path="/path2",
-        calibre_db_file="metadata.db",
-        is_active=True,
-    )
-
-    session.add_exec_result([
-        active_library
-    ])  # list_all() call in _deactivate_all_libraries
-
+    original_status = library.is_active
     service._handle_active_status_change(library, True)
 
-    assert library.is_active is True
-    assert active_library.is_active is False
-
-
-def test_handle_active_status_change_none() -> None:
-    """Test _handle_active_status_change returns early when is_active is None (covers line 318)."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-    service = LibraryService(session, repo)  # type: ignore[arg-type]
-
-    library = Library(
-        id=1,
-        name="Test Library",
-        calibre_db_path="/path/to/library",
-        calibre_db_file="metadata.db",
-        is_active=True,
-    )
-
-    original_status = library.is_active
-    service._handle_active_status_change(library, None)
-
-    # Status should remain unchanged
+    # No-op: is_active should remain unchanged
     assert library.is_active == original_status
-
-
-def test_handle_active_status_change_deactivates() -> None:
-    """Test _handle_active_status_change deactivates library (covers lines 338-343)."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-    service = LibraryService(session, repo)  # type: ignore[arg-type]
-
-    library = Library(
-        id=1,
-        name="Test Library",
-        calibre_db_path="/path/to/library",
-        calibre_db_file="metadata.db",
-        is_active=True,
-    )
-
-    service._handle_active_status_change(library, False)
-
-    assert library.is_active is False
-
-
-def test_deactivate_all_libraries() -> None:
-    """Test _deactivate_all_libraries deactivates all (covers lines 363-374)."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-    service = LibraryService(session, repo)  # type: ignore[arg-type]
-
-    active_lib1 = Library(
-        id=1,
-        name="Library 1",
-        calibre_db_path="/path1",
-        calibre_db_file="metadata.db",
-        is_active=True,
-    )
-
-    active_lib2 = Library(
-        id=2,
-        name="Library 2",
-        calibre_db_path="/path2",
-        calibre_db_file="metadata.db",
-        is_active=True,
-    )
-
-    session.add_exec_result([active_lib1, active_lib2])
-
-    service._deactivate_all_libraries()
-
-    assert active_lib1.is_active is False
-    assert active_lib2.is_active is False
 
 
 def test_delete_library_success() -> None:
@@ -482,7 +388,7 @@ def test_delete_library_not_found() -> None:
 
 
 def test_set_active_library_success() -> None:
-    """Test set_active_library succeeds (covers lines 363-374)."""
+    """Test set_active_library returns library (is_active no longer toggled)."""
     session = DummySession()
     repo = LibraryRepository(session)  # type: ignore[arg-type]
     service = LibraryService(session, repo)  # type: ignore[arg-type]
@@ -495,27 +401,15 @@ def test_set_active_library_success() -> None:
         is_active=False,
     )
 
-    active_library = Library(
-        id=2,
-        name="Active Library",
-        calibre_db_path="/path2",
-        calibre_db_file="metadata.db",
-        is_active=True,
-    )
-
     session.add(library)  # Add to session for get() lookup
-    session.add_exec_result([
-        active_library
-    ])  # list_all() call in _deactivate_all_libraries
 
     result = service.set_active_library(1)
 
-    assert result.is_active is True
-    assert active_library.is_active is False
+    assert result is library
 
 
 def test_set_active_library_not_found() -> None:
-    """Test set_active_library raises ValueError when library not found (covers lines 363-366)."""
+    """Test set_active_library raises ValueError when library not found."""
     session = DummySession()
     repo = LibraryRepository(session)  # type: ignore[arg-type]
     service = LibraryService(session, repo)  # type: ignore[arg-type]
@@ -524,17 +418,6 @@ def test_set_active_library_not_found() -> None:
 
     with pytest.raises(ValueError, match="library_not_found"):
         service.set_active_library(999)
-
-
-def test_deactivate_all_libraries_no_active() -> None:
-    """Test _deactivate_all_libraries handles no active libraries (covers lines 378-382)."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-    service = LibraryService(session, repo)  # type: ignore[arg-type]
-
-    session.add_exec_result([])
-
-    service._deactivate_all_libraries()  # Should not raise
 
 
 def test_get_library_stats_success() -> None:
@@ -625,7 +508,6 @@ def test_create_library_with_auto_generated_path(
     """
     session = library_service._session
     session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # find_by_path() call - no existing library
-    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # list_all() call in _deactivate_all_libraries
 
     with (
         patch(
@@ -692,7 +574,6 @@ def test_create_library_existing_database_valid(
     """
     session = library_service._session
     session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # find_by_path() call
-    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # list_all() call in _deactivate_all_libraries
 
     with (
         patch(
@@ -728,7 +609,6 @@ def test_create_library_file_exists_error(
     """
     session = library_service._session
     session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # find_by_path() call
-    session.add_exec_result([])  # type: ignore[possibly-missing-attribute]  # list_all() call in _deactivate_all_libraries
 
     with (
         patch(

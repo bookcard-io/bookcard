@@ -144,31 +144,19 @@ class LibraryService:
     def get_active_library(self) -> Library | None:
         """Get the currently active library.
 
+        .. deprecated::
+            ``Library.is_active`` is being removed.  This method now
+            returns the first library ordered by creation date.  Prefer
+            resolving the library via ``UserLibrary`` in request-scoped
+            code or by explicit ``library_id`` in task code.
+
         Returns
         -------
         Library | None
-            The active library if one exists, None otherwise.
+            The first library if one exists, None otherwise.
         """
-        return self._library_repo.get_active()
-
-    def require_active_library(self) -> Library:
-        """Get the currently active library, raising exception if not found.
-
-        Returns
-        -------
-        Library
-            The active library.
-
-        Raises
-        ------
-        ValueError
-            If no active library is configured.
-        """
-        library = self.get_active_library()
-        if library is None:
-            msg = "No active library configured"
-            raise ValueError(msg)
-        return library
+        libraries = self._library_repo.list_all()
+        return libraries[0] if libraries else None
 
     def get_library(self, library_id: int) -> Library | None:
         """Get a library by ID.
@@ -272,10 +260,6 @@ class LibraryService:
             except (PermissionError, ValueError) as e:
                 msg = f"Failed to initialize database: {e}"
                 raise ValueError(msg) from e
-
-        # If setting as active, deactivate all others
-        if is_active:
-            self._deactivate_all_libraries()
 
         library = Library(
             name=name,
@@ -689,20 +673,18 @@ class LibraryService:
     ) -> None:
         """Handle active status change for a library.
 
+        .. deprecated::
+            ``Library.is_active`` is being removed.  Active-library
+            semantics are now per-user via ``UserLibrary``.  This method
+            is a no-op and will be deleted with the column.
+
         Parameters
         ----------
         library : Library
-            Library to update.
+            Library to update (unused).
         is_active : bool | None
-            Whether to set this as the active library.
+            Ignored.
         """
-        if is_active is None:
-            return
-
-        if is_active and not library.is_active:
-            self._deactivate_all_libraries()
-
-        library.is_active = is_active
 
     def delete_library(self, library_id: int) -> None:
         """Delete a library.
@@ -727,6 +709,12 @@ class LibraryService:
     def set_active_library(self, library_id: int) -> Library:
         """Set a library as the active one.
 
+        .. deprecated::
+            ``Library.is_active`` is being removed.  Active-library
+            semantics are now per-user via ``UserLibrary``.  This method
+            validates the library exists and returns it but no longer
+            toggles the ``is_active`` flag.
+
         Parameters
         ----------
         library_id : int
@@ -735,7 +723,7 @@ class LibraryService:
         Returns
         -------
         Library
-            Updated library.
+            The library.
 
         Raises
         ------
@@ -747,14 +735,6 @@ class LibraryService:
             msg = "library_not_found"
             raise ValueError(msg)
 
-        # Deactivate all libraries first
-        self._deactivate_all_libraries()
-
-        # Activate the selected library
-        library.is_active = True
-        # Sync shelf statuses for the newly activated library
-        self._sync_shelves_for_library(library_id, True)
-        self._session.flush()
         return library
 
     def get_library_stats(self, library_id: int) -> dict[str, int | float]:
@@ -791,17 +771,6 @@ class LibraryService:
             calibre_db_file=library.calibre_db_file,
         )
         return book_repo.get_library_stats()
-
-    def _deactivate_all_libraries(self) -> None:
-        """Deactivate all libraries and sync shelf statuses."""
-        libraries = self._library_repo.list_all()
-        for lib in libraries:
-            if lib.is_active:
-                lib.is_active = False
-                # Sync shelf statuses for this library
-                if lib.id is not None:
-                    self._sync_shelves_for_library(lib.id, False)
-        self._session.flush()
 
     def _sync_shelves_for_library(
         self,

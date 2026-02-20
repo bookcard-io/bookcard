@@ -752,8 +752,15 @@ def handle_library_delete(
             detail="user_missing_id",
         )
 
+    library = _get_active_library(session, kobo_user)
+    if library.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="no_active_library",
+        )
+
     try:
-        library_service.archive_book(kobo_user.id, book_uuid)
+        library_service.archive_book(kobo_user.id, book_uuid, library_id=library.id)
     except HTTPException:
         proxy_service = _get_kobo_store_proxy_service(session)
         if proxy_service.should_proxy():

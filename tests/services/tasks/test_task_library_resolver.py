@@ -109,32 +109,22 @@ class TestResolveFromMetadata:
         session: Session,
         library: Library,
     ) -> None:
-        """Falls back to later strategies when metadata library_id doesn't exist in DB.
+        """Falls back to first available library when metadata library_id not in DB.
 
         Parameters
         ----------
         session : Session
             Mock session.
         library : Library
-            Expected library (returned by global active fallback).
+            Expected library (returned by first-available fallback).
         """
-        with (
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryRepository"
-            ) as mock_repo_class,
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryService"
-            ) as mock_service_class,
-        ):
+        with patch(
+            "bookcard.services.tasks.task_library_resolver.LibraryRepository"
+        ) as mock_repo_class:
             mock_repo = MagicMock()
-            # First call: metadata lookup returns None (not found)
-            # Second call: global fallback instantiation
             mock_repo.get.return_value = None
+            mock_repo.list_all.return_value = [library]
             mock_repo_class.return_value = mock_repo
-
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
 
             result = resolve_task_library(session, {"library_id": 999})
 
@@ -155,20 +145,12 @@ class TestResolveFromMetadata:
         library : Library
             Expected library.
         """
-        with (
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryRepository"
-            ) as mock_repo_class,
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryService"
-            ) as mock_service_class,
-        ):
+        with patch(
+            "bookcard.services.tasks.task_library_resolver.LibraryRepository"
+        ) as mock_repo_class:
             mock_repo = MagicMock()
+            mock_repo.list_all.return_value = [library]
             mock_repo_class.return_value = mock_repo
-
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
 
             result = resolve_task_library(session, {"book_id": 42})
 
@@ -218,22 +200,14 @@ class TestResolveFromUserLibrary:
         session : Session
             Mock session.
         library : Library
-            Expected library (returned by global active fallback).
+            Expected library (returned by first-available fallback).
         """
-        with (
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryRepository"
-            ) as mock_repo_class,
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryService"
-            ) as mock_service_class,
-        ):
+        with patch(
+            "bookcard.services.tasks.task_library_resolver.LibraryRepository"
+        ) as mock_repo_class:
             mock_repo = MagicMock()
+            mock_repo.list_all.return_value = [library]
             mock_repo_class.return_value = mock_repo
-
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
 
             result = resolve_task_library(session, {}, user_id=None)
 
@@ -244,14 +218,14 @@ class TestResolveFromUserLibrary:
         session: Session,
         library: Library,
     ) -> None:
-        """Falls back to global active when user has no active library.
+        """Falls back to first available when user has no active library.
 
         Parameters
         ----------
         session : Session
             Mock session.
         library : Library
-            Expected library (returned by global active fallback).
+            Expected library (returned by first-available fallback).
         """
         with (
             patch(
@@ -260,20 +234,14 @@ class TestResolveFromUserLibrary:
             patch(
                 "bookcard.services.tasks.task_library_resolver.LibraryRepository"
             ) as mock_repo_class,
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryService"
-            ) as mock_service_class,
         ):
             mock_ul_repo = MagicMock()
             mock_ul_repo.get_active_library_for_user.return_value = None
             mock_ul_repo_class.return_value = mock_ul_repo
 
             mock_repo = MagicMock()
+            mock_repo.list_all.return_value = [library]
             mock_repo_class.return_value = mock_repo
-
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
 
             result = resolve_task_library(session, {}, user_id=42)
 
@@ -281,15 +249,15 @@ class TestResolveFromUserLibrary:
             assert result is library
 
 
-class TestResolveFromGlobalActive:
-    """Tests for resolution strategy 3: global active library."""
+class TestResolveFromFirstAvailable:
+    """Tests for resolution strategy 3: first available library."""
 
-    def test_resolves_from_global_active_library(
+    def test_resolves_from_first_available_library(
         self,
         session: Session,
         library: Library,
     ) -> None:
-        """Library is resolved from the global active library.
+        """Library is resolved from the first available library.
 
         Parameters
         ----------
@@ -298,20 +266,12 @@ class TestResolveFromGlobalActive:
         library : Library
             Expected library.
         """
-        with (
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryRepository"
-            ) as mock_repo_class,
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryService"
-            ) as mock_service_class,
-        ):
+        with patch(
+            "bookcard.services.tasks.task_library_resolver.LibraryRepository"
+        ) as mock_repo_class:
             mock_repo = MagicMock()
+            mock_repo.list_all.return_value = [library]
             mock_repo_class.return_value = mock_repo
-
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
 
             result = resolve_task_library(session, {})
 
@@ -325,20 +285,12 @@ class TestResolveFromGlobalActive:
         session : Session
             Mock session.
         """
-        with (
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryRepository"
-            ) as mock_repo_class,
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryService"
-            ) as mock_service_class,
-        ):
+        with patch(
+            "bookcard.services.tasks.task_library_resolver.LibraryRepository"
+        ) as mock_repo_class:
             mock_repo = MagicMock()
+            mock_repo.list_all.return_value = []
             mock_repo_class.return_value = mock_repo
-
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = None
-            mock_service_class.return_value = mock_service
 
             with pytest.raises(LibraryNotConfiguredError):
                 resolve_task_library(session, {})
@@ -353,7 +305,7 @@ class TestResolutionPriority:
         library: Library,
         library_b: Library,
     ) -> None:
-        """Metadata library_id is preferred over user or global active.
+        """Metadata library_id is preferred over user or first available.
 
         Parameters
         ----------
@@ -386,13 +338,13 @@ class TestResolutionPriority:
             # User strategy should NOT have been called
             mock_ul_repo.get_active_library_for_user.assert_not_called()
 
-    def test_user_takes_priority_over_global(
+    def test_user_takes_priority_over_first_available(
         self,
         session: Session,
         library: Library,
         library_b: Library,
     ) -> None:
-        """User active library is preferred over global active.
+        """User active library is preferred over first available.
 
         Parameters
         ----------
@@ -401,39 +353,28 @@ class TestResolutionPriority:
         library : Library
             Library returned by user lookup (expected winner).
         library_b : Library
-            Library that would be returned by global active (should not be used).
+            Library that would be returned by first available (should not be used).
         """
-        with (
-            patch(
-                "bookcard.repositories.user_library_repository.UserLibraryRepository"
-            ) as mock_ul_repo_class,
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryService"
-            ) as mock_service_class,
-        ):
+        with patch(
+            "bookcard.repositories.user_library_repository.UserLibraryRepository"
+        ) as mock_ul_repo_class:
             mock_ul_repo = MagicMock()
             mock_ul_repo.get_active_library_for_user.return_value = library
             mock_ul_repo_class.return_value = mock_ul_repo
 
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library_b
-            mock_service_class.return_value = mock_service
-
             result = resolve_task_library(session, {}, user_id=42)
 
             assert result is library
-            # Global strategy should NOT have been called
-            mock_service.get_active_library.assert_not_called()
 
     def test_full_fallback_chain(self, session: Session, library: Library) -> None:
-        """All strategies fail in order until global active succeeds.
+        """All strategies fail in order until first available succeeds.
 
         Parameters
         ----------
         session : Session
             Mock session.
         library : Library
-            Library returned by global active (last resort).
+            Library returned by first available (last resort).
         """
         with (
             patch(
@@ -442,12 +383,10 @@ class TestResolutionPriority:
             patch(
                 "bookcard.repositories.user_library_repository.UserLibraryRepository"
             ) as mock_ul_repo_class,
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryService"
-            ) as mock_service_class,
         ):
             mock_repo = MagicMock()
             mock_repo.get.return_value = None  # metadata lookup fails
+            mock_repo.list_all.return_value = [library]  # first available succeeds
             mock_repo_class.return_value = mock_repo
 
             mock_ul_repo = MagicMock()
@@ -456,16 +395,12 @@ class TestResolutionPriority:
             )
             mock_ul_repo_class.return_value = mock_ul_repo
 
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library  # global succeeds
-            mock_service_class.return_value = mock_service
-
             result = resolve_task_library(session, {"library_id": 999}, user_id=42)
 
             assert result is library
             mock_repo.get.assert_called_once_with(999)
             mock_ul_repo.get_active_library_for_user.assert_called_once_with(42)
-            mock_service.get_active_library.assert_called_once()
+            mock_repo.list_all.assert_called_once()
 
     def test_all_strategies_fail_raises(self, session: Session) -> None:
         """LibraryNotConfiguredError raised when all three strategies fail.
@@ -482,21 +417,15 @@ class TestResolutionPriority:
             patch(
                 "bookcard.repositories.user_library_repository.UserLibraryRepository"
             ) as mock_ul_repo_class,
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryService"
-            ) as mock_service_class,
         ):
             mock_repo = MagicMock()
             mock_repo.get.return_value = None
+            mock_repo.list_all.return_value = []
             mock_repo_class.return_value = mock_repo
 
             mock_ul_repo = MagicMock()
             mock_ul_repo.get_active_library_for_user.return_value = None
             mock_ul_repo_class.return_value = mock_ul_repo
-
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = None
-            mock_service_class.return_value = mock_service
 
             with pytest.raises(LibraryNotConfiguredError):
                 resolve_task_library(session, {"library_id": 999}, user_id=42)
@@ -511,20 +440,12 @@ class TestResolutionPriority:
         library : Library
             Expected library.
         """
-        with (
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryRepository"
-            ) as mock_repo_class,
-            patch(
-                "bookcard.services.tasks.task_library_resolver.LibraryService"
-            ) as mock_service_class,
-        ):
+        with patch(
+            "bookcard.services.tasks.task_library_resolver.LibraryRepository"
+        ) as mock_repo_class:
             mock_repo = MagicMock()
+            mock_repo.list_all.return_value = [library]
             mock_repo_class.return_value = mock_repo
-
-            mock_service = MagicMock()
-            mock_service.get_active_library.return_value = library
-            mock_service_class.return_value = mock_service
 
             result = resolve_task_library(session, {})
 

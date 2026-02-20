@@ -99,10 +99,39 @@ class KoboReadingStateRepository(Repository[KoboReadingState]):
     def __init__(self, session: Session) -> None:
         super().__init__(session, KoboReadingState)
 
+    def find_by_user_library_and_book(
+        self, user_id: int, library_id: int, book_id: int
+    ) -> KoboReadingState | None:
+        """Find reading state by user, library, and book.
+
+        Parameters
+        ----------
+        user_id : int
+            User ID.
+        library_id : int
+            Library ID.
+        book_id : int
+            Book ID.
+
+        Returns
+        -------
+        KoboReadingState | None
+            Reading state if found, None otherwise.
+        """
+        stmt = select(KoboReadingState).where(
+            KoboReadingState.user_id == user_id,
+            KoboReadingState.library_id == library_id,
+            KoboReadingState.book_id == book_id,
+        )
+        return self._session.exec(stmt).first()
+
     def find_by_user_and_book(
         self, user_id: int, book_id: int
     ) -> KoboReadingState | None:
-        """Find reading state by user and book.
+        """Find reading state by user and book (legacy, library-unaware).
+
+        .. deprecated::
+            Use :meth:`find_by_user_library_and_book` instead.
 
         Parameters
         ----------
@@ -123,10 +152,41 @@ class KoboReadingStateRepository(Repository[KoboReadingState]):
         )
         return self._session.exec(stmt).first()
 
+    def find_by_user_and_library(
+        self,
+        user_id: int,
+        library_id: int,
+        last_modified_after: datetime | None = None,
+    ) -> Iterable[KoboReadingState]:
+        """Find all reading states for a user within a library.
+
+        Parameters
+        ----------
+        user_id : int
+            User ID.
+        library_id : int
+            Library ID.
+        last_modified_after : datetime | None
+            Optional filter for states modified after this time.
+
+        Returns
+        -------
+        Iterable[KoboReadingState]
+            Reading states for the user in the library.
+        """
+        stmt = select(KoboReadingState).where(
+            KoboReadingState.user_id == user_id,
+            KoboReadingState.library_id == library_id,
+        )
+        if last_modified_after:
+            stmt = stmt.where(KoboReadingState.last_modified > last_modified_after)
+        stmt = stmt.order_by(KoboReadingState.last_modified)  # type: ignore[invalid-argument-type]
+        return self._session.exec(stmt).all()
+
     def find_by_user(
         self, user_id: int, last_modified_after: datetime | None = None
     ) -> Iterable[KoboReadingState]:
-        """Find all reading states for a user.
+        """Find all reading states for a user across all libraries.
 
         Parameters
         ----------
@@ -146,10 +206,41 @@ class KoboReadingStateRepository(Repository[KoboReadingState]):
         stmt = stmt.order_by(KoboReadingState.last_modified)  # type: ignore[invalid-argument-type]
         return self._session.exec(stmt).all()
 
+    def find_by_user_library_and_books(
+        self, user_id: int, library_id: int, book_ids: list[int]
+    ) -> Iterable[KoboReadingState]:
+        """Find reading states for a user, library, and multiple books.
+
+        Parameters
+        ----------
+        user_id : int
+            User ID.
+        library_id : int
+            Library ID.
+        book_ids : list[int]
+            List of book IDs.
+
+        Returns
+        -------
+        Iterable[KoboReadingState]
+            Reading states matching the criteria.
+        """
+        if not book_ids:
+            return []
+        stmt = select(KoboReadingState).where(
+            KoboReadingState.user_id == user_id,
+            KoboReadingState.library_id == library_id,
+            KoboReadingState.book_id.in_(book_ids),  # type: ignore[attr-defined]
+        )
+        return self._session.exec(stmt).all()
+
     def find_by_user_and_books(
         self, user_id: int, book_ids: list[int]
     ) -> Iterable[KoboReadingState]:
-        """Find reading states for a user and multiple books.
+        """Find reading states for a user and multiple books (legacy).
+
+        .. deprecated::
+            Use :meth:`find_by_user_library_and_books` instead.
 
         Parameters
         ----------
@@ -229,10 +320,39 @@ class KoboSyncedBookRepository(Repository[KoboSyncedBook]):
     def __init__(self, session: Session) -> None:
         super().__init__(session, KoboSyncedBook)
 
+    def find_by_user_library_and_book(
+        self, user_id: int, library_id: int, book_id: int
+    ) -> KoboSyncedBook | None:
+        """Find synced book by user, library, and book.
+
+        Parameters
+        ----------
+        user_id : int
+            User ID.
+        library_id : int
+            Library ID.
+        book_id : int
+            Book ID.
+
+        Returns
+        -------
+        KoboSyncedBook | None
+            Synced book if found, None otherwise.
+        """
+        stmt = select(KoboSyncedBook).where(
+            KoboSyncedBook.user_id == user_id,
+            KoboSyncedBook.library_id == library_id,
+            KoboSyncedBook.book_id == book_id,
+        )
+        return self._session.exec(stmt).first()
+
     def find_by_user_and_book(
         self, user_id: int, book_id: int
     ) -> KoboSyncedBook | None:
-        """Find synced book by user and book.
+        """Find synced book by user and book (legacy, library-unaware).
+
+        .. deprecated::
+            Use :meth:`find_by_user_library_and_book` instead.
 
         Parameters
         ----------
@@ -254,7 +374,7 @@ class KoboSyncedBookRepository(Repository[KoboSyncedBook]):
         return self._session.exec(stmt).first()
 
     def find_by_user(self, user_id: int) -> Iterable[KoboSyncedBook]:
-        """Find all synced books for a user.
+        """Find all synced books for a user across all libraries.
 
         Parameters
         ----------
@@ -269,8 +389,34 @@ class KoboSyncedBookRepository(Repository[KoboSyncedBook]):
         stmt = select(KoboSyncedBook).where(KoboSyncedBook.user_id == user_id)
         return self._session.exec(stmt).all()
 
+    def find_book_ids_by_user_and_library(
+        self, user_id: int, library_id: int
+    ) -> set[int]:
+        """Get set of book IDs synced for a user within a specific library.
+
+        Parameters
+        ----------
+        user_id : int
+            User ID.
+        library_id : int
+            Library ID.
+
+        Returns
+        -------
+        set[int]
+            Set of book IDs.
+        """
+        stmt = select(KoboSyncedBook.book_id).where(
+            KoboSyncedBook.user_id == user_id,
+            KoboSyncedBook.library_id == library_id,
+        )
+        return set(self._session.exec(stmt).all())
+
     def find_book_ids_by_user(self, user_id: int) -> set[int]:
         """Get set of book IDs that have been synced for a user.
+
+        .. deprecated::
+            Use :meth:`find_book_ids_by_user_and_library` instead.
 
         Parameters
         ----------
@@ -285,8 +431,29 @@ class KoboSyncedBookRepository(Repository[KoboSyncedBook]):
         stmt = select(KoboSyncedBook.book_id).where(KoboSyncedBook.user_id == user_id)
         return set(self._session.exec(stmt).all())
 
+    def delete_by_user_library_and_book(
+        self, user_id: int, library_id: int, book_id: int
+    ) -> None:
+        """Delete synced book record for a specific library.
+
+        Parameters
+        ----------
+        user_id : int
+            User ID.
+        library_id : int
+            Library ID.
+        book_id : int
+            Book ID.
+        """
+        synced_book = self.find_by_user_library_and_book(user_id, library_id, book_id)
+        if synced_book:
+            self.delete(synced_book)
+
     def delete_by_user_and_book(self, user_id: int, book_id: int) -> None:
-        """Delete synced book record.
+        """Delete synced book record (legacy, library-unaware).
+
+        .. deprecated::
+            Use :meth:`delete_by_user_library_and_book` instead.
 
         Parameters
         ----------
@@ -306,10 +473,39 @@ class KoboArchivedBookRepository(Repository[KoboArchivedBook]):
     def __init__(self, session: Session) -> None:
         super().__init__(session, KoboArchivedBook)
 
+    def find_by_user_library_and_book(
+        self, user_id: int, library_id: int, book_id: int
+    ) -> KoboArchivedBook | None:
+        """Find archived book by user, library, and book.
+
+        Parameters
+        ----------
+        user_id : int
+            User ID.
+        library_id : int
+            Library ID.
+        book_id : int
+            Book ID.
+
+        Returns
+        -------
+        KoboArchivedBook | None
+            Archived book if found, None otherwise.
+        """
+        stmt = select(KoboArchivedBook).where(
+            KoboArchivedBook.user_id == user_id,
+            KoboArchivedBook.library_id == library_id,
+            KoboArchivedBook.book_id == book_id,
+        )
+        return self._session.exec(stmt).first()
+
     def find_by_user_and_book(
         self, user_id: int, book_id: int
     ) -> KoboArchivedBook | None:
-        """Find archived book by user and book.
+        """Find archived book by user and book (legacy, library-unaware).
+
+        .. deprecated::
+            Use :meth:`find_by_user_library_and_book` instead.
 
         Parameters
         ----------
@@ -330,10 +526,44 @@ class KoboArchivedBookRepository(Repository[KoboArchivedBook]):
         )
         return self._session.exec(stmt).first()
 
+    def find_archived_by_user_and_library(
+        self,
+        user_id: int,
+        library_id: int,
+        last_modified_after: datetime | None = None,
+    ) -> Iterable[KoboArchivedBook]:
+        """Find archived books for a user within a specific library.
+
+        Parameters
+        ----------
+        user_id : int
+            User ID.
+        library_id : int
+            Library ID.
+        last_modified_after : datetime | None
+            Optional filter for books archived after this time.
+
+        Returns
+        -------
+        Iterable[KoboArchivedBook]
+            Archived books for the user in the library.
+        """
+        stmt = select(KoboArchivedBook).where(
+            KoboArchivedBook.user_id == user_id,
+            KoboArchivedBook.library_id == library_id,
+            KoboArchivedBook.is_archived == True,  # noqa: E712
+        )
+        if last_modified_after:
+            stmt = stmt.where(KoboArchivedBook.last_modified > last_modified_after)
+        from sqlalchemy import desc
+
+        stmt = stmt.order_by(desc(KoboArchivedBook.last_modified))  # type: ignore[invalid-argument-type]
+        return self._session.exec(stmt).all()
+
     def find_archived_by_user(
         self, user_id: int, last_modified_after: datetime | None = None
     ) -> Iterable[KoboArchivedBook]:
-        """Find archived books for a user.
+        """Find archived books for a user across all libraries.
 
         Parameters
         ----------
@@ -354,7 +584,6 @@ class KoboArchivedBookRepository(Repository[KoboArchivedBook]):
         )
         if last_modified_after:
             stmt = stmt.where(KoboArchivedBook.last_modified > last_modified_after)
-        # Use desc() method on the column to avoid type checker issues
         from sqlalchemy import desc
 
         stmt = stmt.order_by(desc(KoboArchivedBook.last_modified))  # type: ignore[invalid-argument-type]

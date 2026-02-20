@@ -28,24 +28,13 @@ from bookcard.repositories.base import Repository
 
 
 class LibraryRepository(Repository[Library]):
-    """Repository for `Library` entities.
+    """Repository for ``Library`` entities.
 
-    Libraries can be multiple, but only one should be active at a time.
+    Active-library semantics are per-user via ``UserLibrary``.
     """
 
     def __init__(self, session: Session) -> None:
         super().__init__(session, Library)
-
-    def get_active(self) -> Library | None:
-        """Get the currently active library.
-
-        Returns
-        -------
-        Library | None
-            The active library if one exists, None otherwise.
-        """
-        stmt = select(Library).where(Library.is_active == True)  # noqa: E712
-        return self._session.exec(stmt).first()
 
     def list_all(self) -> list[Library]:
         """List all libraries, ordered by creation date.

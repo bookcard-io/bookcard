@@ -414,9 +414,16 @@ class TestGetAuthorByIdOrKey:
         mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
 
         calibre_author = Author(id=42, name="Calibre Author")
-        with patch(
-            "bookcard.services.author.core_service.CalibreBookRepository"
-        ) as mock_repo_class:
+        with (
+            patch.object(
+                author_service,
+                "_resolve_library",
+                return_value=active_library,
+            ),
+            patch(
+                "bookcard.services.author.core_service.CalibreBookRepository"
+            ) as mock_repo_class,
+        ):
             mock_repo = MagicMock()
             mock_repo_class.return_value = mock_repo
             mock_session = MagicMock()
@@ -509,9 +516,16 @@ class TestGetCalibreAuthorDict:
         mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
 
         calibre_author = Author(id=42, name="Calibre Author")
-        with patch(
-            "bookcard.services.author.core_service.CalibreBookRepository"
-        ) as mock_repo_class:
+        with (
+            patch.object(
+                author_service,
+                "_resolve_library",
+                return_value=active_library,
+            ),
+            patch(
+                "bookcard.services.author.core_service.CalibreBookRepository"
+            ) as mock_repo_class,
+        ):
             mock_repo = MagicMock()
             mock_repo_class.return_value = mock_repo
             mock_session = MagicMock()
@@ -539,8 +553,8 @@ class TestGetCalibreAuthorDict:
         library = Library(id=1, name="Test", is_active=True, calibre_db_path=None)
         with (
             patch.object(
-                author_service._library_service,
-                "get_active_library",
+                author_service,
+                "_resolve_library",
                 return_value=library,
             ),
             pytest.raises(
@@ -561,9 +575,16 @@ class TestGetCalibreAuthorDict:
         mock_author_repo.get_by_id_and_library.return_value = None
         mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
 
-        with patch(
-            "bookcard.services.author.core_service.CalibreBookRepository"
-        ) as mock_repo_class:
+        with (
+            patch.object(
+                author_service,
+                "_resolve_library",
+                return_value=active_library,
+            ),
+            patch(
+                "bookcard.services.author.core_service.CalibreBookRepository"
+            ) as mock_repo_class,
+        ):
             mock_repo = MagicMock()
             mock_repo_class.return_value = mock_repo
             mock_session = MagicMock()

@@ -22,36 +22,6 @@ from bookcard.repositories.config_repository import LibraryRepository
 from tests.conftest import DummySession
 
 
-def test_get_active_returns_active_library() -> None:
-    """Test get_active returns active library (covers lines 54-55)."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-
-    active_library = Library(
-        id=1,
-        name="Active Library",
-        calibre_db_path="/path/to/library",
-        calibre_db_file="metadata.db",
-        is_active=True,
-    )
-
-    session.add_exec_result([active_library])
-    result = repo.get_active()
-    assert result is not None
-    assert result.id == 1
-    assert result.is_active is True
-
-
-def test_get_active_returns_none() -> None:
-    """Test get_active returns None when no active library (covers lines 54-55)."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-
-    session.add_exec_result([])
-    result = repo.get_active()
-    assert result is None
-
-
 def test_list_all_returns_all_libraries() -> None:
     """Test list_all returns all libraries ordered by creation date (covers lines 65-66)."""
     session = DummySession()

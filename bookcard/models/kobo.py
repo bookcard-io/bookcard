@@ -22,7 +22,7 @@ tokens, reading states, synced books, and archived books.
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Index
+from sqlalchemy import Column, ForeignKey, Index, Integer
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -163,7 +163,7 @@ class KoboStatistics(SQLModel, table=True):
 class KoboReadingState(SQLModel, table=True):
     """Kobo reading state model.
 
-    Stores Kobo-specific reading state for a user/book combination.
+    Stores Kobo-specific reading state for a user/book/library combination.
     This includes bookmarks, statistics, and links to the main
     reading progress tracking.
 
@@ -175,6 +175,8 @@ class KoboReadingState(SQLModel, table=True):
         Foreign key to user.
     book_id : int
         Book ID from Calibre database (no FK constraint).
+    library_id : int
+        Foreign key to library (scopes the ``book_id``).
     last_modified : datetime
         Last modification timestamp.
     priority_timestamp : datetime
@@ -186,6 +188,14 @@ class KoboReadingState(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
     book_id: int = Field(index=True)  # No FK constraint - books are in Calibre DB
+    library_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("libraries.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+    )
     last_modified: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         index=True,
@@ -209,8 +219,9 @@ class KoboReadingState(SQLModel, table=True):
 
     __table_args__ = (
         Index(
-            "idx_kobo_reading_states_user_book",
+            "idx_kobo_reading_states_user_lib_book",
             "user_id",
+            "library_id",
             "book_id",
             unique=True,
         ),
@@ -233,6 +244,8 @@ class KoboSyncedBook(SQLModel, table=True):
         Foreign key to user.
     book_id : int
         Book ID from Calibre database (no FK constraint).
+    library_id : int
+        Foreign key to library (scopes the ``book_id``).
     synced_at : datetime
         Timestamp when book was last synced.
     """
@@ -242,6 +255,14 @@ class KoboSyncedBook(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
     book_id: int = Field(index=True)  # No FK constraint - books are in Calibre DB
+    library_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("libraries.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+    )
     synced_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         index=True,
@@ -249,8 +270,9 @@ class KoboSyncedBook(SQLModel, table=True):
 
     __table_args__ = (
         Index(
-            "idx_kobo_synced_books_user_book",
+            "idx_kobo_synced_books_user_lib_book",
             "user_id",
+            "library_id",
             "book_id",
             unique=True,
         ),
@@ -271,6 +293,8 @@ class KoboArchivedBook(SQLModel, table=True):
         Foreign key to user.
     book_id : int
         Book ID from Calibre database (no FK constraint).
+    library_id : int
+        Foreign key to library (scopes the ``book_id``).
     is_archived : bool
         Whether the book is archived.
     last_modified : datetime
@@ -282,6 +306,14 @@ class KoboArchivedBook(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
     book_id: int = Field(index=True)  # No FK constraint - books are in Calibre DB
+    library_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("libraries.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+    )
     is_archived: bool = Field(default=False, index=True)
     last_modified: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
@@ -291,8 +323,9 @@ class KoboArchivedBook(SQLModel, table=True):
 
     __table_args__ = (
         Index(
-            "idx_kobo_archived_books_user_book",
+            "idx_kobo_archived_books_user_lib_book",
             "user_id",
+            "library_id",
             "book_id",
             unique=True,
         ),

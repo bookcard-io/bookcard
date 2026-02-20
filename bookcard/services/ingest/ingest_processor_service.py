@@ -575,23 +575,23 @@ class IngestProcessorService:
         return self._get_history_or_raise(history_id)
 
     def get_active_library(self, library_id: int | None = None) -> Library:
-        """Get active library or raise exception if none exists.
+        """Get library by explicit ID or first available.
 
         Parameters
         ----------
         library_id : int | None
-            Explicit library ID.  When provided the library is fetched
-            by ID instead of using the global active flag.
+            Explicit library ID.  Falls back to the first available
+            library when ``None``.
 
         Returns
         -------
         Library
-            Active library.
+            Resolved library.
 
         Raises
         ------
         NoActiveLibraryError
-            If no active library is configured.
+            If no library could be resolved.
         """
         return self._get_active_library_or_raise(library_id)
 
@@ -636,33 +636,33 @@ class IngestProcessorService:
         return self._book_service_factory(library)
 
     def _get_active_library_or_raise(self, library_id: int | None = None) -> Library:
-        """Get active library or raise exception if none exists.
+        """Get library by ID or raise exception if none exists.
 
         Parameters
         ----------
         library_id : int | None
-            Explicit library ID to look up.  When provided the library
-            is fetched by ID instead of using the global active flag.
-            Falls back to the global active library when ``None``.
+            Explicit library ID to look up.  When ``None``, falls back
+            to the first available library.
 
         Returns
         -------
         Library
-            Active library.
+            Resolved library.
 
         Raises
         ------
         NoActiveLibraryError
-            If no active library is configured.
+            If no library could be resolved.
         """
         if library_id is not None:
             library = self._library_repo.get(library_id)
             if library is not None:
                 return library
-        library = self._library_repo.get_active()
-        if library is None:
-            raise NoActiveLibraryError
-        return library
+        # Fallback: first available library
+        all_libraries = self._library_repo.list_all()
+        if all_libraries:
+            return all_libraries[0]
+        raise NoActiveLibraryError
 
     def _save_history(self, history: IngestHistory) -> None:
         """Save history record to database.

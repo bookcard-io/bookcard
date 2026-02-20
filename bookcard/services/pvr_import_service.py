@@ -159,7 +159,10 @@ class PVRImportService:
             )
 
     def import_pending_downloads(self) -> ImportBatchResult:
-        """Find and import all pending completed downloads.
+        """Find and import all pending completed downloads for the target library.
+
+        Only processes downloads whose ``TrackedBook.library_id`` matches the
+        library this service was initialised with.
 
         Returns
         -------
@@ -172,6 +175,7 @@ class PVRImportService:
             .where(DownloadItem.status == DownloadItemStatus.COMPLETED)
             .where(TrackedBook.status != TrackedBookStatus.COMPLETED)
             .where(TrackedBook.status != TrackedBookStatus.FAILED)
+            .where(TrackedBook.library_id == self._target_library.id)
         )
 
         items = self._session.exec(statement).all()

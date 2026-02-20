@@ -55,7 +55,12 @@ class MockAuthorService:
         self._photos: dict[str, list[object]] = {}
         self._list_result: tuple[list[dict[str, object]], int] = ([], 0)
 
-    def get_author_by_id_or_key(self, author_id: str) -> dict[str, object]:
+    def get_author_by_id_or_key(
+        self,
+        author_id: str,
+        include_similar: bool = True,
+        library_id: int | None = None,
+    ) -> dict[str, object]:
         """Mock get_author_by_id_or_key."""
         if author_id not in self._author_data:
             raise ValueError("author_not_found")
@@ -595,6 +600,7 @@ def test_get_author_success(monkeypatch: pytest.MonkeyPatch) -> None:
     result = authors.get_author(
         author_id="1",
         current_user=current_user,
+        library_id=1,
         author_service=mock_service,
         permission_helper=mock_permission_helper,
     )

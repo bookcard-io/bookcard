@@ -95,12 +95,11 @@ class EPUBFixRun(SQLModel, table=True):
             index=True,
         ),
     )
-    library_id: int | None = Field(
-        default=None,
+    library_id: int = Field(
         sa_column=Column(
             Integer,
-            ForeignKey("libraries.id", ondelete="SET NULL"),
-            nullable=True,
+            ForeignKey("libraries.id", ondelete="CASCADE"),
+            nullable=False,
             index=True,
         ),
     )

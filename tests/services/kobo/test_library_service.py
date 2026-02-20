@@ -398,19 +398,23 @@ def test_archive_book_new(
         ) as mock_synced_repo_class,
     ):
         mock_archived_repo = MagicMock()
-        mock_archived_repo.find_by_user_and_book.return_value = None
+        mock_archived_repo.find_by_user_library_and_book.return_value = None
         mock_archived_repo.add = MagicMock()
         mock_archived_repo_class.return_value = mock_archived_repo
 
         mock_synced_repo = MagicMock()
-        mock_synced_repo.delete_by_user_and_book = MagicMock()
+        mock_synced_repo.delete_by_user_library_and_book = MagicMock()
         mock_synced_repo_class.return_value = mock_synced_repo
 
-        library_service.archive_book(user_id=1, book_uuid="test-uuid-123")
+        library_service.archive_book(user_id=1, book_uuid="test-uuid-123", library_id=1)
 
-        mock_archived_repo.find_by_user_and_book.assert_called_once_with(1, 1)
+        mock_archived_repo.find_by_user_library_and_book.assert_called_once_with(
+            1, 1, 1
+        )
         mock_archived_repo.add.assert_called_once()
-        mock_synced_repo.delete_by_user_and_book.assert_called_once_with(1, 1)
+        mock_synced_repo.delete_by_user_library_and_book.assert_called_once_with(
+            1, 1, 1
+        )
 
 
 def test_archive_book_existing(
@@ -441,18 +445,20 @@ def test_archive_book_existing(
         ) as mock_synced_repo_class,
     ):
         mock_archived_repo = MagicMock()
-        mock_archived_repo.find_by_user_and_book.return_value = archived_book
+        mock_archived_repo.find_by_user_library_and_book.return_value = archived_book
         mock_archived_repo_class.return_value = mock_archived_repo
 
         mock_synced_repo = MagicMock()
-        mock_synced_repo.delete_by_user_and_book = MagicMock()
+        mock_synced_repo.delete_by_user_library_and_book = MagicMock()
         mock_synced_repo_class.return_value = mock_synced_repo
 
-        library_service.archive_book(user_id=1, book_uuid="test-uuid-123")
+        library_service.archive_book(user_id=1, book_uuid="test-uuid-123", library_id=1)
 
         assert archived_book.is_archived is True
         mock_archived_repo.add.assert_not_called()
-        mock_synced_repo.delete_by_user_and_book.assert_called_once_with(1, 1)
+        mock_synced_repo.delete_by_user_library_and_book.assert_called_once_with(
+            1, 1, 1
+        )
 
 
 def test_archive_book_not_found(
@@ -471,7 +477,9 @@ def test_archive_book_not_found(
     mock_book_lookup_service.find_book_by_uuid.return_value = None
 
     with pytest.raises(HTTPException) as exc_info:
-        library_service.archive_book(user_id=1, book_uuid="non-existent-uuid")
+        library_service.archive_book(
+            user_id=1, book_uuid="non-existent-uuid", library_id=1
+        )
 
     assert isinstance(exc_info.value, HTTPException)
     assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND

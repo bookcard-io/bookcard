@@ -70,9 +70,9 @@ class KoboReadingStateService:
         self._reading_service = reading_service
 
     def get_or_create_reading_state(
-        self, user_id: int, book_id: int
+        self, user_id: int, book_id: int, library_id: int | None = None
     ) -> KoboReadingState:
-        """Get or create reading state for a user/book.
+        """Get or create reading state for a user/book/library.
 
         Parameters
         ----------
@@ -80,13 +80,25 @@ class KoboReadingStateService:
             User ID.
         book_id : int
             Book ID.
+        library_id : int | None
+            Library ID.  When provided the lookup is scoped to the
+            specific library; otherwise falls back to a legacy
+            library-unaware lookup.
 
         Returns
         -------
         KoboReadingState
             Reading state (existing or newly created).
         """
-        reading_state = self._reading_state_repo.find_by_user_and_book(user_id, book_id)
+        if library_id is not None:
+            reading_state = self._reading_state_repo.find_by_user_library_and_book(
+                user_id, library_id, book_id
+            )
+        else:
+            reading_state = self._reading_state_repo.find_by_user_and_book(
+                user_id, book_id
+            )
+
         if reading_state:
             return reading_state
 
@@ -94,6 +106,7 @@ class KoboReadingStateService:
         reading_state = KoboReadingState(
             user_id=user_id,
             book_id=book_id,
+            library_id=library_id or 0,
         )
         self._reading_state_repo.add(reading_state)
         self._session.flush()
@@ -132,7 +145,9 @@ class KoboReadingStateService:
         dict[str, object]
             Update results dictionary.
         """
-        reading_state = self.get_or_create_reading_state(user_id, book_id)
+        reading_state = self.get_or_create_reading_state(
+            user_id, book_id, library_id=library_id
+        )
         update_results: dict[str, object] = {"EntitlementId": str(book_id)}
 
         if "CurrentBookmark" in state_data:
