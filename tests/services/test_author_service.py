@@ -68,7 +68,6 @@ def active_library() -> Library:
         name="Test Library",
         calibre_db_path="/path/to/library",
         calibre_db_file="metadata.db",
-        is_active=True,
     )
 
 
@@ -289,8 +288,6 @@ class TestListAuthorsForActiveLibrary:
         assert authors[0]["name"] == "Test Author"
         mock_author_repo.list_by_library.assert_called_once_with(
             1,
-            calibre_db_path="/path/to/library",
-            calibre_db_file="metadata.db",
             page=1,
             page_size=20,
         )
@@ -312,8 +309,6 @@ class TestListAuthorsForActiveLibrary:
         assert total == 1
         mock_author_repo.list_by_library.assert_called_once_with(
             1,
-            calibre_db_path="/path/to/library",
-            calibre_db_file="metadata.db",
             page=2,
             page_size=10,
         )
@@ -550,7 +545,7 @@ class TestGetCalibreAuthorDict:
         mock_author_repo.get_by_id_and_library.return_value = None
         mock_author_repo.get_by_openlibrary_key_and_library.return_value = None
 
-        library = Library(id=1, name="Test", is_active=True, calibre_db_path=None)
+        library = Library(id=1, name="Test", calibre_db_path=None)
         with (
             patch.object(
                 author_service,

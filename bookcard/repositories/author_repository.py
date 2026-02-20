@@ -62,17 +62,17 @@ class AuthorRepository(Repository[AuthorMetadata]):
 
     def list_by_library(
         self,
-        library_id: int,
+        library_ids: int | list[int],
         page: int = 1,
         page_size: int = 20,
-        **_kwargs: object,  # Allow unused kwargs for backward compatibility
+        **_kwargs: object,
     ) -> tuple[list[AuthorMetadata], int]:
-        """List authors mapped to a specific library with pagination.
+        """List authors mapped to one or more libraries with pagination.
 
         Parameters
         ----------
-        library_id : int
-            Library identifier.
+        library_ids : int | list[int]
+            Single library ID or list of library IDs to query across.
         page : int
             Page number (1-indexed, default: 1).
         page_size : int
@@ -83,17 +83,14 @@ class AuthorRepository(Repository[AuthorMetadata]):
         Returns
         -------
         tuple[list[AuthorMetadata], int]
-            Authors (ordered by name) and total count.
+            Authors (ordered by name, deduplicated) and total count.
         """
-        # Initialize components (IOC - dependency injection)
         query_builder = MatchedAuthorQueryBuilder()
 
-        # Count total authors (only matched authors now)
-        total = self._count_matched(query_builder, library_id)
+        total = self._count_matched(query_builder, library_ids)
 
-        # Fetch paginated results
         paginated_results = self._fetch_matched_results(
-            query_builder, library_id, page, page_size
+            query_builder, library_ids, page, page_size
         )
 
         # Hydrate full objects
@@ -185,7 +182,9 @@ class AuthorRepository(Repository[AuthorMetadata]):
         return paginated_results, total
 
     def _count_matched(
-        self, query_builder: MatchedAuthorQueryBuilder, library_id: int
+        self,
+        query_builder: MatchedAuthorQueryBuilder,
+        library_ids: int | list[int],
     ) -> int:
         """Count matched authors.
 
@@ -193,8 +192,8 @@ class AuthorRepository(Repository[AuthorMetadata]):
         ----------
         query_builder : MatchedAuthorQueryBuilder
             Query builder instance.
-        library_id : int
-            Library identifier.
+        library_ids : int | list[int]
+            Single library ID or list of library IDs.
 
         Returns
         -------
@@ -202,7 +201,7 @@ class AuthorRepository(Repository[AuthorMetadata]):
             Count of matched authors.
         """
         try:
-            count_query = query_builder.build_count_query(library_id)
+            count_query = query_builder.build_count_query(library_ids)
             return self._session.exec(count_query).one()  # type: ignore[no-matching-overload]
         except Exception:
             logger.exception("Error counting matched authors")
@@ -211,7 +210,7 @@ class AuthorRepository(Repository[AuthorMetadata]):
     def _fetch_matched_results(
         self,
         query_builder: MatchedAuthorQueryBuilder,
-        library_id: int,
+        library_ids: int | list[int],
         page: int = 1,
         page_size: int = 20,
     ) -> list:
@@ -221,8 +220,8 @@ class AuthorRepository(Repository[AuthorMetadata]):
         ----------
         query_builder : MatchedAuthorQueryBuilder
             Query builder instance.
-        library_id : int
-            Library identifier.
+        library_ids : int | list[int]
+            Single library ID or list of library IDs.
         page : int
             Page number (1-indexed, default: 1).
         page_size : int
@@ -234,7 +233,7 @@ class AuthorRepository(Repository[AuthorMetadata]):
             List of matched author result rows.
         """
         try:
-            matched_query = query_builder.build_query(library_id)
+            matched_query = query_builder.build_query(library_ids)
 
             # Apply pagination
             matched_query = matched_query.offset((page - 1) * page_size).limit(

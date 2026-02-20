@@ -344,8 +344,8 @@ def get_active_library_id(
     """Get the active library ID for the current user.
 
     Resolves the active library via the per-user ``UserLibrary`` table
-    when an authenticated user is present, falling back to the global
-    ``Library.is_active`` flag otherwise.
+    when an authenticated user is present, falling back to the first
+    available library otherwise.
 
     Parameters
     ----------

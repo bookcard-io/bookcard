@@ -35,7 +35,6 @@ export interface Library {
   auto_convert_backup_originals: boolean;
   epub_fixer_auto_fix_on_ingest: boolean;
   duplicate_handling: string;
-  is_active: boolean;
   created_at: string;
   updated_at: string;
 }

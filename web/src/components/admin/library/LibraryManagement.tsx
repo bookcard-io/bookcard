@@ -47,7 +47,6 @@ export function LibraryManagement() {
     updatingLibraryId,
     addLibrary,
     createLibrary,
-    toggleLibrary,
     deleteLibrary,
     scanLibrary: originalScanLibrary,
     updateLibrary,
@@ -324,7 +323,6 @@ export function LibraryManagement() {
       {hasLibraries && (
         <LibraryList
           libraries={libraries}
-          onToggle={toggleLibrary}
           onDelete={deleteLibrary}
           deletingLibraryId={deletingLibraryId}
           onScan={scanLibrary}

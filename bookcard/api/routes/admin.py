@@ -1750,7 +1750,6 @@ def create_library(
             use_split_library=payload.use_split_library,
             split_library_dir=payload.split_library_dir,
             auto_reconnect=payload.auto_reconnect,
-            is_active=payload.is_active,
         )
         session.commit()
         return LibraryRead.model_validate(library)
@@ -1820,7 +1819,6 @@ def update_library(
             auto_convert_backup_originals=payload.auto_convert_backup_originals,
             epub_fixer_auto_fix_on_ingest=payload.epub_fixer_auto_fix_on_ingest,
             duplicate_handling=payload.duplicate_handling,
-            is_active=payload.is_active,
         )
         session.commit()
         return LibraryRead.model_validate(library)
@@ -1912,48 +1910,6 @@ def get_library_stats(
         raise HTTPException(
             status_code=404, detail="calibre_database_not_found"
         ) from exc
-
-
-@router.post(
-    "/libraries/{library_id}/activate",
-    response_model=LibraryRead,
-    dependencies=[Depends(get_admin_user)],
-)
-def activate_library(
-    session: SessionDep,
-    library_id: int,
-) -> LibraryRead:
-    """Set a library as the active one.
-
-    Parameters
-    ----------
-    session : SessionDep
-        Database session dependency.
-    library_id : int
-        Library identifier.
-
-    Returns
-    -------
-    LibraryRead
-        Updated library.
-
-    Raises
-    ------
-    HTTPException
-        If library not found (404).
-    """
-    library_repo = LibraryRepository(session)
-    library_service = LibraryService(session, library_repo)
-
-    try:
-        library = library_service.set_active_library(library_id)
-        session.commit()
-        return LibraryRead.model_validate(library)
-    except ValueError as exc:
-        msg = str(exc)
-        if msg == "library_not_found":
-            raise HTTPException(status_code=404, detail=msg) from exc
-        raise
 
 
 @router.post(

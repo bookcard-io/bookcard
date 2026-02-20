@@ -32,17 +32,6 @@ class LibraryRepository(Repository[Library]):
     def __init__(self, session: Session) -> None:
         super().__init__(session, Library)
 
-    def find_active(self) -> Library | None:
-        """Get the currently active library.
-
-        Returns
-        -------
-        Library | None
-            The active library if one exists, None otherwise.
-        """
-        stmt = select(Library).where(Library.is_active == True)  # noqa: E712
-        return self._session.exec(stmt).first()
-
     def find_by_path(self, path: str) -> Library | None:
         """Find a library by database path.
 

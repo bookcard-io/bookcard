@@ -72,13 +72,20 @@ class MatchedAuthorQueryBuilder:
     """
 
     @staticmethod
-    def build_query(library_id: int) -> Select[tuple]:
+    def _library_filter(library_ids: int | list[int]):  # noqa: ANN205
+        """Return the appropriate WHERE clause for one or many library IDs."""
+        if isinstance(library_ids, list):
+            return AuthorMapping.library_id.in_(library_ids)  # type: ignore[union-attr]
+        return AuthorMapping.library_id == library_ids
+
+    @classmethod
+    def build_query(cls, library_ids: int | list[int]) -> Select[tuple]:
         """Build query for matched authors.
 
         Parameters
         ----------
-        library_id : int
-            Library identifier.
+        library_ids : int | list[int]
+            Single library ID or list of library IDs to query across.
 
         Returns
         -------
@@ -92,17 +99,18 @@ class MatchedAuthorQueryBuilder:
                 AuthorMetadata.id.label("id"),  # type: ignore
             )
             .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)
-            .where(AuthorMapping.library_id == library_id)
+            .where(cls._library_filter(library_ids))
+            .distinct()
         )
 
-    @staticmethod
-    def build_count_query(library_id: int) -> Select[tuple]:
+    @classmethod
+    def build_count_query(cls, library_ids: int | list[int]) -> Select[tuple]:
         """Build count query for matched authors.
 
         Parameters
         ----------
-        library_id : int
-            Library identifier.
+        library_ids : int | list[int]
+            Single library ID or list of library IDs to query across.
 
         Returns
         -------
@@ -110,9 +118,9 @@ class MatchedAuthorQueryBuilder:
             SQLModel select statement for counting matched authors.
         """
         return (
-            select(func.count(AuthorMetadata.id))
+            select(func.count(func.distinct(AuthorMetadata.id)))
             .join(AuthorMapping, AuthorMetadata.id == AuthorMapping.author_metadata_id)
-            .where(AuthorMapping.library_id == library_id)
+            .where(cls._library_filter(library_ids))
         )
 
 

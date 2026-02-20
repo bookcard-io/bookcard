@@ -20,7 +20,7 @@ import { LibrariesSection } from "./LibrariesSection";
 
 const mockSetSelectedLibraryId = vi.fn();
 
-function makeLibrary(id: number, name: string, isActive = false): Library {
+function makeLibrary(id: number, name: string): Library {
   return {
     id,
     name,
@@ -30,13 +30,12 @@ function makeLibrary(id: number, name: string, isActive = false): Library {
     use_split_library: false,
     split_library_dir: null,
     auto_reconnect: false,
-    is_active: isActive,
     created_at: "2024-01-01T00:00:00Z",
     updated_at: "2024-01-01T00:00:00Z",
   };
 }
 
-const comicsLibrary = makeLibrary(1, "Comics", true);
+const comicsLibrary = makeLibrary(1, "Comics");
 const literatureLibrary = makeLibrary(2, "Literature");
 const textbooksLibrary = makeLibrary(3, "Textbooks");
 
