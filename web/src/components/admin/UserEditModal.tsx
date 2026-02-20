@@ -24,6 +24,7 @@ import { useModalInteractions } from "@/hooks/useModalInteractions";
 import { useRoleSuggestions } from "@/hooks/useRoleSuggestions";
 import type { UserCreate, UserUpdate } from "@/services/userService";
 import { RoleMultiInput } from "./RoleMultiInput";
+import { UserLibrarySection } from "./UserLibrarySection";
 import type { User } from "./UsersTable";
 
 export interface UserEditModalProps {
@@ -342,6 +343,12 @@ export function UserEditModal({ user, onClose, onSave }: UserEditModalProps) {
                 Active
               </label>
             </div>
+
+            {isEditMode && user?.id != null && (
+              <div className="border-surface-a20 border-t pt-4">
+                <UserLibrarySection userId={user.id} />
+              </div>
+            )}
           </div>
 
           <div className="modal-footer-between">
