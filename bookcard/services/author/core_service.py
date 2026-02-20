@@ -68,8 +68,9 @@ class AuthorCoreService:
         page: int = 1,
         page_size: int = 20,
         filter_type: str | None = None,
+        library_ids: list[int] | None = None,
     ) -> tuple[list[AuthorMetadata], int]:
-        """List authors for the active library with pagination.
+        """List authors for one or more libraries with pagination.
 
         Parameters
         ----------
@@ -78,7 +79,11 @@ class AuthorCoreService:
         page_size : int
             Number of items per page (default: 20).
         filter_type : str | None
-            Filter type: "unmatched" to show only unmatched authors, None for all authors.
+            Filter type: "unmatched" to show only unmatched authors,
+            None for all authors.
+        library_ids : list[int] | None
+            Library IDs to query.  When ``None``, falls back to the
+            active library (single-library behaviour).
 
         Returns
         -------
@@ -88,17 +93,28 @@ class AuthorCoreService:
         Raises
         ------
         NoActiveLibraryError
-            If no active library is found.
+            If no active library is found and *library_ids* is ``None``.
         """
-        active_library = ensure_active_library(self._library_service)
-        if active_library.id is None:
-            msg = "Active library ID is None"
-            raise NoActiveLibraryError(msg)
+        if library_ids is not None:
+            resolved_ids: int | list[int] = (
+                library_ids[0] if len(library_ids) == 1 else library_ids
+            )
+        else:
+            active_library = ensure_active_library(self._library_service)
+            if active_library.id is None:
+                msg = "Active library ID is None"
+                raise NoActiveLibraryError(msg)
+            resolved_ids = active_library.id
 
-        library_id: int = active_library.id
         if filter_type == "unmatched":
+            # Unmatched listing requires per-library Calibre DB access;
+            # fall back to the active library for this mode.
+            active_library = ensure_active_library(self._library_service)
+            if active_library.id is None:
+                msg = "Active library ID is None"
+                raise NoActiveLibraryError(msg)
             authors, total = self._author_repo.list_unmatched_by_library(
-                library_id,
+                active_library.id,
                 calibre_db_path=active_library.calibre_db_path,
                 calibre_db_file=active_library.calibre_db_file,
                 page=page,
@@ -106,9 +122,7 @@ class AuthorCoreService:
             )
         else:
             authors, total = self._author_repo.list_by_library(
-                library_id,
-                calibre_db_path=active_library.calibre_db_path,
-                calibre_db_file=active_library.calibre_db_file,
+                resolved_ids,
                 page=page,
                 page_size=page_size,
             )

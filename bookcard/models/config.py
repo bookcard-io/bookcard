@@ -213,9 +213,6 @@ class Library(SQLModel, table=True):
         IGNORE (skip duplicates), OVERWRITE (replace existing), or
         CREATE_NEW (create new entry even if duplicate exists)
         (default: IGNORE).
-    is_active : bool
-        .. deprecated:: Retained for migration compatibility only.
-        Whether this is the currently active library (only one can be active).
     created_at : datetime
         Library creation timestamp.
     updated_at : datetime
@@ -249,7 +246,6 @@ class Library(SQLModel, table=True):
         sa_column=Column(SQLEnum(DuplicateHandling, native_enum=False)),
         description="Strategy for handling duplicate books during ingest.",
     )
-    is_active: bool = Field(default=False, index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         index=True,

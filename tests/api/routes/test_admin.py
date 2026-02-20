@@ -978,14 +978,6 @@ def test_create_role_already_exists(monkeypatch: pytest.MonkeyPatch) -> None:
             "1096",
             {"library_id": 1},
         ),
-        (
-            admin.activate_library,
-            None,
-            "bookcard.api.routes.admin.LibraryService",
-            "set_active_library",
-            "1138",
-            {"library_id": 1},
-        ),
     ],
 )
 def test_unexpected_value_error_re_raised(
@@ -1679,14 +1671,12 @@ def test_list_libraries(monkeypatch: pytest.MonkeyPatch) -> None:
         name="Library 1",
         calibre_db_path="/path1",
         calibre_db_file="metadata.db",
-        is_active=True,
     )
     library2 = Library(
         id=2,
         name="Library 2",
         calibre_db_path="/path2",
         calibre_db_file="metadata.db",
-        is_active=False,
     )
 
     with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
@@ -1708,7 +1698,6 @@ def test_get_active_library_success(monkeypatch: pytest.MonkeyPatch) -> None:
         name="Active Library",
         calibre_db_path="/path",
         calibre_db_file="metadata.db",
-        is_active=True,
     )
 
     with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
@@ -1744,7 +1733,6 @@ def test_create_library_success(monkeypatch: pytest.MonkeyPatch) -> None:
         use_split_library=False,
         split_library_dir=None,
         auto_reconnect=True,
-        is_active=False,
     )
 
     library = Library(
@@ -1755,7 +1743,6 @@ def test_create_library_success(monkeypatch: pytest.MonkeyPatch) -> None:
         use_split_library=False,
         split_library_dir=None,
         auto_reconnect=True,
-        is_active=False,
     )
 
     with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
@@ -1804,7 +1791,6 @@ def test_update_library_success(monkeypatch: pytest.MonkeyPatch) -> None:
         name="Updated Library",
         calibre_db_path="/new/path",
         calibre_db_file="metadata.db",
-        is_active=True,
     )
 
     with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
@@ -1878,43 +1864,6 @@ def test_delete_library_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
 
         with pytest.raises(HTTPException) as exc_info:
             admin.delete_library(session, library_id=999)
-        assert isinstance(exc_info.value, HTTPException)
-        assert exc_info.value.status_code == 404
-        assert exc_info.value.detail == "library_not_found"
-
-
-def test_activate_library_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test activate_library succeeds."""
-    session = DummySession()
-    library = Library(
-        id=1,
-        name="Test Library",
-        calibre_db_path="/path",
-        calibre_db_file="metadata.db",
-        is_active=True,
-    )
-
-    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
-        mock_service = MagicMock()
-        mock_service.set_active_library.return_value = library
-        mock_service_class.return_value = mock_service
-
-        result = admin.activate_library(session, library_id=1)
-        assert result.id == 1
-        assert result.is_active is True
-
-
-def test_activate_library_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test activate_library raises 404 when library not found."""
-    session = DummySession()
-
-    with patch("bookcard.api.routes.admin.LibraryService") as mock_service_class:
-        mock_service = MagicMock()
-        mock_service.set_active_library.side_effect = ValueError("library_not_found")
-        mock_service_class.return_value = mock_service
-
-        with pytest.raises(HTTPException) as exc_info:
-            admin.activate_library(session, library_id=999)
         assert isinstance(exc_info.value, HTTPException)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "library_not_found"

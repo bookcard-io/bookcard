@@ -108,8 +108,9 @@ class AuthorService:
         page: int = 1,
         page_size: int = 20,
         filter_type: str | None = None,
+        library_ids: list[int] | None = None,
     ) -> tuple[list[dict[str, object]], int]:
-        """List authors for the active library with pagination.
+        """List authors for one or more libraries with pagination.
 
         Parameters
         ----------
@@ -118,7 +119,11 @@ class AuthorService:
         page_size : int
             Number of items per page (default: 20).
         filter_type : str | None
-            Filter type: "unmatched" to show only unmatched authors, None for all authors.
+            Filter type: "unmatched" to show only unmatched authors,
+            None for all authors.
+        library_ids : list[int] | None
+            Library IDs to query across.  When ``None``, falls back
+            to the active library.
 
         Returns
         -------
@@ -128,9 +133,11 @@ class AuthorService:
         Raises
         ------
         NoActiveLibraryError
-            If no active library is found.
+            If no active library is found and *library_ids* is ``None``.
         """
-        authors, total = self._core_service.list_authors(page, page_size, filter_type)
+        authors, total = self._core_service.list_authors(
+            page, page_size, filter_type, library_ids=library_ids
+        )
         return [
             self._serialization_service.to_dict(author) for author in authors
         ], total

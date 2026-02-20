@@ -49,7 +49,6 @@ def test_create_library_success() -> None:
         use_split_library=False,
         split_library_dir=None,
         auto_reconnect=True,
-        set_as_active=False,
     )
 
     assert library.name == "Test Library"
@@ -57,7 +56,6 @@ def test_create_library_success() -> None:
     assert library.calibre_db_file == "metadata.db"
     assert library.use_split_library is False
     assert library.auto_reconnect is True
-    assert library.is_active is False
     assert library in session.added
 
 
@@ -77,7 +75,6 @@ def test_create_library_with_defaults() -> None:
     assert library.calibre_db_file == "metadata.db"
     assert library.use_split_library is False
     assert library.auto_reconnect is True
-    assert library.is_active is False
 
 
 def test_create_library_path_already_exists() -> None:
@@ -102,26 +99,6 @@ def test_create_library_path_already_exists() -> None:
         )
 
 
-def test_create_library_set_as_active() -> None:
-    """Test create_library deactivates all others when set_as_active=True."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-    service = LibraryService(session, repo)  # type: ignore[arg-type]
-
-    # First call: no existing library
-    session.add_exec_result([])
-    # Second call: find active libraries (for deactivation)
-    session.add_exec_result([])
-
-    library = service.create_library(
-        name="Active Library",
-        calibre_db_path="/path/to/library",
-        set_as_active=True,
-    )
-
-    assert library.is_active is True
-
-
 def test_update_library_success() -> None:
     """Test update_library succeeds with valid parameters."""
     session = DummySession()
@@ -133,7 +110,6 @@ def test_update_library_success() -> None:
         name="Original Name",
         calibre_db_path="/original/path",
         calibre_db_file="metadata.db",
-        is_active=False,
     )
 
     session.add(library)  # Add to session for get() lookup
@@ -264,49 +240,6 @@ def test_update_library_partial_update() -> None:
     assert updated.auto_reconnect is False
 
 
-def test_set_active_library_success() -> None:
-    """Test set_active_library succeeds and deactivates others."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-    service = LibraryService(session, repo)  # type: ignore[arg-type]
-
-    library = Library(
-        id=1,
-        name="Library 1",
-        calibre_db_path="/path1",
-        calibre_db_file="metadata.db",
-        is_active=False,
-    )
-
-    active_library = Library(
-        id=2,
-        name="Library 2",
-        calibre_db_path="/path2",
-        calibre_db_file="metadata.db",
-        is_active=True,
-    )
-
-    session.add(library)  # Add to session for get() lookup
-    session.add_exec_result([active_library])  # find active libraries
-
-    result = service.set_active_library(1)
-
-    assert result.is_active is True
-    assert active_library.is_active is False  # Other library deactivated
-
-
-def test_set_active_library_not_found() -> None:
-    """Test set_active_library raises ValueError when library not found."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-    service = LibraryService(session, repo)  # type: ignore[arg-type]
-
-    # No entity added, so get() will return None
-
-    with pytest.raises(ValueError, match="library_not_found"):
-        service.set_active_library(999)
-
-
 def test_delete_library_success() -> None:
     """Test delete_library succeeds."""
     session = DummySession()
@@ -337,47 +270,6 @@ def test_delete_library_not_found() -> None:
 
     with pytest.raises(ValueError, match="library_not_found"):
         service.delete_library(999)
-
-
-def test_deactivate_all() -> None:
-    """Test _deactivate_all deactivates all active libraries."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-    service = LibraryService(session, repo)  # type: ignore[arg-type]
-
-    active_lib1 = Library(
-        id=1,
-        name="Library 1",
-        calibre_db_path="/path1",
-        calibre_db_file="metadata.db",
-        is_active=True,
-    )
-
-    active_lib2 = Library(
-        id=2,
-        name="Library 2",
-        calibre_db_path="/path2",
-        calibre_db_file="metadata.db",
-        is_active=True,
-    )
-
-    session.add_exec_result([active_lib1, active_lib2])
-
-    service._deactivate_all()
-
-    assert active_lib1.is_active is False
-    assert active_lib2.is_active is False
-
-
-def test_deactivate_all_no_active_libraries() -> None:
-    """Test _deactivate_all handles no active libraries gracefully."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-    service = LibraryService(session, repo)  # type: ignore[arg-type]
-
-    session.add_exec_result([])
-
-    service._deactivate_all()  # Should not raise
 
 
 def test_get_library_stats_success() -> None:

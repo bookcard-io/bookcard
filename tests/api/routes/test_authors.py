@@ -67,7 +67,11 @@ class MockAuthorService:
         return self._author_data[author_id]
 
     def list_authors_for_active_library(
-        self, page: int, page_size: int, filter_type: str | None = None
+        self,
+        page: int,
+        page_size: int,
+        filter_type: str | None = None,
+        library_ids: list[int] | None = None,
     ) -> tuple[list[dict[str, object]], int]:
         """Mock list_authors_for_active_library."""
         return self._list_result
@@ -475,6 +479,7 @@ def test_list_authors_success(monkeypatch: pytest.MonkeyPatch) -> None:
             current_user=current_user,
             session=session,
             author_service=mock_service,
+            visible_library_ids=[1],
             page=1,
             page_size=20,
             filter_type=None,
@@ -511,6 +516,7 @@ def test_list_authors_with_filter(monkeypatch: pytest.MonkeyPatch) -> None:
             current_user=current_user,
             session=session,
             author_service=mock_service,
+            visible_library_ids=[1],
             page=1,
             page_size=20,
             filter_type="unmatched",
@@ -542,6 +548,7 @@ def test_list_authors_page_validation(monkeypatch: pytest.MonkeyPatch) -> None:
             current_user=current_user,
             session=session,
             author_service=mock_service,
+            visible_library_ids=[1],
             page=0,
             page_size=20,
         )
@@ -552,6 +559,7 @@ def test_list_authors_page_validation(monkeypatch: pytest.MonkeyPatch) -> None:
             current_user=current_user,
             session=session,
             author_service=mock_service,
+            visible_library_ids=[1],
             page=1,
             page_size=200,
         )
@@ -583,6 +591,7 @@ def test_list_authors_error(monkeypatch: pytest.MonkeyPatch) -> None:
                 current_user=current_user,
                 session=session,
                 author_service=mock_service,
+                visible_library_ids=[1],
             )
 
 
@@ -1151,6 +1160,7 @@ def test_list_authors_page_size_less_than_one(
             current_user=current_user,
             session=session,
             author_service=mock_service,
+            visible_library_ids=[1],
             page=1,
             page_size=0,
         )

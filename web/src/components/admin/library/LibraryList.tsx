@@ -32,8 +32,6 @@ export type { Library };
 export interface LibraryListProps {
   /** List of libraries to display. */
   libraries: Library[];
-  /** Callback when library active state is toggled. */
-  onToggle: (library: Library) => void;
   /** Callback when library is deleted. */
   onDelete: (id: number) => void;
   /** ID of library currently being deleted. */
@@ -72,7 +70,6 @@ export interface LibraryListProps {
  */
 export function LibraryList({
   libraries,
-  onToggle,
   onDelete,
   deletingLibraryId,
   onScan,
@@ -91,7 +88,6 @@ export function LibraryList({
           library={lib}
           stats={stats[lib.id]}
           isLoadingStats={loadingStats[lib.id]}
-          onToggle={onToggle}
           onDelete={onDelete}
           deletingLibraryId={deletingLibraryId}
           onScan={onScan}
@@ -104,11 +100,6 @@ export function LibraryList({
       {libraries.length === 0 && (
         <div className="p-6 text-center text-[var(--color-text-a30)] text-sm italic">
           No libraries configured yet.
-        </div>
-      )}
-      {libraries.length > 0 && !libraries.some((lib) => lib.is_active) && (
-        <div className="p-6 text-center text-[var(--color-text-a30)] text-sm italic">
-          Please activate a library to begin using the app.
         </div>
       )}
     </div>

@@ -41,8 +41,6 @@ export interface LibraryListItemProps {
   stats: LibraryStats | null | undefined;
   /** Whether stats are loading. */
   isLoadingStats: boolean | undefined;
-  /** Callback when library active state is toggled. */
-  onToggle: (library: Library) => void;
   /** Callback when library is deleted. */
   onDelete: (id: number) => void;
   /** ID of library currently being deleted. */
@@ -85,7 +83,6 @@ export function LibraryListItem({
   library,
   stats,
   isLoadingStats,
-  onToggle,
   onDelete,
   deletingLibraryId,
   onScan,
@@ -94,7 +91,7 @@ export function LibraryListItem({
   hasActiveScan,
 }: LibraryListItemProps) {
   const isScanning = scanningLibraryId === library.id || hasActiveScan;
-  const isExpanded = library.is_active;
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Auto-convert settings state
   const [autoConvertOnIngest, setAutoConvertOnIngest] = useState(
@@ -240,12 +237,20 @@ export function LibraryListItem({
     <div className="flex flex-col gap-3 rounded-md border border-[var(--color-surface-a20)] bg-[var(--color-surface-a10)] p-3">
       <div className="flex items-center gap-3">
         <div className="flex min-w-[250px] flex-1 items-center gap-3">
-          <input
-            type="checkbox"
-            checked={library.is_active}
-            onChange={() => onToggle(library)}
-            className="h-[18px] w-[18px] cursor-pointer accent-[var(--color-primary-a0)]"
-          />
+          <button
+            type="button"
+            onClick={() => setIsExpanded((prev) => !prev)}
+            className="flex h-[18px] w-[18px] items-center justify-center text-[var(--color-text-a20)] transition-transform hover:text-[var(--color-text-a0)]"
+            aria-label={isExpanded ? "Collapse settings" : "Expand settings"}
+          >
+            <i
+              className={cn(
+                "pi pi-chevron-right text-xs transition-transform",
+                isExpanded && "rotate-90",
+              )}
+              aria-hidden="true"
+            />
+          </button>
           <div className="flex flex-1 flex-col gap-1">
             <div className="font-medium text-sm">
               <EditableTextField
@@ -302,7 +307,7 @@ export function LibraryListItem({
         </div>
       </div>
 
-      {/* Settings - only visible when library is active */}
+      {/* Settings - collapsible section */}
       {isExpanded && (
         <div className="border-[var(--color-surface-a20)] border-t pt-3">
           {/* Duplicate Handling */}

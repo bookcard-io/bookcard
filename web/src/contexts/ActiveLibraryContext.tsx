@@ -36,7 +36,6 @@ export interface Library {
   use_split_library: boolean;
   split_library_dir: string | null;
   auto_reconnect: boolean;
-  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -139,7 +138,6 @@ export function ActiveLibraryProvider({ children }: { children: ReactNode }) {
               use_split_library: false,
               split_library_dir: null,
               auto_reconnect: false,
-              is_active: a.is_active,
               created_at: a.created_at,
               updated_at: a.updated_at,
             }));

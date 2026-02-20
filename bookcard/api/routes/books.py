@@ -210,8 +210,8 @@ def _get_active_library_service(
     """Get book service for the active library.
 
     Resolves the active library via the per-user ``UserLibrary`` table
-    when an authenticated user is present, falling back to the global
-    ``Library.is_active`` flag otherwise.
+    when an authenticated user is present, falling back to the first
+    available library otherwise.
 
     Parameters
     ----------

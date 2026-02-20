@@ -75,7 +75,6 @@ def test_get_active_library_delegates_to_repo() -> None:
         name="Active Library",
         calibre_db_path="/path/to/library",
         calibre_db_file="metadata.db",
-        is_active=True,
     )
 
     session.add_exec_result([active_library])
@@ -83,7 +82,6 @@ def test_get_active_library_delegates_to_repo() -> None:
     result = service.get_active_library()
 
     assert result is not None
-    assert result.is_active is True
 
 
 def test_get_library_delegates_to_repo() -> None:
@@ -130,7 +128,7 @@ def test_create_library_path_already_exists() -> None:
 
 
 def test_create_library_set_as_active() -> None:
-    """Test create_library creates library (is_active no longer managed by service)."""
+    """Test create_library creates library."""
     from unittest.mock import MagicMock, patch
 
     session = DummySession()
@@ -153,7 +151,6 @@ def test_create_library_set_as_active() -> None:
         library = service.create_library(
             name="New Library",
             calibre_db_path="/path/to/library",
-            is_active=True,
         )
 
         assert library.name == "New Library"
@@ -174,7 +171,6 @@ def test_update_library_success() -> None:
         use_split_library=False,
         split_library_dir=None,
         auto_reconnect=True,
-        is_active=False,
     )
 
     session.add(library)  # Add to session for get() lookup
@@ -334,27 +330,6 @@ def test_update_library_fields_updates_all() -> None:
     assert library.auto_reconnect is False
 
 
-def test_handle_active_status_change_is_noop() -> None:
-    """Test _handle_active_status_change is a no-op (deprecated)."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-    service = LibraryService(session, repo)  # type: ignore[arg-type]
-
-    library = Library(
-        id=1,
-        name="Test Library",
-        calibre_db_path="/path/to/library",
-        calibre_db_file="metadata.db",
-        is_active=False,
-    )
-
-    original_status = library.is_active
-    service._handle_active_status_change(library, True)
-
-    # No-op: is_active should remain unchanged
-    assert library.is_active == original_status
-
-
 def test_delete_library_success() -> None:
     """Test delete_library succeeds (covers lines 338-343)."""
     session = DummySession()
@@ -385,39 +360,6 @@ def test_delete_library_not_found() -> None:
 
     with pytest.raises(ValueError, match="library_not_found"):
         service.delete_library(999)
-
-
-def test_set_active_library_success() -> None:
-    """Test set_active_library returns library (is_active no longer toggled)."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-    service = LibraryService(session, repo)  # type: ignore[arg-type]
-
-    library = Library(
-        id=1,
-        name="Test Library",
-        calibre_db_path="/path/to/library",
-        calibre_db_file="metadata.db",
-        is_active=False,
-    )
-
-    session.add(library)  # Add to session for get() lookup
-
-    result = service.set_active_library(1)
-
-    assert result is library
-
-
-def test_set_active_library_not_found() -> None:
-    """Test set_active_library raises ValueError when library not found."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-    service = LibraryService(session, repo)  # type: ignore[arg-type]
-
-    # No entity added, so get() will return None
-
-    with pytest.raises(ValueError, match="library_not_found"):
-        service.set_active_library(999)
 
 
 def test_get_library_stats_success() -> None:
@@ -517,9 +459,6 @@ def test_create_library_with_auto_generated_path(
         patch(
             "bookcard.services.config_service.LibraryService._get_default_library_directory"
         ) as mock_get_dir,
-        patch(
-            "bookcard.services.config_service.LibraryService._sync_shelves_for_library"
-        ),
     ):
         mock_exists.return_value = False
         mock_get_dir.return_value = "/default/lib/dir"
@@ -580,9 +519,6 @@ def test_create_library_existing_database_valid(
             "bookcard.services.config_service.CalibreDatabaseInitializer.validate_existing_database"
         ) as mock_validate,
         patch("pathlib.Path.exists") as mock_exists,
-        patch(
-            "bookcard.services.config_service.LibraryService._sync_shelves_for_library"
-        ),
     ):
         mock_exists.return_value = True
         mock_validate.return_value = True
@@ -590,7 +526,6 @@ def test_create_library_existing_database_valid(
         library = library_service.create_library(
             name="Test Library",
             calibre_db_path="/path/to/library",
-            is_active=True,
         )
 
         assert library.name == "Test Library"
@@ -618,9 +553,6 @@ def test_create_library_file_exists_error(
             "bookcard.services.config_service.CalibreDatabaseInitializer.validate_existing_database"
         ) as mock_validate,
         patch("pathlib.Path.exists") as mock_exists,
-        patch(
-            "bookcard.services.config_service.LibraryService._sync_shelves_for_library"
-        ),
     ):
         mock_exists.return_value = False
         mock_initializer = MagicMock()
@@ -631,7 +563,6 @@ def test_create_library_file_exists_error(
         library = library_service.create_library(
             name="Test Library",
             calibre_db_path="/path/to/library",
-            is_active=True,
         )
 
         assert library.name == "Test Library"

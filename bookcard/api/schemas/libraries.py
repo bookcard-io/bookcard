@@ -44,7 +44,6 @@ class LibraryRead(BaseModel):
     auto_convert_backup_originals: bool
     epub_fixer_auto_fix_on_ingest: bool
     duplicate_handling: str
-    is_active: bool
     created_at: datetime
     updated_at: datetime
 
@@ -72,7 +71,6 @@ class LibraryCreate(BaseModel):
     auto_reconnect: bool = Field(
         default=True, description="Whether to automatically reconnect on errors"
     )
-    is_active: bool = Field(default=False, description="Set as the active library")
 
 
 class LibraryUpdate(BaseModel):
@@ -122,9 +120,6 @@ class LibraryUpdate(BaseModel):
     duplicate_handling: str | None = Field(
         default=None,
         description="Strategy for handling duplicate books during ingest: IGNORE, OVERWRITE, or CREATE_NEW",
-    )
-    is_active: bool | None = Field(
-        default=None, description="Set as the active library"
     )
 
 

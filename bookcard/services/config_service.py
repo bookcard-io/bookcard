@@ -39,7 +39,6 @@ from bookcard.repositories.calibre_book_repository import (
     CalibreBookRepository,
 )
 from bookcard.repositories.config_repository import LibraryRepository
-from bookcard.repositories.shelf_repository import ShelfRepository
 from bookcard.services.calibre_db_initializer import (
     CalibreDatabaseInitializer,
 )
@@ -142,13 +141,11 @@ class LibraryService:
         return self._library_repo.list_all()
 
     def get_active_library(self) -> Library | None:
-        """Get the currently active library.
+        """Get the first library by creation order.
 
-        .. deprecated::
-            ``Library.is_active`` is being removed.  This method now
-            returns the first library ordered by creation date.  Prefer
-            resolving the library via ``UserLibrary`` in request-scoped
-            code or by explicit ``library_id`` in task code.
+        Returns the first library as a fallback for code paths that
+        lack an explicit library context.  Prefer resolving via
+        ``UserLibrary`` in request-scoped code.
 
         Returns
         -------
@@ -183,7 +180,6 @@ class LibraryService:
         split_library_dir: str | None = None,
         auto_reconnect: bool = True,
         auto_metadata_enforcement: bool = True,
-        is_active: bool = False,
     ) -> Library:
         """Create a new library.
 
@@ -201,8 +197,6 @@ class LibraryService:
             Directory for split library mode.
         auto_reconnect : bool
             Whether to automatically reconnect on errors (default: True).
-        is_active : bool
-            Whether to set this as the active library (default: False).
 
         Returns
         -------
@@ -269,13 +263,9 @@ class LibraryService:
             split_library_dir=split_library_dir,
             auto_reconnect=auto_reconnect,
             auto_metadata_enforcement=auto_metadata_enforcement,
-            is_active=is_active,
         )
         self._library_repo.add(library)
         self._session.flush()
-        # If library is created as active, sync any existing shelves (though unlikely)
-        if is_active and library.id is not None:
-            self._sync_shelves_for_library(library.id, True)
         return library
 
     def _generate_library_path(self, name: str) -> str:
@@ -397,7 +387,6 @@ class LibraryService:
         auto_convert_backup_originals: bool | None = None,
         epub_fixer_auto_fix_on_ingest: bool | None = None,
         duplicate_handling: str | None = None,
-        is_active: bool | None = None,
     ) -> Library:
         """Update a library.
 
@@ -431,8 +420,6 @@ class LibraryService:
             Whether to automatically fix EPUBs on book upload/ingest.
         duplicate_handling : str | None
             Strategy for handling duplicate books during ingest: IGNORE, OVERWRITE, or CREATE_NEW.
-        is_active : bool | None
-            Whether to set this as the active library.
 
         Returns
         -------
@@ -466,8 +453,6 @@ class LibraryService:
             epub_fixer_auto_fix_on_ingest=epub_fixer_auto_fix_on_ingest,
             duplicate_handling=duplicate_handling,
         )
-        self._handle_active_status_change(library, is_active)
-
         self._session.flush()
         return library
 
@@ -666,26 +651,6 @@ class LibraryService:
         if duplicate_handling is not None:
             library.duplicate_handling = duplicate_handling  # ty:ignore[invalid-assignment]
 
-    def _handle_active_status_change(
-        self,
-        library: Library,
-        is_active: bool | None,
-    ) -> None:
-        """Handle active status change for a library.
-
-        .. deprecated::
-            ``Library.is_active`` is being removed.  Active-library
-            semantics are now per-user via ``UserLibrary``.  This method
-            is a no-op and will be deleted with the column.
-
-        Parameters
-        ----------
-        library : Library
-            Library to update (unused).
-        is_active : bool | None
-            Ignored.
-        """
-
     def delete_library(self, library_id: int) -> None:
         """Delete a library.
 
@@ -705,37 +670,6 @@ class LibraryService:
             raise ValueError(msg)
 
         self._library_repo.delete(library)
-
-    def set_active_library(self, library_id: int) -> Library:
-        """Set a library as the active one.
-
-        .. deprecated::
-            ``Library.is_active`` is being removed.  Active-library
-            semantics are now per-user via ``UserLibrary``.  This method
-            validates the library exists and returns it but no longer
-            toggles the ``is_active`` flag.
-
-        Parameters
-        ----------
-        library_id : int
-            Library identifier.
-
-        Returns
-        -------
-        Library
-            The library.
-
-        Raises
-        ------
-        ValueError
-            If library not found.
-        """
-        library = self._library_repo.get(library_id)
-        if library is None:
-            msg = "library_not_found"
-            raise ValueError(msg)
-
-        return library
 
     def get_library_stats(self, library_id: int) -> dict[str, int | float]:
         """Get statistics for a library.
@@ -771,23 +705,6 @@ class LibraryService:
             calibre_db_file=library.calibre_db_file,
         )
         return book_repo.get_library_stats()
-
-    def _sync_shelves_for_library(
-        self,
-        library_id: int,
-        is_active: bool,
-    ) -> None:
-        """Sync shelf active status with library active status.
-
-        Parameters
-        ----------
-        library_id : int
-            Library ID whose shelves should be synced.
-        is_active : bool
-            Active status to set for all shelves in the library.
-        """
-        shelf_repo = ShelfRepository(self._session)
-        shelf_repo.sync_active_status_for_library(library_id, is_active)
 
 
 class EPUBFixerConfigService:

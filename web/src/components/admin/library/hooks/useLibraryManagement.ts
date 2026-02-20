@@ -45,8 +45,6 @@ export interface UseLibraryManagementResult {
   addLibrary: (name: string, path?: string) => Promise<void>;
   /** Function to create a new library (path auto-generated). */
   createLibrary: (name: string) => Promise<void>;
-  /** Function to toggle library activation state. */
-  toggleLibrary: (library: Library) => Promise<void>;
   /** Function to delete a library. */
   deleteLibrary: (id: number) => Promise<void>;
   /** Function to initiate a library scan. */
@@ -156,8 +154,6 @@ export function useLibraryManagement(
       }
 
       const libraryName = generateLibraryName(libraries, trimmedName);
-      // Auto-activate if this is the first library
-      const isFirstLibrary = libraries.length === 0;
 
       setIsBusy(true);
       setError(null);
@@ -166,11 +162,9 @@ export function useLibraryManagement(
           name: string;
           calibre_db_path?: string;
           calibre_db_file: string;
-          is_active: boolean;
         } = {
           name: libraryName,
           calibre_db_file: "metadata.db",
-          is_active: isFirstLibrary,
         };
 
         // Only include path if provided
@@ -220,60 +214,6 @@ export function useLibraryManagement(
       return addLibrary(name);
     },
     [addLibrary],
-  );
-
-  const toggleLibrary = useCallback(
-    async (library: Library) => {
-      setError(null);
-      try {
-        if (library.is_active) {
-          // Deactivate by setting is_active to false
-          const response = await fetch(`/api/admin/libraries/${library.id}`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              is_active: false,
-            }),
-          });
-
-          if (!response.ok) {
-            const data = (await response.json()) as { detail?: string };
-            throw new Error(data.detail || "Failed to deactivate library");
-          }
-        } else {
-          // Activate using the activate endpoint
-          const response = await fetch(
-            `/api/admin/libraries/${library.id}/activate`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-            },
-          );
-
-          if (!response.ok) {
-            const data = (await response.json()) as { detail?: string };
-            throw new Error(data.detail || "Failed to activate library");
-          }
-        }
-
-        await refresh();
-        if (onRefresh) {
-          await onRefresh();
-        }
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to toggle library activation state",
-        );
-        throw err;
-      }
-    },
-    [refresh, onRefresh],
   );
 
   const deleteLibrary = useCallback(
@@ -409,7 +349,6 @@ export function useLibraryManagement(
     refresh,
     addLibrary,
     createLibrary,
-    toggleLibrary,
     deleteLibrary,
     scanLibrary,
     updateLibrary,

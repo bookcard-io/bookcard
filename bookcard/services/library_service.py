@@ -22,8 +22,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlmodel import select
-
 from bookcard.models.config import Library
 
 if TYPE_CHECKING:
@@ -34,8 +32,6 @@ else:
     from bookcard.repositories.calibre_book_repository import (
         CalibreBookRepository,
     )
-
-from bookcard.repositories.shelf_repository import ShelfRepository
 
 
 class LibraryService:
@@ -66,7 +62,6 @@ class LibraryService:
         use_split_library: bool = False,
         split_library_dir: str | None = None,
         auto_reconnect: bool = True,
-        set_as_active: bool = False,
     ) -> Library:
         """Create a new library configuration.
 
@@ -84,9 +79,6 @@ class LibraryService:
             Directory for split library mode.
         auto_reconnect : bool
             Whether to automatically reconnect on errors (default: True).
-        set_as_active : bool
-            Whether to set this library as active (default: False).
-            If True, deactivates all other libraries.
 
         Returns
         -------
@@ -98,15 +90,10 @@ class LibraryService:
         ValueError
             If a library with the same path already exists.
         """
-        # Check for duplicate path
         existing = self._library_repo.find_by_path(calibre_db_path)
         if existing is not None:
             msg = "library_path_already_exists"
             raise ValueError(msg)
-
-        # If setting as active, deactivate all others
-        if set_as_active:
-            self._deactivate_all()
 
         library = Library(
             name=name,
@@ -115,7 +102,6 @@ class LibraryService:
             use_split_library=use_split_library,
             split_library_dir=split_library_dir,
             auto_reconnect=auto_reconnect,
-            is_active=set_as_active,
         )
         self._library_repo.add(library)
         self._session.flush()
@@ -193,38 +179,6 @@ class LibraryService:
         self._session.flush()
         return library
 
-    def set_active_library(self, library_id: int) -> Library:
-        """Set a library as the active library.
-
-        Deactivates all other libraries and activates the specified one.
-
-        Parameters
-        ----------
-        library_id : int
-            Library identifier to activate.
-
-        Returns
-        -------
-        Library
-            Activated library instance.
-
-        Raises
-        ------
-        ValueError
-            If library not found.
-        """
-        library = self._library_repo.get(library_id)
-        if library is None:
-            msg = "library_not_found"
-            raise ValueError(msg)
-
-        self._deactivate_all()
-        library.is_active = True
-        # Sync shelf statuses for the newly activated library
-        self._sync_shelves_for_library(library_id, True)
-        self._session.flush()
-        return library
-
     def delete_library(self, library_id: int) -> None:
         """Delete a library configuration.
 
@@ -279,30 +233,3 @@ class LibraryService:
             calibre_db_file=library.calibre_db_file,
         )
         return book_repo.get_library_stats()
-
-    def _deactivate_all(self) -> None:
-        """Deactivate all libraries and sync shelf statuses."""
-        stmt = select(Library).where(Library.is_active == True)  # noqa: E712
-        active_libraries = self._session.exec(stmt).all()
-        for lib in active_libraries:
-            lib.is_active = False
-            # Sync shelf statuses for this library
-            if lib.id is not None:
-                self._sync_shelves_for_library(lib.id, False)
-
-    def _sync_shelves_for_library(
-        self,
-        library_id: int,
-        is_active: bool,
-    ) -> None:
-        """Sync shelf active status with library active status.
-
-        Parameters
-        ----------
-        library_id : int
-            Library ID whose shelves should be synced.
-        is_active : bool
-            Active status to set for all shelves in the library.
-        """
-        shelf_repo = ShelfRepository(self._session)
-        shelf_repo.sync_active_status_for_library(library_id, is_active)

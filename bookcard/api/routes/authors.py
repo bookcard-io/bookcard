@@ -36,7 +36,12 @@ from fastapi import (
 from fastapi.responses import FileResponse, Response
 from sqlmodel import Session
 
-from bookcard.api.deps import get_active_library_id, get_current_user, get_db_session
+from bookcard.api.deps import (
+    get_active_library_id,
+    get_current_user,
+    get_db_session,
+    get_visible_library_ids,
+)
 from bookcard.api.schemas.author import (
     AuthorMergeRecommendRequest,
     AuthorMergeRequest,
@@ -66,6 +71,7 @@ router = APIRouter(prefix="/authors", tags=["authors"])
 SessionDep = Annotated[Session, Depends(get_db_session)]
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 ActiveLibraryIdDep = Annotated[int, Depends(get_active_library_id)]
+VisibleLibraryIdsDep = Annotated[list[int], Depends(get_visible_library_ids)]
 
 
 def _get_author_service(
@@ -266,14 +272,19 @@ def list_authors(
     current_user: CurrentUserDep,
     session: SessionDep,
     author_service: AuthorServiceDep,
+    visible_library_ids: VisibleLibraryIdsDep,
     page: int = 1,
     page_size: int = 20,
     filter_type: str | None = Query(None, alias="filter"),
+    library_id: Annotated[
+        int | None,
+        Query(description="Filter by a specific library ID"),
+    ] = None,
 ) -> dict[str, object]:
-    """List authors with metadata for the active library with pagination.
+    """List authors with metadata across visible libraries with pagination.
 
-    Returns authors that have been mapped to the active library via AuthorMapping.
-    Includes metadata from AuthorMetadata (photos, remote IDs, alternate names, etc.).
+    When *library_id* is provided, only authors mapped to that library are
+    returned.  Otherwise authors from all visible libraries are included.
 
     Parameters
     ----------
@@ -283,12 +294,17 @@ def list_authors(
         Database session dependency.
     author_service : AuthorServiceDep
         Author service instance.
+    visible_library_ids : VisibleLibraryIdsDep
+        Library IDs the user has marked as visible.
     page : int
         Page number (1-indexed, default: 1).
     page_size : int
         Number of items per page (default: 20, max: 100).
     filter_type : str | None
-        Filter type: "unmatched" to show only unmatched authors, None for all authors.
+        Filter type: "unmatched" to show only unmatched authors,
+        None for all authors.
+    library_id : int | None
+        Optional library ID to restrict results to a single library.
 
     Returns
     -------
@@ -300,7 +316,6 @@ def list_authors(
     HTTPException
         If no active library is found or permission denied (403).
     """
-    # Check books:read permission
     permission_service = PermissionService(session)
     permission_service.check_permission(current_user, "books", "read")
     if page < 1:
@@ -310,11 +325,24 @@ def list_authors(
     if page_size > 100:
         page_size = 100
 
+    resolved_library_ids: list[int] | None = None
+    if library_id is not None:
+        if library_id in visible_library_ids:
+            resolved_library_ids = [library_id]
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="library_access_denied",
+            )
+    elif visible_library_ids:
+        resolved_library_ids = visible_library_ids
+
     try:
         items, total = author_service.list_authors_for_active_library(
             page=page,
             page_size=page_size,
             filter_type=filter_type,
+            library_ids=resolved_library_ids,
         )
         total_pages = (total + page_size - 1) // page_size if total > 0 else 0
     except (ValueError, AuthorServiceError) as exc:

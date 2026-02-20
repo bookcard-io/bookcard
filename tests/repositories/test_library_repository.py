@@ -30,36 +30,6 @@ def test_library_repository_init() -> None:
     assert repo._model_type is Library
 
 
-def test_find_active_returns_active_library() -> None:
-    """Test find_active returns active library when one exists."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-
-    active_library = Library(
-        id=1,
-        name="Active Library",
-        calibre_db_path="/path/to/library",
-        calibre_db_file="metadata.db",
-        is_active=True,
-    )
-
-    session.add_exec_result([active_library])
-    result = repo.find_active()
-    assert result is not None
-    assert result.id == 1
-    assert result.is_active is True
-
-
-def test_find_active_returns_none_when_no_active() -> None:
-    """Test find_active returns None when no active library exists."""
-    session = DummySession()
-    repo = LibraryRepository(session)  # type: ignore[arg-type]
-
-    session.add_exec_result([])
-    result = repo.find_active()
-    assert result is None
-
-
 def test_find_by_path_returns_matching_library() -> None:
     """Test find_by_path returns library with matching path."""
     session = DummySession()
@@ -70,7 +40,6 @@ def test_find_by_path_returns_matching_library() -> None:
         name="Test Library",
         calibre_db_path="/path/to/library",
         calibre_db_file="metadata.db",
-        is_active=False,
     )
 
     session.add_exec_result([library])

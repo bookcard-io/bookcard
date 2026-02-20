@@ -45,7 +45,6 @@ def active_library() -> Library:
         name="Test Library",
         calibre_db_path="/path/to/library",
         calibre_db_file="metadata.db",
-        is_active=True,
     )
 
 
@@ -57,7 +56,6 @@ def active_library_no_id() -> Library:
         name="Test Library",
         calibre_db_path="/path/to/library",
         calibre_db_file="metadata.db",
-        is_active=True,
     )
 
 
@@ -179,7 +177,7 @@ class TestListAuthors:
         with (
             patch(
                 "bookcard.services.author.core_service.ensure_active_library",
-                return_value=Library(id=None, name="Test", is_active=True),
+                return_value=Library(id=None, name="Test"),
             ),
             pytest.raises(NoActiveLibraryError, match="Active library ID is None"),
         ):
@@ -237,7 +235,7 @@ class TestGetAuthor:
         with (
             patch(
                 "bookcard.services.author.core_service.ensure_active_library",
-                return_value=Library(id=None, name="Test", is_active=True),
+                return_value=Library(id=None, name="Test"),
             ),
             pytest.raises(NoActiveLibraryError, match="Active library ID is None"),
         ):

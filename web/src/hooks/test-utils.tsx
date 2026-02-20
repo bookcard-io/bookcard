@@ -121,7 +121,6 @@ export const mockActiveLibrary: Library = {
   use_split_library: false,
   split_library_dir: null,
   auto_reconnect: false,
-  is_active: true,
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-01T00:00:00Z",
 };
@@ -181,11 +180,12 @@ export function createMockFetchWithActiveLibrary(
   activeLibraryOrResponse?: Library | MockResponse | MockResponseConfig,
   ...responses: Array<MockResponse | MockResponseConfig>
 ): (url: string) => Promise<Response> {
-  // Check if first argument is a Library (has is_active property)
   const isLibrary = (
     arg: Library | MockResponse | MockResponseConfig | undefined,
   ): arg is Library => {
-    return arg !== undefined && typeof arg === "object" && "is_active" in arg;
+    return (
+      arg !== undefined && typeof arg === "object" && "calibre_db_path" in arg
+    );
   };
 
   const activeLibrary = isLibrary(activeLibraryOrResponse)
