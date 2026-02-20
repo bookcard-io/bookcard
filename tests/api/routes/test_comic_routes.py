@@ -360,7 +360,9 @@ def test_list_comic_pages_success(
     f.write_bytes(b"x")
 
     monkeypatch.setattr(
-        comic_routes, "_get_book_service", lambda _s, _u=None: FakeBookService()
+        comic_routes,
+        "_get_book_service",
+        lambda _s, _u=None, _lib=None: FakeBookService(),
     )
     monkeypatch.setattr(comic_routes, "BookPermissionHelper", FakePermissionHelper)
     monkeypatch.setattr(comic_routes, "_get_comic_file_path", lambda *_a, **_k: f)
@@ -408,7 +410,9 @@ def test_list_comic_pages_archive_error_mapped_to_400(
     f.write_bytes(b"x")
 
     monkeypatch.setattr(
-        comic_routes, "_get_book_service", lambda _s, _u=None: FakeBookService()
+        comic_routes,
+        "_get_book_service",
+        lambda _s, _u=None, _lib=None: FakeBookService(),
     )
     monkeypatch.setattr(comic_routes, "BookPermissionHelper", FakePermissionHelper)
     monkeypatch.setattr(comic_routes, "_get_comic_file_path", lambda *_a, **_k: f)
@@ -429,7 +433,9 @@ def test_list_comic_pages_book_not_found(
             return None
 
     monkeypatch.setattr(
-        comic_routes, "_get_book_service", lambda _s, _u=None: FakeBookService()
+        comic_routes,
+        "_get_book_service",
+        lambda _s, _u=None, _lib=None: FakeBookService(),
     )
 
     res = client.get("/comic/1/pages", params={"file_format": "CBZ"})
@@ -470,7 +476,9 @@ def test_get_comic_page_thumbnail_success_and_fallback(
     f = Path("/tmp/a.cbz")
 
     monkeypatch.setattr(
-        comic_routes, "_get_book_service", lambda _s, _u=None: FakeBookService()
+        comic_routes,
+        "_get_book_service",
+        lambda _s, _u=None, _lib=None: FakeBookService(),
     )
     monkeypatch.setattr(comic_routes, "BookPermissionHelper", FakePermissionHelper)
     monkeypatch.setattr(comic_routes, "_get_comic_file_path", lambda *_a, **_k: f)
@@ -532,7 +540,9 @@ def test_get_comic_page_thumbnail_endpoint_delegates(
     f = Path("/tmp/a.cbz")
 
     monkeypatch.setattr(
-        comic_routes, "_get_book_service", lambda _s, _u=None: FakeBookService()
+        comic_routes,
+        "_get_book_service",
+        lambda _s, _u=None, _lib=None: FakeBookService(),
     )
     monkeypatch.setattr(comic_routes, "BookPermissionHelper", FakePermissionHelper)
     monkeypatch.setattr(comic_routes, "_get_comic_file_path", lambda *_a, **_k: f)
@@ -572,7 +582,9 @@ def test_get_comic_page_archive_error_mapped_to_400(
     f = Path("/tmp/a.cbz")
 
     monkeypatch.setattr(
-        comic_routes, "_get_book_service", lambda _s, _u=None: FakeBookService()
+        comic_routes,
+        "_get_book_service",
+        lambda _s, _u=None, _lib=None: FakeBookService(),
     )
     monkeypatch.setattr(comic_routes, "BookPermissionHelper", FakePermissionHelper)
     monkeypatch.setattr(comic_routes, "_get_comic_file_path", lambda *_a, **_k: f)
@@ -593,7 +605,9 @@ def test_get_comic_page_book_not_found(
             return None
 
     monkeypatch.setattr(
-        comic_routes, "_get_book_service", lambda _s, _u=None: FakeBookService()
+        comic_routes,
+        "_get_book_service",
+        lambda _s, _u=None, _lib=None: FakeBookService(),
     )
 
     res = client.get("/comic/1/pages/1", params={"file_format": "CBZ"})

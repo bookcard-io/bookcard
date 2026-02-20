@@ -61,6 +61,9 @@ def get_import_service(
     session: Annotated[Session, Depends(get_db_session)],
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
+    library_id: int | None = Query(
+        None, description="Target library for import (defaults to active library)"
+    ),
 ) -> PVRImportService:
     """Get PVR import service instance.
 
@@ -72,6 +75,8 @@ def get_import_service(
         FastAPI request object.
     current_user : User
         Authenticated user.
+    library_id : int | None
+        Optional library override.
 
     Returns
     -------
@@ -81,8 +86,27 @@ def get_import_service(
     Raises
     ------
     HTTPException
-        If no active library is configured (409).
+        If no active library is configured (409) or access denied (403).
     """
+    if library_id is not None and current_user.id is not None:
+        from bookcard.repositories.config_repository import LibraryRepository
+        from bookcard.repositories.user_library_repository import (
+            UserLibraryRepository,
+        )
+
+        ul_repo = UserLibraryRepository(session)
+        assoc = ul_repo.find_by_user_and_library(current_user.id, library_id)
+        if assoc is None or not assoc.is_visible:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="library_access_denied",
+            )
+        lib_repo = LibraryRepository(session)
+        lib = lib_repo.get(library_id)
+        if lib is not None:
+            session_factory = EngineSessionFactory(request.app.state.engine)
+            return PVRImportService(session, session_factory, lib)
+
     active_library = _resolve_active_library(session, current_user.id)
 
     if not active_library:
@@ -91,9 +115,7 @@ def get_import_service(
             detail="No active library configured. Cannot import downloads.",
         )
 
-    # Create session factory using the app's engine
     session_factory = EngineSessionFactory(request.app.state.engine)
-
     return PVRImportService(session, session_factory, active_library)
 
 

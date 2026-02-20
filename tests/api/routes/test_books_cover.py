@@ -33,6 +33,8 @@ from bookcard.api.main import app
 from bookcard.api.routes.books import (
     _get_active_library_service,
     _get_cover_service,
+    _get_library_aware_book_service,
+    _get_library_aware_cover_service,
     _get_permission_helper,
 )
 from bookcard.models.auth import User
@@ -86,7 +88,11 @@ def override_dependencies(
     app.dependency_overrides[_get_active_library_service] = (
         mock_get_active_library_service
     )
+    app.dependency_overrides[_get_library_aware_book_service] = (
+        mock_get_active_library_service
+    )
     app.dependency_overrides[_get_cover_service] = mock_get_cover_service
+    app.dependency_overrides[_get_library_aware_cover_service] = mock_get_cover_service
     app.dependency_overrides[_get_permission_helper] = mock_get_permission_helper
     app.dependency_overrides[get_db_session] = mock_get_db_session
     app.dependency_overrides[get_current_user] = mock_get_current_user

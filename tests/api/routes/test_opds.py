@@ -283,12 +283,13 @@ class TestGetOpdsFeedService:
         """Test feed_index returns catalog feed."""
         _mock_permission_service(monkeypatch)
         _mock_library_service(monkeypatch, library=MagicMock(spec=Library))
-        _mock_feed_service(monkeypatch, feed_response=mock_feed_response)
+        mock_svc = _mock_feed_service(monkeypatch, feed_response=mock_feed_response)
 
         response = opds_routes.feed_index(
             request=mock_request,
             session=session,
             opds_user=opds_user,
+            feed_service=mock_svc,
         )
 
         assert isinstance(response, Response)
@@ -345,12 +346,13 @@ class TestFeedEndpoints:
         """Test feed endpoint returns feed."""
         _mock_permission_service(monkeypatch)
         _mock_library_service(monkeypatch, library=MagicMock(spec=Library))
-        _mock_feed_service(monkeypatch, feed_response=mock_feed_response)
+        mock_svc = _mock_feed_service(monkeypatch, feed_response=mock_feed_response)
 
         func = getattr(opds_routes, endpoint_func)
         kwargs = self._build_endpoint_kwargs(
             endpoint_func, mock_request, session, opds_user
         )
+        kwargs["feed_service"] = mock_svc
 
         response = func(**kwargs)
 
@@ -485,12 +487,13 @@ class TestFeedSearchPath:
         """Test feed_search_path with query."""
         _mock_permission_service(monkeypatch)
         _mock_library_service(monkeypatch, library=MagicMock(spec=Library))
-        _mock_feed_service(monkeypatch, feed_response=mock_feed_response)
+        mock_svc = _mock_feed_service(monkeypatch, feed_response=mock_feed_response)
 
         response = opds_routes.feed_search_path(
             request=mock_request,
             session=session,
             opds_user=opds_user,
+            feed_service=mock_svc,
             query="test+query",
             offset=0,
             page_size=50,
@@ -508,11 +511,13 @@ class TestFeedSearchPath:
         """Test feed_search_path raises 400 for empty query."""
         _mock_permission_service(monkeypatch)
 
+        mock_svc = _mock_feed_service(monkeypatch)
         with pytest.raises(HTTPException) as exc_info:
             opds_routes.feed_search_path(
                 request=mock_request,
                 session=session,
                 opds_user=opds_user,
+                feed_service=mock_svc,
                 query="   ",  # Whitespace only
             )
 
@@ -565,6 +570,7 @@ class TestOpdsDownload:
                 opds_user=opds_user,
                 book_id=1,
                 book_format="EPUB",
+                library_id=None,
             )
 
             assert isinstance(response, FileResponse)
@@ -586,6 +592,7 @@ class TestOpdsDownload:
                 opds_user=opds_user,
                 book_id=1,
                 book_format="EPUB",
+                library_id=None,
             )
 
         assert isinstance(exc_info.value, HTTPException)
@@ -614,6 +621,7 @@ class TestOpdsDownload:
                     opds_user=opds_user,
                     book_id=1,
                     book_format="EPUB",
+                    library_id=None,
                 )
 
             assert isinstance(exc_info.value, HTTPException)
@@ -652,6 +660,7 @@ class TestOpdsDownload:
                 opds_user=opds_user,
                 book_id=1,
                 book_format="EPUB",
+                library_id=None,
             )
 
             assert isinstance(response, Response)
@@ -693,6 +702,7 @@ class TestOpdsCover:
                 session=session,
                 opds_user=opds_user,
                 book_id=1,
+                library_id=None,
             )
 
             assert isinstance(response, FileResponse)
@@ -712,6 +722,7 @@ class TestOpdsCover:
                 session=session,
                 opds_user=opds_user,
                 book_id=1,
+                library_id=None,
             )
 
         assert isinstance(exc_info.value, HTTPException)
@@ -738,6 +749,7 @@ class TestOpdsCover:
                 session=session,
                 opds_user=opds_user,
                 book_id=1,
+                library_id=None,
             )
 
             assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -769,6 +781,7 @@ class TestOpdsCover:
                 session=session,
                 opds_user=opds_user,
                 book_id=1,
+                library_id=None,
             )
 
             assert response.status_code == status.HTTP_404_NOT_FOUND

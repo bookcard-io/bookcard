@@ -101,9 +101,14 @@ from bookcard.services.metadata_enforcement_trigger_service import (
 )
 from bookcard.services.metadata_export_service import MetadataExportService
 from bookcard.services.metadata_import_service import MetadataImportService
+from bookcard.services.multi_library_book_service import MultiLibraryBookService
+from bookcard.services.multi_library_response_builder import (
+    MultiLibraryResponseBuilder,
+)
 from bookcard.services.security import DataEncryptor
 
 if TYPE_CHECKING:
+    from bookcard.models import Library
     from bookcard.services.tasks.base import TaskRunner
 
 router = APIRouter(prefix="/books", tags=["books"])
@@ -358,6 +363,107 @@ PermissionHelperDep = Annotated[
 ]
 
 
+# -- Library-aware dependency chain ------------------------------------------
+# These resolve the BookService (and derived services) from an optional
+# ``?library_id=`` query parameter, falling back to the user's active library.
+# Use for single-book endpoints that must work across libraries.
+
+
+def _get_library_aware_book_service(
+    session: SessionDep,
+    current_user: OptionalUserDep,
+    library_id: Annotated[
+        int | None,
+        Query(description="Library this book belongs to"),
+    ] = None,
+) -> BookService:
+    """Resolve :class:`BookService` from an explicit library or the active one.
+
+    Parameters
+    ----------
+    session : Session
+        Database session.
+    current_user : User | None
+        Authenticated user.
+    library_id : int | None
+        Optional explicit library ID.
+
+    Returns
+    -------
+    BookService
+    """
+    user_id = current_user.id if current_user else None
+
+    if library_id is not None:
+        from bookcard.repositories.user_library_repository import (
+            UserLibraryRepository,
+        )
+
+        if current_user is None or current_user.id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="authentication_required",
+            )
+        ul_repo = UserLibraryRepository(session)
+        assoc = ul_repo.find_by_user_and_library(current_user.id, library_id)
+        if assoc is None or not assoc.is_visible:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="library_access_denied",
+            )
+        lib_repo = LibraryRepository(session)
+        lib = lib_repo.get(library_id)
+        if lib is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="library_not_found",
+            )
+        return BookService(lib, session=session)
+
+    library = _resolve_active_library(session, user_id)
+    if library is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="no_active_library",
+        )
+    return BookService(library, session=session)
+
+
+def _get_library_aware_file_service(
+    book_service: Annotated[BookService, Depends(_get_library_aware_book_service)],
+) -> BookFileService:
+    """Build :class:`BookFileService` from the library-aware book service."""
+    return BookFileService(book_service)
+
+
+def _get_library_aware_cover_service(
+    book_service: Annotated[BookService, Depends(_get_library_aware_book_service)],
+) -> BookCoverService:
+    """Build :class:`BookCoverService` from the library-aware book service."""
+    return BookCoverService(book_service)
+
+
+def _get_library_aware_response_builder(
+    book_service: Annotated[BookService, Depends(_get_library_aware_book_service)],
+) -> BookResponseBuilder:
+    """Build :class:`BookResponseBuilder` from the library-aware book service."""
+    return BookResponseBuilder(book_service)
+
+
+LibAwareBookServiceDep = Annotated[
+    BookService, Depends(_get_library_aware_book_service)
+]
+LibAwareFileServiceDep = Annotated[
+    BookFileService, Depends(_get_library_aware_file_service)
+]
+LibAwareCoverServiceDep = Annotated[
+    BookCoverService, Depends(_get_library_aware_cover_service)
+]
+LibAwareResponseBuilderDep = Annotated[
+    BookResponseBuilder, Depends(_get_library_aware_response_builder)
+]
+
+
 def _get_conversion_orchestration_service(
     request: Request,
     session: SessionDep,
@@ -526,6 +632,87 @@ def _resolve_requested_library(
     return svc, builder, requested_library_id
 
 
+def _build_multi_library_context(
+    session: Session,
+    user: User,
+) -> tuple[dict[int, BookService], dict[int, "Library"]] | None:
+    """Build per-library BookService instances for the user's visible libraries.
+
+    Returns ``None`` when the user has only one (or zero) visible libraries,
+    signaling that the caller should fall back to the single-library path.
+
+    Parameters
+    ----------
+    session : Session
+        Database session.
+    user : User
+        Authenticated user.
+
+    Returns
+    -------
+    tuple[dict[int, BookService], dict[int, Library]] | None
+        ``(services_map, libraries_map)`` or ``None``.
+    """
+    from bookcard.repositories.user_library_repository import (
+        UserLibraryRepository,
+    )
+
+    if user.id is None:
+        return None
+
+    ul_repo = UserLibraryRepository(session)
+    visible = ul_repo.list_visible_for_user(user.id)
+    if len(visible) <= 1:
+        return None
+
+    lib_repo = LibraryRepository(session)
+    services: dict[int, BookService] = {}
+    libraries: dict[int, Library] = {}
+    for ul in visible:
+        lib = lib_repo.get(ul.library_id)
+        if lib is not None and lib.id is not None:
+            services[lib.id] = BookService(lib, session=session)
+            libraries[lib.id] = lib
+    if len(services) <= 1:
+        return None
+    return services, libraries
+
+
+def _resolve_effective_book_service(
+    session: Session,
+    current_user: User | None,
+    book_service: BookService,
+    requested_library_id: int | None,
+) -> BookService:
+    """Return a :class:`BookService` for the requested library or the default.
+
+    Used by single-book endpoints that accept an optional ``library_id``
+    query parameter.
+
+    Parameters
+    ----------
+    session : Session
+        Database session.
+    current_user : User | None
+        Authenticated user (or ``None``).
+    book_service : BookService
+        Default book service (active library).
+    requested_library_id : int | None
+        Explicit library ID from the caller, or ``None`` to keep the default.
+
+    Returns
+    -------
+    BookService
+        Resolved service instance.
+    """
+    if requested_library_id is None:
+        return book_service
+    if book_service.library.id == requested_library_id:
+        return book_service
+    svc, _, _ = _resolve_requested_library(session, current_user, requested_library_id)
+    return svc
+
+
 @router.get("", response_model=BookListResponse)
 def list_books(
     current_user: OptionalUserDep,
@@ -613,15 +800,6 @@ def list_books(
     if current_user is not None:
         permission_helper.check_read_permission(current_user)
 
-    # Override book service / response builder when an explicit library is requested
-    effective_book_service = book_service
-    effective_response_builder = response_builder
-    effective_library_id = library_id
-    if requested_library_id is not None and requested_library_id != library_id:
-        effective_book_service, effective_response_builder, effective_library_id = (
-            _resolve_requested_library(session, current_user, requested_library_id)
-        )
-
     if page < 1:
         page = 1
     if page_size < 1:
@@ -629,19 +807,62 @@ def list_books(
     if page_size > 100:
         page_size = 100
 
-    books, total = effective_book_service.list_books(
-        page=page,
-        page_size=page_size,
-        search_query=search,
-        author_id=author_id,
-        sort_by=sort_by,
-        sort_order=sort_order,
-        full=full,
-        pubdate_month=pubdate_month,
-        pubdate_day=pubdate_day,
-    )
+    effective_library_id: int | None = library_id
 
-    book_reads = effective_response_builder.build_book_read_list(books, full=full)
+    if requested_library_id is not None and requested_library_id != library_id:
+        # Explicit single-library override
+        eff_svc, eff_builder, effective_library_id = _resolve_requested_library(
+            session, current_user, requested_library_id
+        )
+        books, total = eff_svc.list_books(
+            page=page,
+            page_size=page_size,
+            search_query=search,
+            author_id=author_id,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            full=full,
+            pubdate_month=pubdate_month,
+            pubdate_day=pubdate_day,
+        )
+        book_reads = eff_builder.build_book_read_list(books, full=full)
+    elif (
+        requested_library_id is None
+        and current_user is not None
+        and (ctx := _build_multi_library_context(session, current_user)) is not None
+    ):
+        # All-libraries view for users with >1 visible library
+        services, libraries = ctx
+        multi_svc = MultiLibraryBookService(libraries)
+        multi_builder = MultiLibraryResponseBuilder(services)
+        books, total = multi_svc.list_books(
+            page=page,
+            page_size=page_size,
+            search_query=search,
+            author_id=author_id,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            full=full,
+            pubdate_month=pubdate_month,
+            pubdate_day=pubdate_day,
+        )
+        book_reads = multi_builder.build_book_read_list(books, full=full)
+        effective_library_id = None
+    else:
+        # Default: single active library
+        books, total = book_service.list_books(
+            page=page,
+            page_size=page_size,
+            search_query=search,
+            author_id=author_id,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            full=full,
+            pubdate_month=pubdate_month,
+            pubdate_day=pubdate_day,
+        )
+        book_reads = response_builder.build_book_read_list(books, full=full)
+
     read_model_service = BookReadModelService(session)
     read_model_service.apply_includes(
         book_reads=book_reads,
@@ -767,7 +988,7 @@ def update_book(
     current_user: CurrentUserDep,
     book_id: int,
     update: BookUpdate,
-    book_service: BookServiceDep,
+    book_service: LibAwareBookServiceDep,
     permission_helper: PermissionHelperDep,
     response_builder: ResponseBuilderDep,
     session: SessionDep,
@@ -857,7 +1078,7 @@ def delete_book(
     current_user: CurrentUserDep,
     book_id: int,
     delete_request: BookDeleteRequest,
-    book_service: BookServiceDep,
+    book_service: LibAwareBookServiceDep,
     permission_helper: PermissionHelperDep,
 ) -> None:
     """Delete a book and all its related data.
@@ -907,7 +1128,7 @@ def delete_book(
 def get_book_cover(
     current_user: OptionalUserDep,
     book_id: int,
-    book_service: BookServiceDep,
+    book_service: LibAwareBookServiceDep,
     permission_helper: PermissionHelperDep,
 ) -> FileResponse | Response:
     """Get book cover thumbnail image.
@@ -959,9 +1180,9 @@ def get_book_cover(
 def upload_cover_image(
     book_id: int,
     current_user: CurrentUserDep,
-    book_service: BookServiceDep,
+    book_service: LibAwareBookServiceDep,
     permission_helper: PermissionHelperDep,
-    cover_service: CoverServiceDep,
+    cover_service: LibAwareCoverServiceDep,
     session: SessionDep,
     file: Annotated[UploadFile, File(...)],
 ) -> CoverFromUrlResponse:
@@ -1034,9 +1255,9 @@ def download_book_file(
     current_user: OptionalUserDep,
     book_id: int,
     file_format: str,
-    book_service: BookServiceDep,
+    book_service: LibAwareBookServiceDep,
     permission_helper: PermissionHelperDep,
-    book_file_service: BookFileServiceDep,
+    book_file_service: LibAwareFileServiceDep,
 ) -> FileResponse | Response:
     """Download a book file in the specified format.
 
@@ -1107,7 +1328,7 @@ def download_book_metadata(
     current_user: OptionalUserDep,
     book_id: int,
     format: str,  # noqa: A002
-    book_service: BookServiceDep,
+    book_service: LibAwareBookServiceDep,
     permission_helper: PermissionHelperDep,
 ) -> Response:
     """Download book metadata in the specified format.
@@ -1758,7 +1979,7 @@ def fix_book_epub(
 def get_book_conversions(
     book_id: int,
     current_user: CurrentUserDep,
-    book_service: BookServiceDep,
+    book_service: LibAwareBookServiceDep,
     permission_helper: PermissionHelperDep,
     orchestration_service: ConversionOrchestrationServiceDep,
     page: int = Query(default=1, ge=1),
@@ -1852,9 +2073,9 @@ def download_cover_from_url(
     current_user: CurrentUserDep,
     book_id: int,
     request: CoverFromUrlRequest,
-    book_service: BookServiceDep,
+    book_service: LibAwareBookServiceDep,
     permission_helper: PermissionHelperDep,
-    cover_service: CoverServiceDep,
+    cover_service: LibAwareCoverServiceDep,
     session: SessionDep,
 ) -> CoverFromUrlResponse:
     """Download cover image from URL and save directly to book.
@@ -1974,7 +2195,7 @@ def get_temp_cover(
 def search_suggestions(
     current_user: OptionalUserDep,
     q: str,
-    book_service: BookServiceDep,
+    book_service: LibAwareBookServiceDep,
     permission_helper: PermissionHelperDep,
 ) -> SearchSuggestionsResponse:
     """Get search suggestions for autocomplete.
@@ -2038,7 +2259,7 @@ def filter_suggestions(
     current_user: OptionalUserDep,
     q: str,
     filter_type: str,
-    book_service: BookServiceDep,
+    book_service: LibAwareBookServiceDep,
     permission_helper: PermissionHelperDep,
     limit: int = 10,
 ) -> FilterSuggestionsResponse:
@@ -2089,7 +2310,7 @@ def filter_suggestions(
 @router.get("/tags/by-name", response_model=TagLookupResponse)
 def lookup_tags_by_name(
     current_user: OptionalUserDep,
-    book_service: BookServiceDep,
+    book_service: LibAwareBookServiceDep,
     permission_helper: PermissionHelperDep,
     names: str = Query(..., description="Comma-separated list of tag names to lookup"),
 ) -> TagLookupResponse:
@@ -2205,14 +2426,6 @@ def filter_books(
     if current_user is not None:
         permission_helper.check_read_permission(current_user)
 
-    effective_book_service = book_service
-    effective_response_builder = response_builder
-    effective_library_id = library_id
-    if requested_library_id is not None and requested_library_id != library_id:
-        effective_book_service, effective_response_builder, effective_library_id = (
-            _resolve_requested_library(session, current_user, requested_library_id)
-        )
-
     if page < 1:
         page = 1
     if page_size < 1:
@@ -2220,24 +2433,56 @@ def filter_books(
     if page_size > 100:
         page_size = 100
 
-    books, total = effective_book_service.list_books_with_filters(
-        page=page,
-        page_size=page_size,
-        author_ids=filter_request.author_ids,
-        title_ids=filter_request.title_ids,
-        genre_ids=filter_request.genre_ids,
-        publisher_ids=filter_request.publisher_ids,
-        identifier_ids=filter_request.identifier_ids,
-        series_ids=filter_request.series_ids,
-        formats=filter_request.formats,
-        rating_ids=filter_request.rating_ids,
-        language_ids=filter_request.language_ids,
-        sort_by=sort_by,
-        sort_order=sort_order,
-        full=full,
-    )
+    filter_kwargs: dict = {
+        "author_ids": filter_request.author_ids,
+        "title_ids": filter_request.title_ids,
+        "genre_ids": filter_request.genre_ids,
+        "publisher_ids": filter_request.publisher_ids,
+        "identifier_ids": filter_request.identifier_ids,
+        "series_ids": filter_request.series_ids,
+        "formats": filter_request.formats,
+        "rating_ids": filter_request.rating_ids,
+        "language_ids": filter_request.language_ids,
+        "sort_by": sort_by,
+        "sort_order": sort_order,
+        "full": full,
+    }
 
-    book_reads = effective_response_builder.build_book_read_list(books, full=full)
+    effective_library_id: int | None = library_id
+
+    if requested_library_id is not None and requested_library_id != library_id:
+        eff_svc, eff_builder, effective_library_id = _resolve_requested_library(
+            session, current_user, requested_library_id
+        )
+        books, total = eff_svc.list_books_with_filters(
+            page=page,
+            page_size=page_size,
+            **filter_kwargs,
+        )
+        book_reads = eff_builder.build_book_read_list(books, full=full)
+    elif (
+        requested_library_id is None
+        and current_user is not None
+        and (ctx := _build_multi_library_context(session, current_user)) is not None
+    ):
+        services, libraries = ctx
+        multi_svc = MultiLibraryBookService(libraries)
+        multi_builder = MultiLibraryResponseBuilder(services)
+        books, total = multi_svc.list_books_with_filters(
+            page=page,
+            page_size=page_size,
+            **filter_kwargs,
+        )
+        book_reads = multi_builder.build_book_read_list(books, full=full)
+        effective_library_id = None
+    else:
+        books, total = book_service.list_books_with_filters(
+            page=page,
+            page_size=page_size,
+            **filter_kwargs,
+        )
+        book_reads = response_builder.build_book_read_list(books, full=full)
+
     read_model_service = BookReadModelService(session)
     read_model_service.apply_includes(
         book_reads=book_reads,
@@ -2379,7 +2624,7 @@ def upload_book(
 def add_format(
     book_id: int,
     current_user: CurrentUserDep,
-    book_service: BookServiceDep,
+    book_service: LibAwareBookServiceDep,
     permission_helper: PermissionHelperDep,
     response_builder: ResponseBuilderDep,
     file: Annotated[UploadFile, File(...)],
@@ -2488,7 +2733,7 @@ def get_format_metadata(
     file_format: str,
     current_user: OptionalUserDep,
     permission_helper: PermissionHelperDep,
-    book_service: BookServiceDep,
+    book_service: LibAwareBookServiceDep,
 ) -> FormatMetadataResponse:
     """Get detailed metadata for a specific format.
 
@@ -2563,7 +2808,7 @@ def delete_format(
     book_id: int,
     file_format: str,
     current_user: CurrentUserDep,
-    book_service: BookServiceDep,
+    book_service: LibAwareBookServiceDep,
     permission_helper: PermissionHelperDep,
 ) -> None:
     """Delete a format from an existing book.

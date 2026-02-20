@@ -19,9 +19,11 @@ Routes handle only HTTP concerns: request/response, status codes, exceptions.
 Business logic is delegated to services following SOLID principles.
 """
 
+from __future__ import annotations
+
 import json
 import logging
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
@@ -33,10 +35,14 @@ from bookcard.api.deps import _resolve_active_library, get_db_session, get_opds_
 from bookcard.api.schemas.opds import OpdsFeedRequest
 from bookcard.models.auth import User
 from bookcard.models.core import Book, BookAuthorLink, BookSeriesLink, BookTagLink
+from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.services.book_permission_helper import BookPermissionHelper
 from bookcard.services.book_service import BookService
 from bookcard.services.opds.feed_service import OpdsFeedService
 from bookcard.services.permission_service import PermissionService
+
+if TYPE_CHECKING:
+    from bookcard.models.config import Library
 
 router = APIRouter(prefix="/opds", tags=["opds"])
 logger = logging.getLogger(__name__)
@@ -79,17 +85,21 @@ def _check_opds_read_permission(
 
 
 def _get_opds_feed_service(
-    session: SessionDep,
-    opds_user: OpdsUserDep,
+    session: Session,
+    opds_user: User | None,
+    library_id: int | None = None,
 ) -> OpdsFeedService:
-    """Get OPDS feed service for the user's active library.
+    """Get OPDS feed service, optionally for a specific library.
 
     Parameters
     ----------
-    session : SessionDep
+    session : Session
         Database session.
-    opds_user : OpdsUserDep
+    opds_user : User | None
         Authenticated OPDS user.
+    library_id : int | None
+        Explicit library to browse.  Falls back to the user's active
+        library when omitted.
 
     Returns
     -------
@@ -99,8 +109,25 @@ def _get_opds_feed_service(
     Raises
     ------
     HTTPException
-        If no active library is configured (404).
+        If no active library is configured (404) or access denied (403).
     """
+    if library_id is not None and opds_user is not None and opds_user.id is not None:
+        from bookcard.repositories.user_library_repository import (
+            UserLibraryRepository,
+        )
+
+        ul_repo = UserLibraryRepository(session)
+        assoc = ul_repo.find_by_user_and_library(opds_user.id, library_id)
+        if assoc is None or not assoc.is_visible:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="library_access_denied",
+            )
+        lib_repo = LibraryRepository(session)
+        lib = lib_repo.get(library_id)
+        if lib is not None:
+            return OpdsFeedService(session, lib)
+
     user_id = opds_user.id if opds_user else None
     library = _resolve_active_library(session, user_id)
 
@@ -113,11 +140,79 @@ def _get_opds_feed_service(
     return OpdsFeedService(session, library)
 
 
+def _opds_feed_service_dep(
+    session: SessionDep,
+    opds_user: OpdsUserDep,
+    library_id: int | None = Query(
+        None, description="Library to browse (defaults to active library)"
+    ),
+) -> OpdsFeedService:
+    """FastAPI dependency that reads ``library_id`` from the query string."""
+    return _get_opds_feed_service(session, opds_user, library_id)
+
+
+OpdsFeedServiceDep = Annotated[OpdsFeedService, Depends(_opds_feed_service_dep)]
+
+
+def _resolve_opds_library(
+    session: Session,
+    opds_user: User | None,
+    library_id: int | None = None,
+) -> Library:
+    """Resolve a library configuration for OPDS endpoints.
+
+    Parameters
+    ----------
+    session : Session
+        Database session.
+    opds_user : User | None
+        OPDS user.
+    library_id : int | None
+        Explicit library override.
+
+    Returns
+    -------
+    Library
+        Resolved library configuration.
+
+    Raises
+    ------
+    HTTPException
+        If library not found / access denied.
+    """
+    if library_id is not None and opds_user is not None and opds_user.id is not None:
+        from bookcard.repositories.user_library_repository import (
+            UserLibraryRepository,
+        )
+
+        ul_repo = UserLibraryRepository(session)
+        assoc = ul_repo.find_by_user_and_library(opds_user.id, library_id)
+        if assoc is None or not assoc.is_visible:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="library_access_denied",
+            )
+        lib_repo = LibraryRepository(session)
+        lib = lib_repo.get(library_id)
+        if lib is not None:
+            return lib
+
+    user_id = opds_user.id if opds_user else None
+    library = _resolve_active_library(session, user_id)
+    if library is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="no_active_library",
+        )
+    return library
+
+
 @router.get("/", response_class=FastAPIResponse)
 def feed_index(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
 ) -> Response:
     """Return the root OPDS catalog feed with navigation links.
 
@@ -136,7 +231,6 @@ def feed_index(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_response = feed_service.generate_catalog_feed(request, opds_user)
 
     return Response(
@@ -150,6 +244,7 @@ def feed_books(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -181,7 +276,6 @@ def feed_books(
         If user is not authenticated (401).
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_books_feed(request, opds_user, feed_request)
 
@@ -196,6 +290,7 @@ def feed_new(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -227,7 +322,6 @@ def feed_new(
         If user is not authenticated (401).
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_new_feed(request, opds_user, feed_request)
 
@@ -242,6 +336,7 @@ def feed_discover(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
     """Random book discovery feed.
@@ -270,7 +365,6 @@ def feed_discover(
         If user is not authenticated (401).
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=0, page_size=page_size)
     feed_response = feed_service.generate_discover_feed(
         request, opds_user, feed_request
@@ -288,6 +382,7 @@ def feed_search(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
     query: str | None = Query(default=None),
     search_terms: str | None = Query(default=None),
     offset: int = Query(default=0, ge=0),
@@ -341,7 +436,6 @@ def feed_search(
             opds_user.id if opds_user else "None",
         )
 
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_search_feed(
         request, opds_user, search_query, feed_request
@@ -358,6 +452,7 @@ def feed_osd(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
 ) -> Response:
     """OpenSearch description XML.
 
@@ -378,7 +473,6 @@ def feed_osd(
         OpenSearch description XML.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_response = feed_service.generate_opensearch_description(request)
 
     return Response(
@@ -393,6 +487,7 @@ def feed_search_path(
     session: SessionDep,
     opds_user: OpdsUserDep,
     query: str,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -431,7 +526,6 @@ def feed_search_path(
         )
 
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_search_feed(
         request, opds_user, normalized_query, feed_request
@@ -449,6 +543,7 @@ def feed_books_letter(
     session: SessionDep,
     opds_user: OpdsUserDep,
     letter: str,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -477,7 +572,6 @@ def feed_books_letter(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_books_by_letter_feed(
         request, opds_user, letter, feed_request
@@ -494,6 +588,7 @@ def feed_rated(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -520,7 +615,6 @@ def feed_rated(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_rated_feed(request, opds_user, feed_request)
 
@@ -597,6 +691,7 @@ def opds_download(
     opds_user: OpdsUserDep,
     book_id: int,
     book_format: str,
+    library_id: int | None = Query(None, description="Library this book belongs to"),
 ) -> Response:
     """Download book file via OPDS.
 
@@ -610,6 +705,8 @@ def opds_download(
         Book ID.
     book_format : str
         File format (e.g., 'EPUB', 'PDF').
+    library_id : int | None
+        Optional library ID override.
 
     Returns
     -------
@@ -618,15 +715,7 @@ def opds_download(
     """
     _check_opds_read_permission(opds_user, session)
 
-    user_id = opds_user.id if opds_user else None
-    library = _resolve_active_library(session, user_id)
-
-    if library is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="no_active_library",
-        )
-
+    library = _resolve_opds_library(session, opds_user, library_id)
     book_service = BookService(library, session=session)
     book_with_rels = book_service.get_book_full(book_id)
 
@@ -683,6 +772,7 @@ def opds_cover(
     session: SessionDep,
     opds_user: OpdsUserDep,
     book_id: int,
+    library_id: int | None = Query(None, description="Library this book belongs to"),
 ) -> Response:
     """Get book cover image via OPDS.
 
@@ -694,6 +784,8 @@ def opds_cover(
         Authenticated user (required for book access).
     book_id : int
         Book ID.
+    library_id : int | None
+        Optional library ID override.
 
     Returns
     -------
@@ -702,16 +794,7 @@ def opds_cover(
     """
     _check_opds_read_permission(opds_user, session)
 
-    # Get library and services (user-aware)
-    user_id = opds_user.id if opds_user else None
-    library = _resolve_active_library(session, user_id)
-
-    if library is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="no_active_library",
-        )
-
+    library = _resolve_opds_library(session, opds_user, library_id)
     book_service = BookService(library, session=session)
     book_with_rels = book_service.get_book(book_id)
 
@@ -825,6 +908,7 @@ def feed_author_index(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -851,7 +935,6 @@ def feed_author_index(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_author_index_feed(request, feed_request)
 
@@ -867,6 +950,7 @@ def feed_author_letter(
     session: SessionDep,
     opds_user: OpdsUserDep,
     letter: str,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -895,7 +979,6 @@ def feed_author_letter(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_author_letter_feed(
         request, letter, feed_request
@@ -913,6 +996,7 @@ def feed_author(
     session: SessionDep,
     opds_user: OpdsUserDep,
     author_id: int,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -941,7 +1025,6 @@ def feed_author(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_books_by_author_feed(
         request, opds_user, author_id, feed_request
@@ -959,6 +1042,7 @@ def feed_publisher_index(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
 ) -> Response:
     """Return publisher index feed.
 
@@ -983,7 +1067,6 @@ def feed_publisher_index(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_response = feed_service.generate_publisher_index_feed(request)
 
     return Response(
@@ -998,6 +1081,7 @@ def feed_publisher(
     session: SessionDep,
     opds_user: OpdsUserDep,
     publisher_id: int,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -1026,7 +1110,6 @@ def feed_publisher(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_books_by_publisher_feed(
         request, opds_user, publisher_id, feed_request
@@ -1044,6 +1127,7 @@ def feed_category_index(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
 ) -> Response:
     """Category/Tag index feed.
 
@@ -1068,7 +1152,6 @@ def feed_category_index(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_response = feed_service.generate_category_index_feed(request)
 
     return Response(
@@ -1083,6 +1166,7 @@ def feed_category_letter(
     session: SessionDep,
     opds_user: OpdsUserDep,
     letter: str,
+    feed_service: OpdsFeedServiceDep,
 ) -> Response:
     """Categories by letter feed.
 
@@ -1109,7 +1193,6 @@ def feed_category_letter(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_response = feed_service.generate_category_letter_feed(request, letter)
 
     return Response(
@@ -1124,6 +1207,7 @@ def feed_category(
     session: SessionDep,
     opds_user: OpdsUserDep,
     category_id: int,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -1152,7 +1236,6 @@ def feed_category(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_books_by_category_feed(
         request, opds_user, category_id, feed_request
@@ -1170,6 +1253,7 @@ def feed_series_index(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
 ) -> Response:
     """Series index feed.
 
@@ -1194,7 +1278,6 @@ def feed_series_index(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_response = feed_service.generate_series_index_feed(request)
 
     return Response(
@@ -1209,6 +1292,7 @@ def feed_series_letter(
     session: SessionDep,
     opds_user: OpdsUserDep,
     letter: str,
+    feed_service: OpdsFeedServiceDep,
 ) -> Response:
     """Series by letter feed.
 
@@ -1235,7 +1319,6 @@ def feed_series_letter(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_response = feed_service.generate_series_letter_feed(request, letter)
 
     return Response(
@@ -1250,6 +1333,7 @@ def feed_series(
     session: SessionDep,
     opds_user: OpdsUserDep,
     series_id: int,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -1278,7 +1362,6 @@ def feed_series(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_books_by_series_feed(
         request, opds_user, series_id, feed_request
@@ -1296,6 +1379,7 @@ def feed_rating_index(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
 ) -> Response:
     """Rating index feed.
 
@@ -1320,7 +1404,6 @@ def feed_rating_index(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_response = feed_service.generate_rating_index_feed(request)
 
     return Response(
@@ -1335,6 +1418,7 @@ def feed_ratings(
     session: SessionDep,
     opds_user: OpdsUserDep,
     rating_id: int,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -1363,7 +1447,6 @@ def feed_ratings(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_books_by_rating_feed(
         request, opds_user, rating_id, feed_request
@@ -1381,6 +1464,7 @@ def feed_format_index(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
 ) -> Response:
     """Format index feed.
 
@@ -1405,7 +1489,6 @@ def feed_format_index(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_response = feed_service.generate_format_index_feed(request)
 
     return Response(
@@ -1420,6 +1503,7 @@ def feed_format(
     session: SessionDep,
     opds_user: OpdsUserDep,
     format_name: str,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -1448,7 +1532,6 @@ def feed_format(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_books_by_format_feed(
         request, opds_user, format_name, feed_request
@@ -1466,6 +1549,7 @@ def feed_language_index(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
 ) -> Response:
     """Language index feed.
 
@@ -1490,7 +1574,6 @@ def feed_language_index(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_response = feed_service.generate_language_index_feed(request)
 
     return Response(
@@ -1505,6 +1588,7 @@ def feed_language(
     session: SessionDep,
     opds_user: OpdsUserDep,
     language_id: int,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -1533,7 +1617,6 @@ def feed_language(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_books_by_language_feed(
         request, opds_user, language_id, feed_request
@@ -1551,6 +1634,7 @@ def feed_shelf_index(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
 ) -> Response:
     """Shelf index feed.
 
@@ -1575,7 +1659,6 @@ def feed_shelf_index(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_response = feed_service.generate_shelf_index_feed(request)
 
     return Response(
@@ -1590,6 +1673,7 @@ def feed_shelf(
     session: SessionDep,
     opds_user: OpdsUserDep,
     shelf_id: int,
+    feed_service: OpdsFeedServiceDep,
 ) -> Response:
     """Books in shelf feed.
 
@@ -1616,7 +1700,6 @@ def feed_shelf(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_response = feed_service.generate_books_by_shelf_feed(request, shelf_id)
 
     return Response(
@@ -1631,6 +1714,7 @@ def feed_hot(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
     offset: int = Query(default=0, ge=0),
     page_size: int = Query(default=50, ge=1, le=100),
 ) -> Response:
@@ -1657,7 +1741,6 @@ def feed_hot(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_request = OpdsFeedRequest(offset=offset, page_size=page_size)
     feed_response = feed_service.generate_hot_feed(request, opds_user, feed_request)
 
@@ -1672,6 +1755,7 @@ def feed_read_books(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
 ) -> Response:
     """Read books feed.
 
@@ -1685,10 +1769,6 @@ def feed_read_books(
         Database session.
     opds_user : User | None
         Authenticated user (required).
-    offset : int
-        Pagination offset.
-    page_size : int
-        Number of items per page.
 
     Returns
     -------
@@ -1696,7 +1776,6 @@ def feed_read_books(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_response = feed_service.generate_read_books_feed(request)
 
     return Response(
@@ -1710,6 +1789,7 @@ def feed_unread_books(
     request: Request,
     session: SessionDep,
     opds_user: OpdsUserDep,
+    feed_service: OpdsFeedServiceDep,
 ) -> Response:
     """Unread books feed.
 
@@ -1723,10 +1803,6 @@ def feed_unread_books(
         Database session.
     opds_user : User | None
         Authenticated user (required).
-    offset : int
-        Pagination offset.
-    page_size : int
-        Number of items per page.
 
     Returns
     -------
@@ -1734,7 +1810,6 @@ def feed_unread_books(
         OPDS XML feed.
     """
     _check_opds_read_permission(opds_user, session)
-    feed_service = _get_opds_feed_service(session, opds_user)
     feed_response = feed_service.generate_unread_books_feed(request)
 
     return Response(
