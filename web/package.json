@@ -108,7 +108,7 @@
     "rimraf": "^6.1.2",
     "sass": "^1.93.3",
     "semantic-release": "^25.0.1",
-    "storybook": "^10.1.11",
+    "storybook": "^10.2.10",
     "tailwindcss": "^4.1.16",
     "typescript": "^5.9.3",
     "vite-tsconfig-paths": "^5.1.4",
