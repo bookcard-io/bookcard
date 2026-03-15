@@ -41,6 +41,7 @@ from urllib.parse import urlencode
 import httpx
 import jwt
 from jwt.algorithms import RSAAlgorithm
+from jwt.types import Options
 
 from bookcard.config import AppConfig  # noqa: TC001
 
@@ -312,7 +313,7 @@ class OIDCAuthService:
             raise OIDCTokenValidationError(msg) from err
 
         issuer = self._cfg.oidc_issuer
-        options = {"verify_aud": False}
+        options = Options(verify_aud=False)
         try:
             claims = jwt.decode(
                 token,
