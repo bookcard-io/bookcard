@@ -517,6 +517,157 @@ class TestCancelTask:
         assert result is False
 
 
+class TestCountTasks:
+    """Test count_tasks method."""
+
+    def test_count_tasks_no_filters(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test count_tasks returns total when no filters applied."""
+        session.set_exec_result([42])
+        result = task_service.count_tasks()
+        assert result == 42
+
+    def test_count_tasks_with_user_id(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test count_tasks respects user_id filter."""
+        session.set_exec_result([7])
+        result = task_service.count_tasks(user_id=1)
+        assert result == 7
+
+    def test_count_tasks_with_status(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test count_tasks respects status filter."""
+        session.set_exec_result([15])
+        result = task_service.count_tasks(status=TaskStatus.PENDING)
+        assert result == 15
+
+    def test_count_tasks_with_task_type(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test count_tasks respects task_type filter."""
+        session.set_exec_result([3])
+        result = task_service.count_tasks(task_type=TaskType.LIBRARY_SCAN)
+        assert result == 3
+
+    def test_count_tasks_all_filters(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test count_tasks applies all filters simultaneously."""
+        session.set_exec_result([1])
+        result = task_service.count_tasks(
+            user_id=2,
+            status=TaskStatus.RUNNING,
+            task_type=TaskType.BOOK_UPLOAD,
+        )
+        assert result == 1
+
+    def test_count_tasks_returns_zero(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test count_tasks returns 0 when no tasks match."""
+        session.set_exec_result([0])
+        result = task_service.count_tasks(status=TaskStatus.FAILED)
+        assert result == 0
+
+
+class TestBulkCancelTasks:
+    """Test bulk_cancel_tasks method."""
+
+    def test_bulk_cancel_pending_tasks(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test bulk_cancel_tasks cancels pending tasks."""
+        session.set_exec_result([10])
+        result = task_service.bulk_cancel_tasks(status=TaskStatus.PENDING)
+        assert result == 10
+        assert session.commit_count == 1
+
+    def test_bulk_cancel_running_tasks(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test bulk_cancel_tasks cancels running tasks."""
+        session.set_exec_result([5])
+        result = task_service.bulk_cancel_tasks(status=TaskStatus.RUNNING)
+        assert result == 5
+        assert session.commit_count == 1
+
+    def test_bulk_cancel_no_status_cancels_both(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test bulk_cancel_tasks without status filter cancels pending and running."""
+        session.set_exec_result([25])
+        result = task_service.bulk_cancel_tasks()
+        assert result == 25
+        assert session.commit_count == 1
+
+    def test_bulk_cancel_completed_returns_zero(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test bulk_cancel_tasks returns 0 for non-cancellable status."""
+        result = task_service.bulk_cancel_tasks(status=TaskStatus.COMPLETED)
+        assert result == 0
+        assert session.commit_count == 0
+
+    def test_bulk_cancel_failed_returns_zero(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test bulk_cancel_tasks returns 0 for failed status."""
+        result = task_service.bulk_cancel_tasks(status=TaskStatus.FAILED)
+        assert result == 0
+        assert session.commit_count == 0
+
+    def test_bulk_cancel_cancelled_returns_zero(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test bulk_cancel_tasks returns 0 for already-cancelled status."""
+        result = task_service.bulk_cancel_tasks(status=TaskStatus.CANCELLED)
+        assert result == 0
+        assert session.commit_count == 0
+
+    def test_bulk_cancel_with_user_id(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test bulk_cancel_tasks respects user_id filter."""
+        session.set_exec_result([3])
+        result = task_service.bulk_cancel_tasks(user_id=2)
+        assert result == 3
+        assert session.commit_count == 1
+
+    def test_bulk_cancel_with_task_type(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test bulk_cancel_tasks respects task_type filter."""
+        session.set_exec_result([8])
+        result = task_service.bulk_cancel_tasks(task_type=TaskType.LIBRARY_SCAN)
+        assert result == 8
+        assert session.commit_count == 1
+
+    def test_bulk_cancel_all_filters(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test bulk_cancel_tasks applies all filters simultaneously."""
+        session.set_exec_result([2])
+        result = task_service.bulk_cancel_tasks(
+            user_id=1,
+            status=TaskStatus.PENDING,
+            task_type=TaskType.BOOK_UPLOAD,
+        )
+        assert result == 2
+        assert session.commit_count == 1
+
+    def test_bulk_cancel_zero_matching(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test bulk_cancel_tasks returns 0 when no tasks match filters."""
+        session.set_exec_result([0])
+        result = task_service.bulk_cancel_tasks(status=TaskStatus.PENDING)
+        assert result == 0
+        assert session.commit_count == 1
+
+
 class TestGetTaskStatistics:
     """Test get_task_statistics method."""
 

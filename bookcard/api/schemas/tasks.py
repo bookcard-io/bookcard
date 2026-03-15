@@ -113,6 +113,33 @@ class TaskCancelResponse(BaseModel):
     message: str
 
 
+class TaskCountResponse(BaseModel):
+    """Response for task count endpoint.
+
+    Attributes
+    ----------
+    count : int
+        Number of tasks matching the filters.
+    """
+
+    count: int
+
+
+class BulkCancelResponse(BaseModel):
+    """Response for bulk task cancellation.
+
+    Attributes
+    ----------
+    cancelled : int
+        Number of tasks cancelled.
+    message : str
+        Status message.
+    """
+
+    cancelled: int
+    message: str
+
+
 class TaskStatisticsRead(BaseModel):
     """Task statistics representation.
 

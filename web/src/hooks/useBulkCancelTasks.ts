@@ -14,16 +14,19 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Custom hook for bulk-cancelling tasks.
+ * Custom hook for bulk-cancelling tasks via server-side bulk operations.
  *
  * Follows SRP by focusing solely on the "cancel many tasks" workflow.
- * Follows IOC/DIP by accepting the list and cancel functions as dependencies.
+ * Uses server-side bulk endpoints for O(1) cancellation regardless of task count.
  */
 
 import { useCallback, useMemo, useState } from "react";
-import { listAllTasksByStatus } from "@/api/tasks";
-import type { Task, TaskType } from "@/types/tasks";
-import { TaskStatus } from "@/types/tasks";
+import {
+  bulkCancelTasks as defaultBulkCancelTasks,
+  countTasks as defaultCountTasks,
+} from "@/api/tasks";
+import type { BulkCancelResponse, TaskStatus, TaskType } from "@/types/tasks";
+import { TaskStatus as TaskStatusEnum } from "@/types/tasks";
 
 export interface BulkCancelState {
   /** Whether a bulk cancel operation is currently running. */
@@ -36,46 +39,51 @@ export interface BulkCancelState {
 
 export interface BulkCancelDeps {
   /**
-   * Fetch all tasks by status (typically paginated on the backend).
+   * Count tasks matching the given filters. Defaults to the API client.
    *
    * Parameters
    * ----------
-   * status : TaskStatus
-   *     Task status to list.
+   * status : TaskStatus | null
+   *     Optional status filter.
    * taskType : TaskType | null
    *     Optional task type filter.
    *
    * Returns
    * -------
-   * Promise[list[Task]]
-   *     All tasks matching the given status and optional type filter.
+   * Promise<number>
+   *     Count of matching tasks.
    */
-  listAllByStatus?: (
-    status: TaskStatus,
+  countTasks?: (
+    status: TaskStatus | null,
     taskType: TaskType | null,
-  ) => Promise<Task[]>;
+  ) => Promise<number>;
 
   /**
-   * Cancel a task by ID.
+   * Bulk-cancel tasks matching the given filters. Defaults to the API client.
    *
    * Parameters
    * ----------
-   * taskId : number
-   *     Task ID to cancel.
+   * status : TaskStatus | null
+   *     Optional status filter.
+   * taskType : TaskType | null
+   *     Optional task type filter.
    *
    * Returns
    * -------
-   * Promise[bool]
-   *     True if cancelled; otherwise False.
+   * Promise<BulkCancelResponse>
+   *     Cancellation result.
    */
-  cancelTask: (taskId: number) => Promise<boolean>;
+  bulkCancelTasks?: (
+    status: TaskStatus | null,
+    taskType: TaskType | null,
+  ) => Promise<BulkCancelResponse>;
 
   /**
    * Refresh callback invoked once after the bulk cancel attempt finishes.
    *
    * Returns
    * -------
-   * Promise[None]
+   * Promise<void>
    *     Resolves when refresh completes.
    */
   refresh?: () => Promise<void>;
@@ -86,8 +94,6 @@ export interface UseBulkCancelTasksOptions extends BulkCancelDeps {
   selectedStatus: TaskStatus | null;
   /** Selected task type filter from UI. */
   selectedTaskType: TaskType | null;
-  /** Concurrency limit for cancellation requests (default: 10). */
-  concurrency?: number;
 }
 
 export interface UseBulkCancelTasksResult extends BulkCancelState {
@@ -99,42 +105,17 @@ export interface UseBulkCancelTasksResult extends BulkCancelState {
   isCancellableSelection: boolean;
 }
 
-async function mapWithConcurrency<T, R>(
-  items: readonly T[],
-  concurrency: number,
-  mapper: (item: T) => Promise<R>,
-): Promise<R[]> {
-  if (items.length === 0) {
-    return [];
-  }
-
-  const limit = Math.max(1, Math.floor(concurrency));
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
-
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }).map(async () => {
-      while (true) {
-        const index = nextIndex;
-        nextIndex += 1;
-        if (index >= items.length) {
-          break;
-        }
-        results[index] = await mapper(items[index] as T);
-      }
-    }),
-  );
-
-  return results;
-}
-
 const CANCELLABLE_STATUSES = new Set<TaskStatus>([
-  TaskStatus.PENDING,
-  TaskStatus.RUNNING,
+  TaskStatusEnum.PENDING,
+  TaskStatusEnum.RUNNING,
 ]);
 
 /**
  * Hook for bulk cancelling tasks matching the current UI filters.
+ *
+ * Uses server-side bulk endpoints (POST /tasks/bulk-cancel) for efficient
+ * cancellation at any scale, rather than fetching tasks and cancelling
+ * them one by one.
  *
  * Parameters
  * ----------
@@ -152,11 +133,10 @@ export function useBulkCancelTasks(
   const {
     selectedStatus,
     selectedTaskType,
-    cancelTask,
     refresh,
-    concurrency = 10,
-    listAllByStatus = (status: TaskStatus, taskType: TaskType | null) =>
-      listAllTasksByStatus({ status, taskType }),
+    countTasks = (status, taskType) => defaultCountTasks({ status, taskType }),
+    bulkCancelTasks = (status, taskType) =>
+      defaultBulkCancelTasks({ status, taskType }),
   } = options;
 
   const [isCancelling, setIsCancelling] = useState(false);
@@ -170,33 +150,24 @@ export function useBulkCancelTasks(
     return CANCELLABLE_STATUSES.has(selectedStatus);
   }, [selectedStatus]);
 
-  /**
-   * Get the count of tasks that would be cancelled.
-   *
-   * Returns
-   * -------
-   * Promise[int]
-   *     Number of tasks that would be cancelled, or 0 if none.
-   */
   const getTaskCount = useCallback(async (): Promise<number> => {
-    const statusesToCancel: TaskStatus[] = selectedStatus
-      ? [selectedStatus]
-      : [TaskStatus.PENDING, TaskStatus.RUNNING];
-
-    // Respect the current status filter: if it's not cancellable, return 0.
-    if (statusesToCancel.some((s) => !CANCELLABLE_STATUSES.has(s))) {
+    if (selectedStatus && !CANCELLABLE_STATUSES.has(selectedStatus)) {
       return 0;
     }
 
     try {
-      const taskLists = await Promise.all(
-        statusesToCancel.map((s) => listAllByStatus(s, selectedTaskType)),
-      );
-      return taskLists.flat().length;
+      if (selectedStatus) {
+        return await countTasks(selectedStatus, selectedTaskType);
+      }
+      const [pending, running] = await Promise.all([
+        countTasks(TaskStatusEnum.PENDING, selectedTaskType),
+        countTasks(TaskStatusEnum.RUNNING, selectedTaskType),
+      ]);
+      return pending + running;
     } catch {
       return 0;
     }
-  }, [selectedStatus, selectedTaskType, listAllByStatus]);
+  }, [selectedStatus, selectedTaskType, countTasks]);
 
   const cancelAll = useCallback(async () => {
     if (isCancelling) {
@@ -208,45 +179,21 @@ export function useBulkCancelTasks(
     setIsCancelling(true);
 
     try {
-      const statusesToCancel: TaskStatus[] = selectedStatus
-        ? [selectedStatus]
-        : [TaskStatus.PENDING, TaskStatus.RUNNING];
-
-      // Respect the current status filter: if it's not cancellable, this is a no-op.
-      if (statusesToCancel.some((s) => !CANCELLABLE_STATUSES.has(s))) {
+      if (selectedStatus && !CANCELLABLE_STATUSES.has(selectedStatus)) {
         setNotice(
           "No cancellable tasks for the selected status. Only pending/running tasks can be cancelled.",
         );
         return;
       }
 
-      const taskLists = await Promise.all(
-        statusesToCancel.map((s) => listAllByStatus(s, selectedTaskType)),
-      );
-
-      const tasksToCancel = taskLists.flat();
-      if (tasksToCancel.length === 0) {
-        setNotice("No tasks to cancel.");
-        return;
-      }
-
-      const results = await mapWithConcurrency(
-        tasksToCancel,
-        concurrency,
-        async (task) => cancelTask(task.id),
-      );
+      const result = await bulkCancelTasks(selectedStatus, selectedTaskType);
 
       await refresh?.();
 
-      const failedCount = results.filter((r) => !r).length;
-      if (failedCount > 0) {
-        setNotice(
-          `Cancelled ${
-            tasksToCancel.length - failedCount
-          } of ${tasksToCancel.length} tasks. Some tasks may have completed before cancellation.`,
-        );
+      if (result.cancelled === 0) {
+        setNotice("No tasks to cancel.");
       } else {
-        setNotice(`Cancelled ${tasksToCancel.length} task(s).`);
+        setNotice(`Cancelled ${result.cancelled} task(s).`);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to cancel tasks");
@@ -257,9 +204,7 @@ export function useBulkCancelTasks(
     isCancelling,
     selectedStatus,
     selectedTaskType,
-    listAllByStatus,
-    concurrency,
-    cancelTask,
+    bulkCancelTasks,
     refresh,
   ]);
 

@@ -66,6 +66,13 @@ class MockResult:
         return item
 
 
+@dataclass
+class MockExecuteResult:
+    """Mock result for session.execute() - tracks rowcount for UPDATE/DELETE."""
+
+    rowcount: int
+
+
 class DummySession:
     """In-memory stand-in for `sqlmodel.Session` used by services.
 
@@ -187,6 +194,20 @@ class DummySession:
         if not self._exec_results:
             return MockResult([])
         return MockResult(self._exec_results.pop(0))
+
+    def execute(self, stmt: Any) -> "MockExecuteResult":  # noqa: ANN401
+        """Execute a raw SQL statement and return a result with rowcount.
+
+        Used for UPDATE/DELETE statements where only rowcount matters.
+        Pops from the same ``_exec_results`` queue; expects a single ``int``
+        element representing the affected row count, or defaults to 0.
+        """
+        if self._exec_results:
+            items = self._exec_results.pop(0)
+            rowcount = items[0] if items else 0
+        else:
+            rowcount = 0
+        return MockExecuteResult(rowcount)
 
     def close(self) -> None:
         """Simulate closing the session."""
