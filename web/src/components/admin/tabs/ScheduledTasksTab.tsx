@@ -75,7 +75,6 @@ export function ScheduledTasksTab() {
   const bulkCancel = useBulkCancelTasks({
     selectedStatus: filters.selectedStatus,
     selectedTaskType: filters.selectedTaskType,
-    cancelTask: (taskId: number) => cancelTask(taskId, { refresh: false }),
     refresh,
   });
 

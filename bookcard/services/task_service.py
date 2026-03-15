@@ -25,7 +25,7 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select, update
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session  # noqa: TC002
 
@@ -385,6 +385,82 @@ class TaskService:
         self._session.add(task)
         self._session.commit()
         return True
+
+    def count_tasks(
+        self,
+        user_id: int | None = None,
+        status: TaskStatus | None = None,
+        task_type: TaskType | None = None,
+    ) -> int:
+        """Count tasks matching the given filters.
+
+        Parameters
+        ----------
+        user_id : int | None
+            Optional user ID to filter by.
+        status : TaskStatus | None
+            Optional status to filter by.
+        task_type : TaskType | None
+            Optional task type to filter by.
+
+        Returns
+        -------
+        int
+            Number of matching tasks.
+        """
+        stmt = select(func.count()).select_from(Task)
+        if user_id is not None:
+            stmt = stmt.where(Task.user_id == user_id)
+        if status is not None:
+            stmt = stmt.where(Task.status == status)
+        if task_type is not None:
+            stmt = stmt.where(Task.task_type == task_type)
+        return self._session.exec(stmt).one()
+
+    def bulk_cancel_tasks(
+        self,
+        user_id: int | None = None,
+        status: TaskStatus | None = None,
+        task_type: TaskType | None = None,
+    ) -> int:
+        """Cancel all tasks matching the given filters in a single query.
+
+        Only cancels tasks in non-terminal states (PENDING, RUNNING).
+
+        Parameters
+        ----------
+        user_id : int | None
+            Optional user ID to filter by.
+        status : TaskStatus | None
+            Optional cancellable status to filter by (must be PENDING or RUNNING).
+        task_type : TaskType | None
+            Optional task type to filter by.
+
+        Returns
+        -------
+        int
+            Number of tasks cancelled.
+        """
+        cancellable = {TaskStatus.PENDING, TaskStatus.RUNNING}
+
+        if status is not None and status not in cancellable:
+            return 0
+
+        statuses = [status] if status is not None else list(cancellable)
+
+        stmt = (
+            update(Task)
+            .where(Task.status.in_(statuses))  # type: ignore[union-attr]
+            .values(status=TaskStatus.CANCELLED, cancelled_at=datetime.now(UTC))
+        )
+        if user_id is not None:
+            stmt = stmt.where(Task.user_id == user_id)
+        if task_type is not None:
+            stmt = stmt.where(Task.task_type == task_type)
+
+        result = self._session.execute(stmt)
+        self._session.commit()
+        return result.rowcount  # type: ignore[return-value]
 
     def get_task_statistics(
         self,

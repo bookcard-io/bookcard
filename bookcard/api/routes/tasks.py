@@ -26,7 +26,9 @@ from sqlmodel import Session
 
 from bookcard.api.deps import get_current_user, get_db_session
 from bookcard.api.schemas.tasks import (
+    BulkCancelResponse,
     TaskCancelResponse,
+    TaskCountResponse,
     TaskListResponse,
     TaskRead,
     TaskStatisticsRead,
@@ -160,14 +162,11 @@ def list_tasks(
         )
         task_reads.append(task_read)
 
-    # Get total count - need to query separately for accurate count
-    # For now, estimate: if we got a full page, there might be more
-    # In production, use COUNT query with same filters
-    if len(task_reads) == page_size:
-        # Likely more results, estimate
-        total = page_size * (page + 1)
-    else:
-        total = (page - 1) * page_size + len(task_reads)
+    total = task_service.count_tasks(
+        user_id=user_id,
+        status=status,
+        task_type=task_type,
+    )
     total_pages = math.ceil(total / page_size) if page_size > 0 else 0
 
     return TaskListResponse(
@@ -176,6 +175,102 @@ def list_tasks(
         page=page,
         page_size=page_size,
         total_pages=total_pages,
+    )
+
+
+@router.get("/count", response_model=TaskCountResponse)
+def count_tasks(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    status: Annotated[TaskStatus | None, Query(alias="status")] = None,
+    task_type: Annotated[TaskType | None, Query(alias="task_type")] = None,
+) -> TaskCountResponse:
+    """Count tasks matching optional filters.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    status : TaskStatus | None
+        Optional status filter.
+    task_type : TaskType | None
+        Optional task type filter.
+
+    Returns
+    -------
+    TaskCountResponse
+        Count of matching tasks.
+
+    Raises
+    ------
+    HTTPException
+        If permission denied (403).
+    """
+    permission_service = PermissionService(session)
+    permission_service.check_permission(current_user, "tasks", "read")
+
+    user_id = current_user.id if not current_user.is_admin else None
+
+    task_service = TaskService(session)
+    count = task_service.count_tasks(
+        user_id=user_id,
+        status=status,
+        task_type=task_type,
+    )
+    return TaskCountResponse(count=count)
+
+
+@router.post("/bulk-cancel", response_model=BulkCancelResponse)
+def bulk_cancel_tasks(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    status: Annotated[TaskStatus | None, Query(alias="status")] = None,
+    task_type: Annotated[TaskType | None, Query(alias="task_type")] = None,
+) -> BulkCancelResponse:
+    """Cancel all tasks matching the given filters.
+
+    Only cancels tasks in PENDING or RUNNING state.
+
+    Parameters
+    ----------
+    session : SessionDep
+        Database session dependency.
+    current_user : CurrentUserDep
+        Current authenticated user.
+    status : TaskStatus | None
+        Optional status filter (must be PENDING or RUNNING).
+    task_type : TaskType | None
+        Optional task type filter.
+
+    Returns
+    -------
+    BulkCancelResponse
+        Number of tasks cancelled.
+
+    Raises
+    ------
+    HTTPException
+        If permission denied (403).
+    """
+    permission_service = PermissionService(session)
+    permission_service.check_permission(current_user, "tasks", "write")
+
+    user_id = current_user.id if not current_user.is_admin else None
+
+    task_service = TaskService(session)
+    cancelled = task_service.bulk_cancel_tasks(
+        user_id=user_id,
+        status=status,
+        task_type=task_type,
+    )
+
+    if cancelled == 0:
+        return BulkCancelResponse(cancelled=0, message="No cancellable tasks found")
+    return BulkCancelResponse(
+        cancelled=cancelled,
+        message=f"Cancelled {cancelled} task(s)",
     )
 
 

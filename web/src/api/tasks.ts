@@ -23,7 +23,9 @@
  */
 
 import type {
+  BulkCancelResponse,
   Task,
+  TaskCountResponse,
   TaskListResponse,
   TaskStatus,
   TaskType,
@@ -144,7 +146,7 @@ export async function listAllTasksByStatus(
   params: ListAllTasksByStatusParams,
   deps: TaskApiDeps = {},
 ): Promise<Task[]> {
-  const pageSize = params.pageSize ?? 200;
+  const pageSize = Math.min(params.pageSize ?? 100, 100);
   const tasks: Task[] = [];
   let page = 1;
 
@@ -168,4 +170,117 @@ export async function listAllTasksByStatus(
   }
 
   return tasks;
+}
+
+export interface CountTasksParams {
+  /** Filter by task status. */
+  status?: TaskStatus | null;
+  /** Filter by task type. */
+  taskType?: TaskType | null;
+}
+
+/**
+ * Get a count of tasks matching the given filters.
+ *
+ * Parameters
+ * ----------
+ * params : CountTasksParams
+ *     Status and optional type filter.
+ * deps : TaskApiDeps, optional
+ *     Dependency injection for the HTTP client.
+ *
+ * Returns
+ * -------
+ * Promise<number>
+ *     Count of matching tasks.
+ *
+ * Raises
+ * ------
+ * Error
+ *     If the API request fails.
+ */
+export async function countTasks(
+  params: CountTasksParams,
+  deps: TaskApiDeps = {},
+): Promise<number> {
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const search = new URLSearchParams();
+  if (params.status) {
+    search.append("status", params.status);
+  }
+  if (params.taskType) {
+    search.append("task_type", params.taskType);
+  }
+  const query = search.toString();
+  const url = query ? `/api/tasks/count?${query}` : "/api/tasks/count";
+
+  const response = await fetchImpl(url, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!response.ok) {
+    const detail = await getErrorDetail(response);
+    throw new Error(detail || "Failed to count tasks");
+  }
+
+  const data = (await response.json()) as TaskCountResponse;
+  return data.count;
+}
+
+export interface BulkCancelParams {
+  /** Filter by task status. */
+  status?: TaskStatus | null;
+  /** Filter by task type. */
+  taskType?: TaskType | null;
+}
+
+/**
+ * Bulk-cancel all tasks matching the given filters via a single server call.
+ *
+ * Parameters
+ * ----------
+ * params : BulkCancelParams
+ *     Status and optional type filter.
+ * deps : TaskApiDeps, optional
+ *     Dependency injection for the HTTP client.
+ *
+ * Returns
+ * -------
+ * Promise<BulkCancelResponse>
+ *     Number of tasks cancelled and status message.
+ *
+ * Raises
+ * ------
+ * Error
+ *     If the API request fails.
+ */
+export async function bulkCancelTasks(
+  params: BulkCancelParams,
+  deps: TaskApiDeps = {},
+): Promise<BulkCancelResponse> {
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const search = new URLSearchParams();
+  if (params.status) {
+    search.append("status", params.status);
+  }
+  if (params.taskType) {
+    search.append("task_type", params.taskType);
+  }
+  const query = search.toString();
+  const url = query
+    ? `/api/tasks/bulk-cancel?${query}`
+    : "/api/tasks/bulk-cancel";
+
+  const response = await fetchImpl(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!response.ok) {
+    const detail = await getErrorDetail(response);
+    throw new Error(detail || "Failed to cancel tasks");
+  }
+
+  return (await response.json()) as BulkCancelResponse;
 }
