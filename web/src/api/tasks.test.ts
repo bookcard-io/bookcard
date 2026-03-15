@@ -14,9 +14,14 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { describe, expect, it, vi } from "vitest";
-import type { Task, TaskListResponse } from "@/types/tasks";
+import type { BulkCancelResponse, Task, TaskListResponse } from "@/types/tasks";
 import { TaskStatus, TaskType } from "@/types/tasks";
-import { listAllTasksByStatus, listTasks } from "./tasks";
+import {
+  bulkCancelTasks,
+  countTasks,
+  listAllTasksByStatus,
+  listTasks,
+} from "./tasks";
 
 function makeFetchResponse(payload: unknown, ok = true): Response {
   return {
@@ -147,7 +152,7 @@ describe("api/tasks", () => {
       items: [makeTask(1, TaskStatus.PENDING), makeTask(2, TaskStatus.PENDING)],
       total: 4,
       page: 1,
-      page_size: 200,
+      page_size: 100,
       total_pages: 2,
     } satisfies Partial<TaskListResponse>;
 
@@ -155,7 +160,7 @@ describe("api/tasks", () => {
       items: [makeTask(3, TaskStatus.PENDING), makeTask(4, TaskStatus.PENDING)],
       total: 4,
       page: 2,
-      page_size: 200,
+      page_size: 100,
       total_pages: 2,
     } satisfies Partial<TaskListResponse>;
 
@@ -172,12 +177,53 @@ describe("api/tasks", () => {
     expect(tasks.map((t) => t.id)).toEqual([1, 2, 3, 4]);
     expect(fetchImpl).toHaveBeenNthCalledWith(
       1,
-      "/api/tasks?page=1&page_size=200&status=pending",
+      "/api/tasks?page=1&page_size=100&status=pending",
       expect.anything(),
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       2,
-      "/api/tasks?page=2&page_size=200&status=pending",
+      "/api/tasks?page=2&page_size=100&status=pending",
+      expect.anything(),
+    );
+  });
+
+  it("listAllTasksByStatus caps pageSize at 100", async () => {
+    const page1 = {
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 100,
+      total_pages: 0,
+    } satisfies Partial<TaskListResponse>;
+
+    const fetchImpl = vi.fn().mockResolvedValueOnce(makeFetchResponse(page1));
+
+    await listAllTasksByStatus(
+      { status: TaskStatus.PENDING, pageSize: 500 },
+      { fetchImpl },
+    );
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/tasks?page=1&page_size=100&status=pending",
+      expect.anything(),
+    );
+  });
+
+  it("listAllTasksByStatus defaults pageSize to 100", async () => {
+    const page1 = {
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 100,
+      total_pages: 0,
+    } satisfies Partial<TaskListResponse>;
+
+    const fetchImpl = vi.fn().mockResolvedValueOnce(makeFetchResponse(page1));
+
+    await listAllTasksByStatus({ status: TaskStatus.RUNNING }, { fetchImpl });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/tasks?page=1&page_size=100&status=running",
       expect.anything(),
     );
   });
@@ -206,5 +252,211 @@ describe("api/tasks", () => {
       "/api/tasks?page=1&page_size=10&status=running&task_type=book_upload",
       expect.anything(),
     );
+  });
+});
+
+describe("countTasks", () => {
+  it("builds query with status filter", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(makeFetchResponse({ count: 42 }));
+
+    const result = await countTasks(
+      { status: TaskStatus.PENDING },
+      { fetchImpl },
+    );
+
+    expect(result).toBe(42);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/tasks/count?status=pending",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("builds query with task type filter", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(makeFetchResponse({ count: 7 }));
+
+    const result = await countTasks(
+      { taskType: TaskType.BOOK_UPLOAD },
+      { fetchImpl },
+    );
+
+    expect(result).toBe(7);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/tasks/count?task_type=book_upload",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("builds query with both status and task type", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(makeFetchResponse({ count: 3 }));
+
+    await countTasks(
+      { status: TaskStatus.RUNNING, taskType: TaskType.LIBRARY_SCAN },
+      { fetchImpl },
+    );
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/tasks/count?status=running&task_type=library_scan",
+      expect.objectContaining({ method: "GET" }),
+    );
+  });
+
+  it("builds URL with no query params when filters are null", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(makeFetchResponse({ count: 100 }));
+
+    await countTasks({ status: null, taskType: null }, { fetchImpl });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/tasks/count",
+      expect.anything(),
+    );
+  });
+
+  it("throws error with server-provided detail", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(makeFetchResponse({ detail: "Forbidden" }, false));
+
+    await expect(
+      countTasks({ status: TaskStatus.PENDING }, { fetchImpl }),
+    ).rejects.toThrow("Forbidden");
+  });
+
+  it("throws default message when error payload is not JSON", async () => {
+    const response = {
+      ok: false,
+      json: vi.fn().mockRejectedValue(new Error("bad json")),
+    } as unknown as Response;
+    const fetchImpl = vi.fn().mockResolvedValue(response);
+
+    await expect(
+      countTasks({ status: TaskStatus.PENDING }, { fetchImpl }),
+    ).rejects.toThrow("Failed to count tasks");
+  });
+
+  it("uses global fetch when fetchImpl is not provided", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(makeFetchResponse({ count: 0 }));
+    vi.stubGlobal("fetch", fetchSpy as unknown as typeof fetch);
+
+    const result = await countTasks({ status: TaskStatus.PENDING });
+
+    expect(result).toBe(0);
+    expect(fetchSpy).toHaveBeenCalled();
+  });
+});
+
+describe("bulkCancelTasks", () => {
+  it("sends POST with status filter", async () => {
+    const serverResponse: BulkCancelResponse = {
+      cancelled: 150,
+      message: "Cancelled 150 task(s)",
+    };
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(makeFetchResponse(serverResponse));
+
+    const result = await bulkCancelTasks(
+      { status: TaskStatus.PENDING },
+      { fetchImpl },
+    );
+
+    expect(result).toEqual(serverResponse);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/tasks/bulk-cancel?status=pending",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("sends POST with task type filter", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        makeFetchResponse({ cancelled: 5, message: "Cancelled 5 task(s)" }),
+      );
+
+    await bulkCancelTasks({ taskType: TaskType.LIBRARY_SCAN }, { fetchImpl });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/tasks/bulk-cancel?task_type=library_scan",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("sends POST with both status and task type", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        makeFetchResponse({ cancelled: 3, message: "Cancelled 3 task(s)" }),
+      );
+
+    await bulkCancelTasks(
+      { status: TaskStatus.RUNNING, taskType: TaskType.BOOK_UPLOAD },
+      { fetchImpl },
+    );
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/tasks/bulk-cancel?status=running&task_type=book_upload",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("sends POST with no query params when filters are null", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      makeFetchResponse({
+        cancelled: 0,
+        message: "No cancellable tasks found",
+      }),
+    );
+
+    await bulkCancelTasks({ status: null, taskType: null }, { fetchImpl });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/tasks/bulk-cancel",
+      expect.anything(),
+    );
+  });
+
+  it("throws error with server-provided detail", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(makeFetchResponse({ detail: "Server error" }, false));
+
+    await expect(
+      bulkCancelTasks({ status: TaskStatus.PENDING }, { fetchImpl }),
+    ).rejects.toThrow("Server error");
+  });
+
+  it("throws default message when error payload is not JSON", async () => {
+    const response = {
+      ok: false,
+      json: vi.fn().mockRejectedValue(new Error("bad json")),
+    } as unknown as Response;
+    const fetchImpl = vi.fn().mockResolvedValue(response);
+
+    await expect(
+      bulkCancelTasks({ status: TaskStatus.PENDING }, { fetchImpl }),
+    ).rejects.toThrow("Failed to cancel tasks");
+  });
+
+  it("uses global fetch when fetchImpl is not provided", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      makeFetchResponse({
+        cancelled: 0,
+        message: "No cancellable tasks found",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchSpy as unknown as typeof fetch);
+
+    const result = await bulkCancelTasks({ status: TaskStatus.PENDING });
+
+    expect(result.cancelled).toBe(0);
+    expect(fetchSpy).toHaveBeenCalled();
   });
 });
