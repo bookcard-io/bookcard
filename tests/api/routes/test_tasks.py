@@ -140,6 +140,7 @@ class TestListTasks:
         with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.list_tasks.return_value = [task1, task2]
+            mock_service.count_tasks.return_value = 2
             mock_service_class.return_value = mock_service
 
             result = tasks.list_tasks(
@@ -154,7 +155,6 @@ class TestListTasks:
             assert result.page == 1
             assert result.page_size == 50
             # Admin should see all tasks (user_id=None)
-            # Note: FastAPI Query() objects are passed, so we check the call differently
             call_args = mock_service.list_tasks.call_args
             assert call_args.kwargs["user_id"] is None
             assert call_args.kwargs["limit"] == 50
@@ -240,7 +240,7 @@ class TestListTasks:
         admin_user: User,
         mock_permission_service: None,
     ) -> None:
-        """Test list_tasks with pagination."""
+        """Test list_tasks with pagination uses count_tasks for accurate totals."""
         tasks_list = [
             Task(
                 id=i,
@@ -256,6 +256,7 @@ class TestListTasks:
         with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.list_tasks.return_value = tasks_list
+            mock_service.count_tasks.return_value = 75
             mock_service_class.return_value = mock_service
 
             result = tasks.list_tasks(
@@ -267,22 +268,20 @@ class TestListTasks:
 
             assert result.page == 2
             assert result.page_size == 25
-            # Full page, so total is estimated
-            assert result.total == 25 * 3  # page_size * (page + 1)
-            # Note: FastAPI Query() objects are passed, so we check the call differently
+            assert result.total == 75
+            assert result.total_pages == 3
             call_args = mock_service.list_tasks.call_args
             assert call_args.kwargs["user_id"] is None
             assert call_args.kwargs["limit"] == 25
             assert call_args.kwargs["offset"] == 25
 
-    def test_list_tasks_full_page_estimation(
+    def test_list_tasks_count_tasks_used_for_total(
         self,
         session: DummySession,
         admin_user: User,
         mock_permission_service: None,
     ) -> None:
-        """Test list_tasks estimates total when full page is returned (covers line 168)."""
-        # Return exactly page_size tasks to trigger the estimation logic
+        """Test list_tasks uses count_tasks for accurate total even with full pages."""
         tasks_list = [
             Task(
                 id=i,
@@ -298,6 +297,7 @@ class TestListTasks:
         with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.list_tasks.return_value = tasks_list
+            mock_service.count_tasks.return_value = 100
             mock_service_class.return_value = mock_service
 
             result = tasks.list_tasks(
@@ -310,8 +310,13 @@ class TestListTasks:
             assert result.page == 1
             assert result.page_size == 25
             assert len(result.items) == 25
-            # When full page is returned, total is estimated as page_size * (page + 1)
-            assert result.total == 25 * 2  # page_size * (page + 1) = 25 * 2
+            assert result.total == 100
+            assert result.total_pages == 4
+            mock_service.count_tasks.assert_called_once_with(
+                user_id=None,
+                status=None,
+                task_type=None,
+            )
 
     def test_list_tasks_with_row_extraction(
         self,
@@ -405,6 +410,275 @@ class TestListTasks:
 
             # Invalid rows should be skipped
             assert len(result.items) == 0
+
+
+class TestCountTasks:
+    """Test count_tasks endpoint."""
+
+    def test_count_tasks_admin_no_filters(
+        self,
+        session: DummySession,
+        admin_user: User,
+        mock_permission_service: None,
+    ) -> None:
+        """Test count_tasks for admin user with no filters."""
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
+            mock_service = MagicMock()
+            mock_service.count_tasks.return_value = 100
+            mock_service_class.return_value = mock_service
+
+            result = tasks.count_tasks(
+                session=session,
+                current_user=admin_user,
+            )
+
+            assert result.count == 100
+            mock_service.count_tasks.assert_called_once_with(
+                user_id=None,
+                status=None,
+                task_type=None,
+            )
+
+    def test_count_tasks_admin_with_status(
+        self,
+        session: DummySession,
+        admin_user: User,
+        mock_permission_service: None,
+    ) -> None:
+        """Test count_tasks for admin user with status filter."""
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
+            mock_service = MagicMock()
+            mock_service.count_tasks.return_value = 42
+            mock_service_class.return_value = mock_service
+
+            result = tasks.count_tasks(
+                session=session,
+                current_user=admin_user,
+                status=TaskStatus.PENDING,
+                task_type=None,
+            )
+
+            assert result.count == 42
+            mock_service.count_tasks.assert_called_once_with(
+                user_id=None,
+                status=TaskStatus.PENDING,
+                task_type=None,
+            )
+
+    def test_count_tasks_admin_with_task_type(
+        self,
+        session: DummySession,
+        admin_user: User,
+        mock_permission_service: None,
+    ) -> None:
+        """Test count_tasks passes task_type filter to service."""
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
+            mock_service = MagicMock()
+            mock_service.count_tasks.return_value = 12
+            mock_service_class.return_value = mock_service
+
+            result = tasks.count_tasks(
+                session=session,
+                current_user=admin_user,
+                status=TaskStatus.RUNNING,
+                task_type=TaskType.LIBRARY_SCAN,
+            )
+
+            assert result.count == 12
+            mock_service.count_tasks.assert_called_once_with(
+                user_id=None,
+                status=TaskStatus.RUNNING,
+                task_type=TaskType.LIBRARY_SCAN,
+            )
+
+    def test_count_tasks_regular_user(
+        self,
+        session: DummySession,
+        regular_user: User,
+        mock_permission_service: None,
+    ) -> None:
+        """Test count_tasks for regular user filters by user_id."""
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
+            mock_service = MagicMock()
+            mock_service.count_tasks.return_value = 5
+            mock_service_class.return_value = mock_service
+
+            result = tasks.count_tasks(
+                session=session,
+                current_user=regular_user,
+            )
+
+            assert result.count == 5
+            mock_service.count_tasks.assert_called_once_with(
+                user_id=2,
+                status=None,
+                task_type=None,
+            )
+
+    def test_count_tasks_returns_zero(
+        self,
+        session: DummySession,
+        admin_user: User,
+        mock_permission_service: None,
+    ) -> None:
+        """Test count_tasks returns zero when no tasks match."""
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
+            mock_service = MagicMock()
+            mock_service.count_tasks.return_value = 0
+            mock_service_class.return_value = mock_service
+
+            result = tasks.count_tasks(
+                session=session,
+                current_user=admin_user,
+                status=TaskStatus.FAILED,
+            )
+
+            assert result.count == 0
+
+
+class TestBulkCancelTasks:
+    """Test bulk_cancel_tasks endpoint."""
+
+    def test_bulk_cancel_tasks_success(
+        self,
+        session: DummySession,
+        admin_user: User,
+        mock_permission_service: None,
+    ) -> None:
+        """Test bulk_cancel_tasks cancels matching tasks."""
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
+            mock_service = MagicMock()
+            mock_service.bulk_cancel_tasks.return_value = 150
+            mock_service_class.return_value = mock_service
+
+            result = tasks.bulk_cancel_tasks(
+                session=session,
+                current_user=admin_user,
+                status=TaskStatus.PENDING,
+            )
+
+            assert result.cancelled == 150
+            assert "150" in result.message
+            mock_service.bulk_cancel_tasks.assert_called_once_with(
+                user_id=None,
+                status=TaskStatus.PENDING,
+                task_type=None,
+            )
+
+    def test_bulk_cancel_tasks_no_filters(
+        self,
+        session: DummySession,
+        admin_user: User,
+        mock_permission_service: None,
+    ) -> None:
+        """Test bulk_cancel_tasks with no filters passes None to service."""
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
+            mock_service = MagicMock()
+            mock_service.bulk_cancel_tasks.return_value = 500
+            mock_service_class.return_value = mock_service
+
+            result = tasks.bulk_cancel_tasks(
+                session=session,
+                current_user=admin_user,
+            )
+
+            assert result.cancelled == 500
+            assert "500" in result.message
+            mock_service.bulk_cancel_tasks.assert_called_once_with(
+                user_id=None,
+                status=None,
+                task_type=None,
+            )
+
+    def test_bulk_cancel_tasks_with_task_type(
+        self,
+        session: DummySession,
+        admin_user: User,
+        mock_permission_service: None,
+    ) -> None:
+        """Test bulk_cancel_tasks passes task_type filter to service."""
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
+            mock_service = MagicMock()
+            mock_service.bulk_cancel_tasks.return_value = 20
+            mock_service_class.return_value = mock_service
+
+            result = tasks.bulk_cancel_tasks(
+                session=session,
+                current_user=admin_user,
+                status=TaskStatus.RUNNING,
+                task_type=TaskType.LIBRARY_SCAN,
+            )
+
+            assert result.cancelled == 20
+            mock_service.bulk_cancel_tasks.assert_called_once_with(
+                user_id=None,
+                status=TaskStatus.RUNNING,
+                task_type=TaskType.LIBRARY_SCAN,
+            )
+
+    def test_bulk_cancel_tasks_none_found(
+        self,
+        session: DummySession,
+        admin_user: User,
+        mock_permission_service: None,
+    ) -> None:
+        """Test bulk_cancel_tasks returns zero when no tasks match."""
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
+            mock_service = MagicMock()
+            mock_service.bulk_cancel_tasks.return_value = 0
+            mock_service_class.return_value = mock_service
+
+            result = tasks.bulk_cancel_tasks(
+                session=session,
+                current_user=admin_user,
+            )
+
+            assert result.cancelled == 0
+            assert "No cancellable" in result.message
+
+    def test_bulk_cancel_tasks_regular_user(
+        self,
+        session: DummySession,
+        regular_user: User,
+        mock_permission_service: None,
+    ) -> None:
+        """Test bulk_cancel_tasks filters by user_id for non-admin."""
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
+            mock_service = MagicMock()
+            mock_service.bulk_cancel_tasks.return_value = 3
+            mock_service_class.return_value = mock_service
+
+            result = tasks.bulk_cancel_tasks(
+                session=session,
+                current_user=regular_user,
+            )
+
+            assert result.cancelled == 3
+            mock_service.bulk_cancel_tasks.assert_called_once_with(
+                user_id=2,
+                status=None,
+                task_type=None,
+            )
+
+    def test_bulk_cancel_tasks_message_format_single(
+        self,
+        session: DummySession,
+        admin_user: User,
+        mock_permission_service: None,
+    ) -> None:
+        """Test bulk_cancel_tasks message says 'task(s)' for single task."""
+        with patch("bookcard.api.routes.tasks.TaskService") as mock_service_class:
+            mock_service = MagicMock()
+            mock_service.bulk_cancel_tasks.return_value = 1
+            mock_service_class.return_value = mock_service
+
+            result = tasks.bulk_cancel_tasks(
+                session=session,
+                current_user=admin_user,
+            )
+
+            assert result.cancelled == 1
+            assert result.message == "Cancelled 1 task(s)"
 
 
 class TestGetTask:
