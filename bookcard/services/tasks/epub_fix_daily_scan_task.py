@@ -32,8 +32,6 @@ if TYPE_CHECKING:
 from bookcard.models.config import EPUBFixerConfig, Library, ScheduledTasksConfig
 from bookcard.models.epub_fixer import EPUBFixRun
 from bookcard.repositories.calibre_book_repository import CalibreBookRepository
-from bookcard.repositories.config_repository import LibraryRepository
-from bookcard.services.config_service import LibraryService
 from bookcard.services.epub_fixer import (
     BackupService,
     EPUBFixerOrchestrator,
@@ -52,14 +50,9 @@ from bookcard.services.epub_fixer.core.fixes import (
 from bookcard.services.epub_fixer.services.scanner import EPUBFileInfo, EPUBScanner
 from bookcard.services.epub_fixer_service import EPUBFixerService
 from bookcard.services.tasks.base import BaseTask
+from bookcard.services.tasks.task_library_resolver import resolve_task_library
 
 logger = logging.getLogger(__name__)
-
-
-def _raise_no_library_error() -> None:
-    """Raise error for missing active library."""
-    msg = "No active library configured"
-    raise ValueError(msg)
 
 
 class EPUBFixDailyScanTask(BaseTask):
@@ -340,18 +333,10 @@ class EPUBFixDailyScanTask(BaseTask):
                 return
             fixer_service, backup_service, recorder, settings = result
 
-            # Get active library
-            library_repo = LibraryRepository(session)
-            library_service = LibraryService(session, library_repo)
-            library = library_service.get_active_library()
+            # Resolve library via shared resolver (metadata → per-user → first available)
+            library = resolve_task_library(session, self.metadata, self.user_id)
 
-            if library is None:
-                _raise_no_library_error()
-
-            # Scan for EPUB files
-            # Type narrowing: library is not None after check
-            # Use type: ignore since we've already checked for None
-            epub_files = self._scan_epub_files(library)  # type: ignore[arg-type]
+            epub_files = self._scan_epub_files(library)
 
             if not epub_files:
                 logger.info("No EPUB files found in library for daily scan")
