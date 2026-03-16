@@ -26,6 +26,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from bookcard.repositories.config_repository import LibraryRepository
+from bookcard.services.config_service import LibraryService
 from bookcard.services.tasks.exceptions import LibraryNotConfiguredError
 
 if TYPE_CHECKING:
@@ -109,3 +110,45 @@ def resolve_task_library(
         return library
 
     raise LibraryNotConfiguredError
+
+
+class PinnedLibraryService(LibraryService):
+    """``LibraryService`` that always returns a predetermined library.
+
+    Background tasks resolve the target library via
+    :func:`resolve_task_library` (metadata → per-user → first available).
+    Service layers like ``AuthorService`` expect a ``LibraryService``
+    whose ``get_active_library()`` they call internally.  This adapter
+    bridges the two: the task resolves the library once, then injects a
+    ``PinnedLibraryService`` so every downstream ``get_active_library()``
+    call returns the correct library.
+
+    Parameters
+    ----------
+    session : Session
+        Active database session.
+    library_repo : LibraryRepository
+        Library repository (passed through to the base class so methods
+        like ``get_library`` and ``list_libraries`` still work).
+    library : Library
+        The pre-resolved library to pin.
+    """
+
+    def __init__(
+        self,
+        session: Session,
+        library_repo: LibraryRepository,
+        library: Library,
+    ) -> None:
+        super().__init__(session, library_repo)
+        self._pinned = library
+
+    def get_active_library(self) -> Library | None:
+        """Return the pinned library.
+
+        Returns
+        -------
+        Library | None
+            Always the library supplied at construction time.
+        """
+        return self._pinned

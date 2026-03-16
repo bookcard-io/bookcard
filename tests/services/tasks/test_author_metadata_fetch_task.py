@@ -21,9 +21,25 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from bookcard.models.config import Library
 from bookcard.services.tasks.author_metadata_fetch_task import (
     AuthorMetadataFetchTask,
 )
+from bookcard.services.tasks.exceptions import LibraryNotConfiguredError
+
+
+@pytest.fixture
+def library() -> Library:
+    """Return a test Library instance.
+
+    Returns
+    -------
+    Library
+        Library with id=1.
+    """
+    lib = Library(name="Test Library", path="/tmp/test-library", is_active=True)
+    lib.id = 1
+    return lib
 
 
 @pytest.fixture
@@ -77,27 +93,32 @@ class TestAuthorMetadataFetchTaskInit:
 class TestAuthorMetadataFetchTaskRun:
     """Test AuthorMetadataFetchTask run method."""
 
-    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorRepository")
-    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryRepository")
-    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryService")
     @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.resolve_task_library")
     def test_run_success(
         self,
+        mock_resolve: MagicMock,
         mock_author_service_class: MagicMock,
-        mock_library_service_class: MagicMock,
-        mock_library_repo_class: MagicMock,
-        mock_author_repo_class: MagicMock,
         worker_context: dict[str, MagicMock],
         metadata: dict[str, str],
+        library: Library,
     ) -> None:
-        """Test run successfully fetches author metadata."""
-        # Setup mocks
-        mock_author_repo = MagicMock()
-        mock_author_repo_class.return_value = mock_author_repo
-        mock_library_repo = MagicMock()
-        mock_library_repo_class.return_value = mock_library_repo
-        mock_library_service = MagicMock()
-        mock_library_service_class.return_value = mock_library_service
+        """Test run successfully fetches author metadata.
+
+        Parameters
+        ----------
+        mock_resolve : MagicMock
+            Mock for resolve_task_library.
+        mock_author_service_class : MagicMock
+            Mock for AuthorService class.
+        worker_context : dict[str, MagicMock]
+            Mock worker context.
+        metadata : dict[str, str]
+            Task metadata.
+        library : Library
+            Test library.
+        """
+        mock_resolve.return_value = library
         mock_author_service = MagicMock()
         mock_author_service.fetch_author_metadata.return_value = {
             "message": "Success",
@@ -105,76 +126,70 @@ class TestAuthorMetadataFetchTaskRun:
         }
         mock_author_service_class.return_value = mock_author_service
 
-        task = AuthorMetadataFetchTask(
-            task_id=1,
-            user_id=1,
-            metadata=metadata,
-        )
+        task = AuthorMetadataFetchTask(task_id=1, user_id=1, metadata=metadata)
 
         task.run(worker_context)
 
-        # Verify progress updates
+        mock_resolve.assert_called_once_with(worker_context["session"], metadata, 1)
         assert worker_context["update_progress"].call_count >= 3
-        # Verify author service was called
         mock_author_service.fetch_author_metadata.assert_called_once_with("OL123A")
 
-    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorRepository")
-    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryRepository")
-    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryService")
-    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.resolve_task_library")
     def test_run_cancelled_before_processing(
         self,
-        mock_author_service_class: MagicMock,
-        mock_library_service_class: MagicMock,
-        mock_library_repo_class: MagicMock,
-        mock_author_repo_class: MagicMock,
+        mock_resolve: MagicMock,
         worker_context: dict[str, MagicMock],
         metadata: dict[str, str],
     ) -> None:
-        """Test run returns early when cancelled before processing."""
-        task = AuthorMetadataFetchTask(
-            task_id=1,
-            user_id=1,
-            metadata=metadata,
-        )
+        """Test run returns early when cancelled before processing.
+
+        Parameters
+        ----------
+        mock_resolve : MagicMock
+            Mock for resolve_task_library.
+        worker_context : dict[str, MagicMock]
+            Mock worker context.
+        metadata : dict[str, str]
+            Task metadata.
+        """
+        task = AuthorMetadataFetchTask(task_id=1, user_id=1, metadata=metadata)
         task.mark_cancelled()
 
         task.run(worker_context)
 
-        # Should not call author service
-        mock_author_service_class.assert_not_called()
+        mock_resolve.assert_not_called()
 
-    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorRepository")
-    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryRepository")
-    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryService")
     @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.resolve_task_library")
     def test_run_cancelled_during_execution(
         self,
+        mock_resolve: MagicMock,
         mock_author_service_class: MagicMock,
-        mock_library_service_class: MagicMock,
-        mock_library_repo_class: MagicMock,
-        mock_author_repo_class: MagicMock,
         worker_context: dict[str, MagicMock],
         metadata: dict[str, str],
+        library: Library,
     ) -> None:
-        """Test run returns early when cancelled during execution."""
-        # Setup mocks
-        mock_author_repo = MagicMock()
-        mock_author_repo_class.return_value = mock_author_repo
-        mock_library_repo = MagicMock()
-        mock_library_repo_class.return_value = mock_library_repo
-        mock_library_service = MagicMock()
-        mock_library_service_class.return_value = mock_library_service
+        """Test run returns early when cancelled during execution.
+
+        Parameters
+        ----------
+        mock_resolve : MagicMock
+            Mock for resolve_task_library.
+        mock_author_service_class : MagicMock
+            Mock for AuthorService class.
+        worker_context : dict[str, MagicMock]
+            Mock worker context.
+        metadata : dict[str, str]
+            Task metadata.
+        library : Library
+            Test library.
+        """
+        mock_resolve.return_value = library
         mock_author_service = MagicMock()
         mock_author_service_class.return_value = mock_author_service
 
-        task = AuthorMetadataFetchTask(
-            task_id=1,
-            user_id=1,
-            metadata=metadata,
-        )
+        task = AuthorMetadataFetchTask(task_id=1, user_id=1, metadata=metadata)
 
-        # Mark as cancelled after first progress update
         def cancel_after_first(*args: object, **kwargs: object) -> None:
             task.mark_cancelled()
 
@@ -182,39 +197,145 @@ class TestAuthorMetadataFetchTaskRun:
 
         task.run(worker_context)
 
-        # Should not call fetch_author_metadata
         mock_author_service.fetch_author_metadata.assert_not_called()
 
-    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorRepository")
-    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryRepository")
-    @patch("bookcard.services.tasks.author_metadata_fetch_task.LibraryService")
     @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.resolve_task_library")
     def test_run_exception(
         self,
+        mock_resolve: MagicMock,
         mock_author_service_class: MagicMock,
-        mock_library_service_class: MagicMock,
-        mock_library_repo_class: MagicMock,
-        mock_author_repo_class: MagicMock,
         worker_context: dict[str, MagicMock],
         metadata: dict[str, str],
+        library: Library,
     ) -> None:
-        """Test run raises exception on error."""
-        # Setup mocks
-        mock_author_repo = MagicMock()
-        mock_author_repo_class.return_value = mock_author_repo
-        mock_library_repo = MagicMock()
-        mock_library_repo_class.return_value = mock_library_repo
-        mock_library_service = MagicMock()
-        mock_library_service_class.return_value = mock_library_service
+        """Test run raises exception on error.
+
+        Parameters
+        ----------
+        mock_resolve : MagicMock
+            Mock for resolve_task_library.
+        mock_author_service_class : MagicMock
+            Mock for AuthorService class.
+        worker_context : dict[str, MagicMock]
+            Mock worker context.
+        metadata : dict[str, str]
+            Task metadata.
+        library : Library
+            Test library.
+        """
+        mock_resolve.return_value = library
         mock_author_service = MagicMock()
         mock_author_service.fetch_author_metadata.side_effect = ValueError("Test error")
         mock_author_service_class.return_value = mock_author_service
 
-        task = AuthorMetadataFetchTask(
-            task_id=1,
-            user_id=1,
-            metadata=metadata,
-        )
+        task = AuthorMetadataFetchTask(task_id=1, user_id=1, metadata=metadata)
 
         with pytest.raises(ValueError, match="Test error"):
             task.run(worker_context)
+
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.resolve_task_library")
+    def test_run_library_not_configured(
+        self,
+        mock_resolve: MagicMock,
+        worker_context: dict[str, MagicMock],
+        metadata: dict[str, str],
+    ) -> None:
+        """Test run raises LibraryNotConfiguredError when no library found.
+
+        Parameters
+        ----------
+        mock_resolve : MagicMock
+            Mock for resolve_task_library.
+        worker_context : dict[str, MagicMock]
+            Mock worker context.
+        metadata : dict[str, str]
+            Task metadata.
+        """
+        mock_resolve.side_effect = LibraryNotConfiguredError()
+
+        task = AuthorMetadataFetchTask(task_id=1, user_id=1, metadata=metadata)
+
+        with pytest.raises(LibraryNotConfiguredError):
+            task.run(worker_context)
+
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.resolve_task_library")
+    def test_run_uses_library_id_from_metadata(
+        self,
+        mock_resolve: MagicMock,
+        mock_author_service_class: MagicMock,
+        worker_context: dict[str, MagicMock],
+        library: Library,
+    ) -> None:
+        """Test that library_id from metadata is forwarded to the resolver.
+
+        Parameters
+        ----------
+        mock_resolve : MagicMock
+            Mock for resolve_task_library.
+        mock_author_service_class : MagicMock
+            Mock for AuthorService class.
+        worker_context : dict[str, MagicMock]
+            Mock worker context.
+        library : Library
+            Test library.
+        """
+        metadata = {"author_id": "OL456A", "library_id": 42}
+        mock_resolve.return_value = library
+        mock_author_service = MagicMock()
+        mock_author_service.fetch_author_metadata.return_value = {"message": "OK"}
+        mock_author_service_class.return_value = mock_author_service
+
+        task = AuthorMetadataFetchTask(task_id=1, user_id=7, metadata=metadata)
+
+        task.run(worker_context)
+
+        mock_resolve.assert_called_once_with(worker_context["session"], metadata, 7)
+
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.AuthorService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.PinnedLibraryService")
+    @patch("bookcard.services.tasks.author_metadata_fetch_task.resolve_task_library")
+    def test_run_injects_pinned_library_service(
+        self,
+        mock_resolve: MagicMock,
+        mock_pinned_class: MagicMock,
+        mock_author_service_class: MagicMock,
+        worker_context: dict[str, MagicMock],
+        metadata: dict[str, str],
+        library: Library,
+    ) -> None:
+        """Test that AuthorService receives a PinnedLibraryService.
+
+        Parameters
+        ----------
+        mock_resolve : MagicMock
+            Mock for resolve_task_library.
+        mock_pinned_class : MagicMock
+            Mock for PinnedLibraryService class.
+        mock_author_service_class : MagicMock
+            Mock for AuthorService class.
+        worker_context : dict[str, MagicMock]
+            Mock worker context.
+        metadata : dict[str, str]
+            Task metadata.
+        library : Library
+            Test library.
+        """
+        mock_resolve.return_value = library
+        mock_pinned_instance = MagicMock()
+        mock_pinned_class.return_value = mock_pinned_instance
+        mock_author_service = MagicMock()
+        mock_author_service.fetch_author_metadata.return_value = {"message": "OK"}
+        mock_author_service_class.return_value = mock_author_service
+
+        task = AuthorMetadataFetchTask(task_id=1, user_id=1, metadata=metadata)
+
+        task.run(worker_context)
+
+        mock_pinned_class.assert_called_once()
+        call_kwargs = mock_pinned_class.call_args
+        assert call_kwargs[0][2] is library  # third positional arg = library
+        mock_author_service_class.assert_called_once()
+        svc_kwargs = mock_author_service_class.call_args[1]
+        assert svc_kwargs["library_service"] is mock_pinned_instance
