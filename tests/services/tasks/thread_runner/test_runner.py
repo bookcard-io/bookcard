@@ -491,3 +491,143 @@ class TestShutdown:
 
             mock_thread.join.assert_called_once()
             assert runner._shutdown_event.is_set()
+
+
+class TestGetScheduledTaskTimeoutSeconds:
+    """Test _get_scheduled_task_timeout_seconds static method."""
+
+    @pytest.mark.parametrize(
+        ("metadata", "expected"),
+        [
+            (None, None),
+            ({}, None),
+            ({"scheduled": False}, None),
+            ({"scheduled": True}, None),
+            ({"scheduled": True, "max_runtime_seconds": 0}, None),
+            ({"scheduled": True, "max_runtime_seconds": -1}, None),
+            ({"scheduled": True, "max_runtime_seconds": "bad"}, None),
+            ({"scheduled": True, "max_runtime_seconds": 3600}, 3600.0),
+            ({"scheduled": True, "max_runtime_seconds": 7200.5}, 7200.5),
+            ({"max_runtime_seconds": 3600}, None),
+        ],
+    )
+    def test_extracts_timeout(
+        self, metadata: dict | None, expected: float | None
+    ) -> None:
+        """Test timeout extraction for various metadata inputs."""
+        assert (
+            ThreadTaskRunner._get_scheduled_task_timeout_seconds(metadata) == expected
+        )
+
+
+class TestCancelForTimeout:
+    """Test _cancel_for_timeout method."""
+
+    def test_marks_task_as_failed_not_cancelled(
+        self, mock_engine: MagicMock, mock_task_factory: MagicMock
+    ) -> None:
+        """Test timeout marks task as FAILED with descriptive error message."""
+        with patch(
+            "bookcard.services.tasks.thread_runner.runner._get_session"
+        ) as mock_get_session:
+            mock_session = MagicMock()
+            mock_get_session.return_value.__enter__.return_value = mock_session
+            mock_task_service = MagicMock(spec=TaskService)
+            with patch(
+                "bookcard.services.tasks.thread_runner.runner.TaskService",
+                return_value=mock_task_service,
+            ):
+                runner = ThreadTaskRunner(mock_engine, mock_task_factory)
+
+                mock_task_instance = MagicMock(spec=BaseTask)
+                runner._running_tasks[1] = mock_task_instance
+
+                runner._cancel_for_timeout(task_id=1, timeout_seconds=7200.0)
+
+                mock_task_instance.mark_cancelled.assert_called_once()
+                mock_task_service.fail_task.assert_called_once()
+                call_args = mock_task_service.fail_task.call_args
+                assert call_args[0][0] == 1
+                assert "2h" in call_args[0][1]
+                assert "exceeded maximum runtime" in call_args[0][1]
+
+                runner.shutdown()
+
+    def test_cooperative_signal_sent_even_if_task_not_running(
+        self, mock_engine: MagicMock, mock_task_factory: MagicMock
+    ) -> None:
+        """Test timeout still calls fail_task when task not in _running_tasks."""
+        with patch(
+            "bookcard.services.tasks.thread_runner.runner._get_session"
+        ) as mock_get_session:
+            mock_session = MagicMock()
+            mock_get_session.return_value.__enter__.return_value = mock_session
+            mock_task_service = MagicMock(spec=TaskService)
+            with patch(
+                "bookcard.services.tasks.thread_runner.runner.TaskService",
+                return_value=mock_task_service,
+            ):
+                runner = ThreadTaskRunner(mock_engine, mock_task_factory)
+
+                runner._cancel_for_timeout(task_id=999, timeout_seconds=3600.0)
+
+                mock_task_service.fail_task.assert_called_once()
+                assert "1h" in mock_task_service.fail_task.call_args[0][1]
+
+                runner.shutdown()
+
+    def test_handles_db_error_gracefully(
+        self, mock_engine: MagicMock, mock_task_factory: MagicMock
+    ) -> None:
+        """Test timeout handles SQLAlchemyError without raising."""
+        from sqlalchemy.exc import SQLAlchemyError
+
+        with patch(
+            "bookcard.services.tasks.thread_runner.runner._get_session"
+        ) as mock_get_session:
+            mock_session = MagicMock()
+            mock_get_session.return_value.__enter__.return_value = mock_session
+            mock_task_service = MagicMock(spec=TaskService)
+            mock_task_service.fail_task.side_effect = SQLAlchemyError("DB error")
+            with patch(
+                "bookcard.services.tasks.thread_runner.runner.TaskService",
+                return_value=mock_task_service,
+            ):
+                runner = ThreadTaskRunner(mock_engine, mock_task_factory)
+
+                runner._cancel_for_timeout(task_id=1, timeout_seconds=3600.0)
+
+                runner.shutdown()
+
+    @pytest.mark.parametrize(
+        ("timeout_seconds", "expected_hours"),
+        [
+            (3600.0, "1h"),
+            (7200.0, "2h"),
+            (36000.0, "10h"),
+            (5400.0, "1.5h"),
+        ],
+    )
+    def test_error_message_formats_hours(
+        self,
+        mock_engine: MagicMock,
+        mock_task_factory: MagicMock,
+        timeout_seconds: float,
+        expected_hours: str,
+    ) -> None:
+        """Test the error message contains correctly formatted hours."""
+        with patch(
+            "bookcard.services.tasks.thread_runner.runner._get_session"
+        ) as mock_get_session:
+            mock_session = MagicMock()
+            mock_get_session.return_value.__enter__.return_value = mock_session
+            mock_task_service = MagicMock(spec=TaskService)
+            with patch(
+                "bookcard.services.tasks.thread_runner.runner.TaskService",
+                return_value=mock_task_service,
+            ):
+                runner = ThreadTaskRunner(mock_engine, mock_task_factory)
+                runner._cancel_for_timeout(task_id=1, timeout_seconds=timeout_seconds)
+                error_msg = mock_task_service.fail_task.call_args[0][1]
+                assert expected_hours in error_msg
+                runner.shutdown()

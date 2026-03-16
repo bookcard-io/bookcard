@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
@@ -32,6 +33,8 @@ from sqlmodel import Session, select
 from bookcard.models.auth import User
 from bookcard.models.config import ScheduledJobDefinition, ScheduledTasksConfig
 from bookcard.models.tasks import TaskType
+from bookcard.services.task_service import TaskService
+from bookcard.services.tasks.stale_task_reaper import StaleTaskReaper
 
 if TYPE_CHECKING:
     from bookcard.services.tasks.base import TaskRunner
@@ -62,6 +65,7 @@ class APSchedulerService:
         """
         self._engine = engine
         self._task_runner = task_runner
+        self._stale_task_reaper = StaleTaskReaper(engine, task_runner)
 
         # Configure APScheduler
         # We use MemoryJobStore for now since our jobs are dynamic based on config
@@ -83,8 +87,27 @@ class APSchedulerService:
             self._scheduler.start()
             logger.info("APScheduler started")
 
+        self._register_stale_task_reaper()
+
         # Initial job registration
         self.refresh_jobs()
+
+    def _register_stale_task_reaper(self) -> None:
+        """Register the stale task reaper as a periodic internal job."""
+        self._scheduler.add_job(
+            func=self._stale_task_reaper.reap,
+            trigger=IntervalTrigger(minutes=5),
+            id="_internal_stale_task_reaper",
+            replace_existing=True,
+            name="Internal: stale task reaper",
+        )
+        logger.info("Stale task reaper registered (every 5 min)")
+
+    def _remove_user_jobs(self) -> None:
+        """Remove all user-defined jobs while preserving internal ones."""
+        for job in self._scheduler.get_jobs():
+            if not job.id.startswith("_internal_"):
+                job.remove()
 
     def shutdown(self) -> None:
         """Shutdown the scheduler."""
@@ -95,8 +118,9 @@ class APSchedulerService:
     def refresh_jobs(self) -> None:
         """Refresh scheduled jobs based on current database configuration.
 
-        Removes all existing jobs and re-registers them based on the latest config.
-        This allows changing schedules without restarting the application.
+        Removes all user-defined jobs and re-registers them based on the
+        latest config.  Internal jobs (prefixed with ``_internal_``) are
+        preserved across refreshes.
         """
         try:
             with Session(self._engine) as session:
@@ -107,8 +131,7 @@ class APSchedulerService:
 
                 if not jobs:
                     logger.warning("No enabled scheduled jobs found")
-                    # We still clear existing jobs as the user might have disabled everything
-                    self._scheduler.remove_all_jobs()
+                    self._remove_user_jobs()
                     return
 
                 system_user = self._get_system_user(session)
@@ -116,8 +139,7 @@ class APSchedulerService:
                     logger.warning("No system user found, skipping job registration")
                     return
 
-                # Clear existing jobs only if we proceed with registration
-                self._scheduler.remove_all_jobs()
+                self._remove_user_jobs()
 
                 for job in jobs:
                     user_id = job.user_id if job.user_id is not None else system_user.id
@@ -212,6 +234,14 @@ class APSchedulerService:
     ) -> None:
         """Execute task callback (runs in scheduler thread pool)."""
         try:
+            if self._has_active_task_of_type(task_type):
+                logger.warning(
+                    "Skipping scheduled %s — an active task of this type "
+                    "already exists (PENDING or RUNNING)",
+                    task_type.value,
+                )
+                return
+
             effective_metadata = metadata.copy()
             max_runtime_seconds = self._get_scheduled_task_max_runtime_seconds()
             if max_runtime_seconds is not None:
@@ -226,6 +256,28 @@ class APSchedulerService:
             logger.info("Scheduled task %s triggered (id=%s)", task_type.value, task_id)
         except Exception:
             logger.exception("Failed to trigger scheduled task %s", task_type.value)
+
+    def _has_active_task_of_type(self, task_type: TaskType) -> bool:
+        """Check if a PENDING or RUNNING task of the given type already exists.
+
+        Parameters
+        ----------
+        task_type : TaskType
+            Task type to check.
+
+        Returns
+        -------
+        bool
+            True if an active task of this type exists.
+        """
+        try:
+            with Session(self._engine) as session:
+                return TaskService(session).has_active_task_of_type(task_type)
+        except SQLAlchemyError:
+            logger.exception(
+                "Failed to check for active tasks of type %s", task_type.value
+            )
+            return False
 
     def _get_scheduled_task_max_runtime_seconds(self) -> int | None:
         """Get the max runtime (seconds) for scheduled tasks from system config.

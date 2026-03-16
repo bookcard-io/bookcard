@@ -81,10 +81,14 @@ class TaskExecutor:
             task_instance.run(worker_context)
             duration = time.time() - start_time
 
-            # Check if task was cancelled
+            # Check if task was cancelled or already failed (e.g. by timeout reaper)
             task = self._task_service.get_task(task_id)
-            if task and task.status == TaskStatus.CANCELLED:
-                logger.info("Task %s was cancelled", task_id)
+            if task and task.is_complete:
+                logger.info(
+                    "Task %s already in terminal state (%s); skipping completion",
+                    task_id,
+                    task.status,
+                )
                 return
 
             # Task completed successfully - normalize and save metadata
@@ -127,8 +131,7 @@ class TaskExecutor:
                     session.rollback()
                 task = self._task_service.get_task(task_id)
 
-            if not task or task.status != TaskStatus.FAILED:
-                # Only fail if not already failed
+            if not task or not task.is_complete:
                 self._task_service.fail_task(task_id, error_message)
 
             # Record task completion - wrap in try/except to prevent

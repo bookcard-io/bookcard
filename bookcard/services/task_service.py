@@ -22,7 +22,7 @@ Follows SRP by handling only task persistence and retrieval.
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from sqlalchemy import desc, func, select, update
@@ -385,6 +385,52 @@ class TaskService:
         self._session.add(task)
         self._session.commit()
         return True
+
+    def has_active_task_of_type(self, task_type: TaskType) -> bool:
+        """Check whether a PENDING or RUNNING task of the given type exists.
+
+        Parameters
+        ----------
+        task_type : TaskType
+            Task type to check.
+
+        Returns
+        -------
+        bool
+            True if at least one active (PENDING/RUNNING) task of this type exists.
+        """
+        active_statuses = [TaskStatus.PENDING, TaskStatus.RUNNING]
+        stmt = (
+            select(func.count())
+            .select_from(Task)
+            .where(
+                Task.task_type == task_type,
+                Task.status.in_(active_statuses),  # type: ignore[union-attr]
+            )
+        )
+        return self._session.exec(stmt).one() > 0
+
+    def find_stale_running_tasks(self, max_age_seconds: int) -> Sequence[Task]:
+        """Find RUNNING tasks whose elapsed time exceeds the given threshold.
+
+        Parameters
+        ----------
+        max_age_seconds : int
+            Maximum allowed runtime in seconds. Tasks running longer than
+            this are considered stale.
+
+        Returns
+        -------
+        Sequence[Task]
+            Tasks that have been running longer than ``max_age_seconds``.
+        """
+        cutoff = datetime.now(UTC) - timedelta(seconds=max_age_seconds)
+        stmt = select(Task).where(
+            Task.status == TaskStatus.RUNNING,  # type: ignore[invalid-argument-type]
+            Task.started_at.isnot(None),  # type: ignore[union-attr]
+            Task.started_at <= cutoff,  # type: ignore[operator]
+        )
+        return list(self._session.exec(stmt).all())  # type: ignore[call-overload]
 
     def count_tasks(
         self,

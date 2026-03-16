@@ -924,3 +924,76 @@ class TestRecordTaskCompletion:
         session.set_exec_result([mock_row])
         task_service.record_task_completion(1, TaskStatus.COMPLETED)
         assert task_statistics.total_count == 1
+
+
+class TestHasActiveTaskOfType:
+    """Test has_active_task_of_type method."""
+
+    def test_returns_true_when_active_task_exists(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test returns True when a PENDING/RUNNING task of the type exists."""
+        session.set_exec_result([1])
+        result = task_service.has_active_task_of_type(TaskType.LIBRARY_SCAN)
+        assert result is True
+
+    def test_returns_false_when_no_active_task(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test returns False when no active task of the type exists."""
+        session.set_exec_result([0])
+        result = task_service.has_active_task_of_type(TaskType.LIBRARY_SCAN)
+        assert result is False
+
+    @pytest.mark.parametrize("task_type", list(TaskType))
+    def test_works_for_all_task_types(
+        self, task_service: TaskService, session: DummySession, task_type: TaskType
+    ) -> None:
+        """Test works for every TaskType variant."""
+        session.set_exec_result([0])
+        result = task_service.has_active_task_of_type(task_type)
+        assert result is False
+
+
+class TestFindStaleRunningTasks:
+    """Test find_stale_running_tasks method."""
+
+    def test_returns_stale_tasks(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test returns tasks that have exceeded max_age_seconds."""
+        stale_task = Task(
+            id=10,
+            task_type=TaskType.LIBRARY_SCAN,
+            status=TaskStatus.RUNNING,
+            user_id=1,
+        )
+        session.set_exec_result([stale_task])
+        result = task_service.find_stale_running_tasks(3600)
+        assert len(result) == 1
+        assert result[0].id == 10
+
+    def test_returns_empty_when_no_stale_tasks(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test returns empty list when no stale tasks exist."""
+        session.set_exec_result([])
+        result = task_service.find_stale_running_tasks(3600)
+        assert result == []
+
+    def test_returns_multiple_stale_tasks(
+        self, task_service: TaskService, session: DummySession
+    ) -> None:
+        """Test returns all stale tasks."""
+        tasks = [
+            Task(
+                id=i,
+                task_type=TaskType.LIBRARY_SCAN,
+                status=TaskStatus.RUNNING,
+                user_id=1,
+            )
+            for i in range(1, 4)
+        ]
+        session.set_exec_result(tasks)
+        result = task_service.find_stale_running_tasks(7200)
+        assert len(result) == 3
