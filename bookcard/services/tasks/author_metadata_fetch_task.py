@@ -27,8 +27,11 @@ from typing import TYPE_CHECKING, Any
 from bookcard.repositories.author_repository import AuthorRepository
 from bookcard.repositories.config_repository import LibraryRepository
 from bookcard.services.author_service import AuthorService
-from bookcard.services.config_service import LibraryService
 from bookcard.services.tasks.base import BaseTask
+from bookcard.services.tasks.task_library_resolver import (
+    PinnedLibraryService,
+    resolve_task_library,
+)
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -92,10 +95,12 @@ class AuthorMetadataFetchTask(BaseTask):
             # Update progress: 0.1 - starting
             update_progress(0.1, {"status": "initializing"})
 
-            # Create author service
+            # Resolve library via shared resolver (metadata → per-user → first available)
+            library = resolve_task_library(session, self.metadata, self.user_id)
+
             author_repo = AuthorRepository(session)
             library_repo = LibraryRepository(session)
-            library_service = LibraryService(session, library_repo)
+            library_service = PinnedLibraryService(session, library_repo, library)
             author_service = AuthorService(
                 session=session,
                 author_repo=author_repo,

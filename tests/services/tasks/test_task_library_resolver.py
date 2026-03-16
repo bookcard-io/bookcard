@@ -23,7 +23,10 @@ from sqlmodel import Session
 
 from bookcard.models.config import Library
 from bookcard.services.tasks.exceptions import LibraryNotConfiguredError
-from bookcard.services.tasks.task_library_resolver import resolve_task_library
+from bookcard.services.tasks.task_library_resolver import (
+    PinnedLibraryService,
+    resolve_task_library,
+)
 from tests.conftest import DummySession
 
 
@@ -451,3 +454,49 @@ class TestResolutionPriority:
 
             mock_repo.get.assert_not_called()
             assert result is library
+
+
+class TestPinnedLibraryService:
+    """Tests for PinnedLibraryService."""
+
+    def test_get_active_library_returns_pinned(
+        self,
+        session: Session,
+        library: Library,
+    ) -> None:
+        """get_active_library always returns the pinned library.
+
+        Parameters
+        ----------
+        session : Session
+            Mock session.
+        library : Library
+            Library to pin.
+        """
+        mock_repo = MagicMock()
+        svc = PinnedLibraryService(session, mock_repo, library)
+        assert svc.get_active_library() is library
+
+    def test_get_active_library_ignores_repo_contents(
+        self,
+        session: Session,
+        library: Library,
+        library_b: Library,
+    ) -> None:
+        """Pinned service ignores what the repo would return.
+
+        Parameters
+        ----------
+        session : Session
+            Mock session.
+        library : Library
+            Library to pin.
+        library_b : Library
+            A different library in the repo.
+        """
+        mock_repo = MagicMock()
+        mock_repo.list_all.return_value = [library_b]
+
+        svc = PinnedLibraryService(session, mock_repo, library)
+        assert svc.get_active_library() is library
+        assert svc.get_active_library() is not library_b
