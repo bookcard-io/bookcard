@@ -68,6 +68,15 @@ export interface TaskCancelResponse {
   message: string;
 }
 
+export interface TaskCountResponse {
+  count: number;
+}
+
+export interface BulkCancelResponse {
+  cancelled: number;
+  message: string;
+}
+
 export interface TaskStatistics {
   task_type: TaskType;
   avg_duration: number | null;
