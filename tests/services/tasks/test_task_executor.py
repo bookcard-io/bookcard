@@ -269,3 +269,101 @@ class TestFormatError:
         error = ValueError("Something went wrong")
         result = executor._format_error(error)
         assert "ValueError: Something went wrong" in result
+
+
+class TestTerminalStateGuard:
+    """Test that execute_task respects terminal states set externally.
+
+    When a task is marked as FAILED by the timeout timer or stale task reaper
+    while run() is still executing, execute_task must not overwrite the
+    terminal state with COMPLETED.
+    """
+
+    def test_skips_completion_when_already_failed(
+        self,
+        executor: TaskExecutor,
+        mock_task_instance: MagicMock,
+        worker_context: dict[str, MagicMock],
+    ) -> None:
+        """Test execute_task skips completion when task is already FAILED."""
+        task_id = 1
+        mock_task = Task(
+            id=task_id,
+            task_type="book_upload",
+            status=TaskStatus.FAILED,
+            user_id=1,
+            error_message="Task exceeded maximum runtime of 10h",
+        )
+        executor._task_service.get_task.return_value = mock_task  # type: ignore[attr-defined]
+        mock_task_instance.run.return_value = None
+
+        executor.execute_task(task_id, mock_task_instance, worker_context)
+
+        mock_task_instance.run.assert_called_once()
+        executor._task_service.complete_task.assert_not_called()  # type: ignore[attr-defined]
+        executor._task_service.record_task_completion.assert_not_called()  # type: ignore[attr-defined]
+
+    def test_skips_completion_when_already_completed(
+        self,
+        executor: TaskExecutor,
+        mock_task_instance: MagicMock,
+        worker_context: dict[str, MagicMock],
+    ) -> None:
+        """Test execute_task skips completion when task is already COMPLETED."""
+        task_id = 1
+        mock_task = Task(
+            id=task_id,
+            task_type="book_upload",
+            status=TaskStatus.COMPLETED,
+            user_id=1,
+        )
+        executor._task_service.get_task.return_value = mock_task  # type: ignore[attr-defined]
+        mock_task_instance.run.return_value = None
+
+        executor.execute_task(task_id, mock_task_instance, worker_context)
+
+        executor._task_service.complete_task.assert_not_called()  # type: ignore[attr-defined]
+        executor._task_service.record_task_completion.assert_not_called()  # type: ignore[attr-defined]
+
+    def test_does_not_overwrite_failed_on_exception(
+        self,
+        executor: TaskExecutor,
+        mock_task_instance: MagicMock,
+        worker_context: dict[str, MagicMock],
+    ) -> None:
+        """Test exception path does not overwrite FAILED set by timeout."""
+        task_id = 1
+        mock_task = Task(
+            id=task_id,
+            task_type="book_upload",
+            status=TaskStatus.FAILED,
+            user_id=1,
+            error_message="Task exceeded maximum runtime of 10h",
+        )
+        executor._task_service.get_task.return_value = mock_task  # type: ignore[attr-defined]
+        mock_task_instance.run.side_effect = RuntimeError("timeout side-effect")
+
+        executor.execute_task(task_id, mock_task_instance, worker_context)
+
+        executor._task_service.fail_task.assert_not_called()  # type: ignore[attr-defined]
+
+    def test_does_not_overwrite_cancelled_on_exception(
+        self,
+        executor: TaskExecutor,
+        mock_task_instance: MagicMock,
+        worker_context: dict[str, MagicMock],
+    ) -> None:
+        """Test exception path does not overwrite CANCELLED status."""
+        task_id = 1
+        mock_task = Task(
+            id=task_id,
+            task_type="book_upload",
+            status=TaskStatus.CANCELLED,
+            user_id=1,
+        )
+        executor._task_service.get_task.return_value = mock_task  # type: ignore[attr-defined]
+        mock_task_instance.run.side_effect = RuntimeError("cancel side-effect")
+
+        executor.execute_task(task_id, mock_task_instance, worker_context)
+
+        executor._task_service.fail_task.assert_not_called()  # type: ignore[attr-defined]

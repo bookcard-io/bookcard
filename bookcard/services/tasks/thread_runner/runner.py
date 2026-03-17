@@ -246,7 +246,11 @@ class ThreadTaskRunner(TaskRunner):
         return None
 
     def _cancel_for_timeout(self, task_id: int, timeout_seconds: float) -> None:
-        """Cancel a task that exceeded its allowed runtime.
+        """Fail a task that exceeded its allowed runtime.
+
+        Sends a cooperative cancellation signal (``mark_cancelled``) so the
+        task can exit its work loop, then marks the task as FAILED in the
+        database with a descriptive timeout error message.
 
         Parameters
         ----------
@@ -255,15 +259,28 @@ class ThreadTaskRunner(TaskRunner):
         timeout_seconds : float
             Timeout threshold (seconds) that was exceeded.
         """
+        hours = timeout_seconds / 3600
+        error_message = f"Task exceeded maximum runtime of {hours:g}h"
         logger.warning(
-            "Task %s exceeded max runtime (%.0fs); sending cancellation signal",
+            "Task %s exceeded max runtime (%.0fs); marking as failed",
             task_id,
             timeout_seconds,
         )
         try:
-            self.cancel(task_id)
+            # Cooperative signal so the task can exit its work loop
+            with self._lock:
+                task_instance = self._running_tasks.get(task_id)
+                if task_instance is not None:
+                    task_instance.mark_cancelled()
+
+            # Mark as FAILED (not CANCELLED) — this is a system timeout
+            with self._context_builder.build_service_context() as (
+                _,
+                task_service,
+            ):
+                task_service.fail_task(task_id, error_message)
         except SQLAlchemyError:
-            logger.exception("Database error cancelling task %s after timeout", task_id)
+            logger.exception("Database error failing task %s after timeout", task_id)
 
     def enqueue(
         self,
