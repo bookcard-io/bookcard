@@ -1986,49 +1986,6 @@
         }
       }
     },
-    "/admin/libraries/{library_id}/activate": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Activate Library",
-        "description": "Set a library as the active one.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\nlibrary_id : int\n    Library identifier.\n\nReturns\n-------\nLibraryRead\n    Updated library.\n\nRaises\n------\nHTTPException\n    If library not found (404).",
-        "operationId": "activate_library_admin_libraries__library_id__activate_post",
-        "parameters": [
-          {
-            "name": "library_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Library Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LibraryRead"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/admin/openlibrary/download-dumps": {
       "post": {
         "tags": [
@@ -2400,13 +2357,270 @@
         }
       }
     },
+    "/admin/users/{user_id}/libraries": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List User Libraries",
+        "description": "List all library assignments for a user (admin only).\n\nParameters\n----------\nuser_id : int\n    Target user identifier.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nlist[UserLibraryRead]\n    All user-library associations.",
+        "operationId": "list_user_libraries_admin_users__user_id__libraries_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserLibraryRead"
+                  },
+                  "title": "Response List User Libraries Admin Users  User Id  Libraries Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Assign Library To User",
+        "description": "Assign a library to a user (admin only).\n\nParameters\n----------\nuser_id : int\n    Target user identifier.\npayload : UserLibraryAssign\n    Assignment details.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nUserLibraryRead\n    The created or existing association.\n\nRaises\n------\nHTTPException\n    404 if the library does not exist.",
+        "operationId": "assign_library_to_user_admin_users__user_id__libraries_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserLibraryAssign"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserLibraryRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/users/{user_id}/libraries/{library_id}": {
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Unassign Library From User",
+        "description": "Remove a library assignment from a user (admin only).\n\nParameters\n----------\nuser_id : int\n    Target user identifier.\nlibrary_id : int\n    Library to unassign.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nResponse\n    204 No Content on success.\n\nRaises\n------\nHTTPException\n    404 if the assignment does not exist.",
+        "operationId": "unassign_library_from_user_admin_users__user_id__libraries__library_id__delete",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "library_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Library Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/users/{user_id}/libraries/{library_id}/active": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Set User Active Library",
+        "description": "Set a library as the active library for a user (admin only).\n\nOnly one library can be active per user.  The previously active\nlibrary is automatically deactivated.\n\nParameters\n----------\nuser_id : int\n    Target user identifier.\nlibrary_id : int\n    Library to activate.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nUserLibraryRead\n    The updated association.\n\nRaises\n------\nHTTPException\n    404 if the assignment does not exist.",
+        "operationId": "set_user_active_library_admin_users__user_id__libraries__library_id__active_put",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "library_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Library Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserLibraryRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/users/{user_id}/libraries/{library_id}/visibility": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Set User Library Visibility",
+        "description": "Update visibility of a library for a user (admin only).\n\nParameters\n----------\nuser_id : int\n    Target user identifier.\nlibrary_id : int\n    Library to update.\npayload : UserLibraryVisibilityUpdate\n    Visibility settings.\nsession : SessionDep\n    Database session dependency.\n\nReturns\n-------\nUserLibraryRead\n    The updated association.\n\nRaises\n------\nHTTPException\n    404 if the assignment does not exist.",
+        "operationId": "set_user_library_visibility_admin_users__user_id__libraries__library_id__visibility_put",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "library_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Library Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserLibraryVisibilityUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserLibraryRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/authors": {
       "get": {
         "tags": [
           "authors"
         ],
         "summary": "List Authors",
-        "description": "List authors with metadata for the active library with pagination.\n\nReturns authors that have been mapped to the active library via AuthorMapping.\nIncludes metadata from AuthorMetadata (photos, remote IDs, alternate names, etc.).\n\nParameters\n----------\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nsession : SessionDep\n    Database session dependency.\nauthor_service : AuthorServiceDep\n    Author service instance.\npage : int\n    Page number (1-indexed, default: 1).\npage_size : int\n    Number of items per page (default: 20, max: 100).\nfilter_type : str | None\n    Filter type: \"unmatched\" to show only unmatched authors, None for all authors.\n\nReturns\n-------\ndict[str, object]\n    Response with items array, total count, page, and total_pages.\n\nRaises\n------\nHTTPException\n    If no active library is found or permission denied (403).",
+        "description": "List authors with metadata across visible libraries with pagination.\n\nWhen *library_id* is provided, only authors mapped to that library are\nreturned.  Otherwise authors from all visible libraries are included.\n\nParameters\n----------\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nsession : SessionDep\n    Database session dependency.\nauthor_service : AuthorServiceDep\n    Author service instance.\nvisible_library_ids : VisibleLibraryIdsDep\n    Library IDs the user has marked as visible.\npage : int\n    Page number (1-indexed, default: 1).\npage_size : int\n    Number of items per page (default: 20, max: 100).\nfilter_type : str | None\n    Filter type: \"unmatched\" to show only unmatched authors,\n    None for all authors.\nlibrary_id : int | None\n    Optional library ID to restrict results to a single library.\n\nReturns\n-------\ndict[str, object]\n    Response with items array, total count, page, and total_pages.\n\nRaises\n------\nHTTPException\n    If no active library is found or permission denied (403).",
         "operationId": "list_authors_authors_get",
         "parameters": [
           {
@@ -2444,6 +2658,24 @@
               ],
               "title": "Filter"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by a specific library ID",
+              "title": "Library Id"
+            },
+            "description": "Filter by a specific library ID"
           }
         ],
         "responses": {
@@ -2478,7 +2710,7 @@
           "authors"
         ],
         "summary": "Get Author",
-        "description": "Get a single author by ID or OpenLibrary key.\n\nParameters\n----------\nauthor_id : str\n    Author ID (numeric) or OpenLibrary key (e.g., \"OL23919A\").\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nauthor_service : AuthorServiceDep\n    Author service instance.\npermission_helper : PermissionHelperDep\n    Permission helper instance.\n\nReturns\n-------\ndict[str, object]\n    Author data with metadata.\n\nRaises\n------\nHTTPException\n    If author is not found, no active library exists, or permission denied (403).",
+        "description": "Get a single author by ID or OpenLibrary key.\n\nParameters\n----------\nauthor_id : str\n    Author ID (numeric) or OpenLibrary key (e.g., \"OL23919A\").\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nlibrary_id : ActiveLibraryIdDep\n    Active library ID (resolved automatically).\nauthor_service : AuthorServiceDep\n    Author service instance.\npermission_helper : PermissionHelperDep\n    Permission helper instance.\n\nReturns\n-------\ndict[str, object]\n    Author data with metadata.\n\nRaises\n------\nHTTPException\n    If author is not found, no active library exists, or permission denied (403).",
         "operationId": "get_author_authors__author_id__get",
         "parameters": [
           {
@@ -2904,7 +3136,7 @@
           "books"
         ],
         "summary": "List Books",
-        "description": "List books with pagination and optional search.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nbook_service : BookServiceDep\n    Book service instance.\npermission_helper : PermissionHelperDep\n    Permission helper instance.\nresponse_builder : ResponseBuilderDep\n    Response builder instance.\npage : int\n    Page number (1-indexed, default: 1).\npage_size : int\n    Number of items per page (default: 20, max: 100).\nsearch : str | None\n    Optional search query to filter by title or author.\nauthor_id : int | None\n    Optional author ID to filter by.\nsort_by : str\n    Field to sort by: 'timestamp', 'pubdate', 'title', 'author_sort',\n    'series_index', 'random' (default: 'timestamp').\nsort_order : str\n    Sort order: 'asc' or 'desc' (default: 'desc').\nfull : bool\n    If True, return full book details with all metadata (default: False).\npubdate_month : int | None\n    Optional month (1-12) to filter books by publication date month.\npubdate_day : int | None\n    Optional day (1-31) to filter books by publication date day.\n\nReturns\n-------\nBookListResponse\n    Paginated list of books.\n\nRaises\n------\nHTTPException\n    If no active library is configured (404) or permission denied (403).",
+        "description": "List books with pagination and optional search.\n\nWhen *requested_library_id* is supplied (via ``?library_id=``), the\nendpoint validates that the current user has access to that library\nand returns books from it instead of the user's active library.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\ncurrent_user : OptionalUserDep\n    Optionally-resolved authenticated user.\nbook_service : BookServiceDep\n    Book service instance (active library).\npermission_helper : PermissionHelperDep\n    Permission helper instance.\nresponse_builder : ResponseBuilderDep\n    Response builder instance.\nlibrary_id : ActiveLibraryIdDep\n    Active library ID (resolved automatically).\npage : int\n    Page number (1-indexed, default: 1).\npage_size : int\n    Number of items per page (default: 20, max: 100).\nsearch : str | None\n    Optional search query to filter by title or author.\nauthor_id : int | None\n    Optional author ID to filter by.\nsort_by : str\n    Field to sort by: 'timestamp', 'pubdate', 'title', 'author_sort',\n    'series_index', 'random' (default: 'timestamp').\nsort_order : str\n    Sort order: 'asc' or 'desc' (default: 'desc').\nfull : bool\n    If True, return full book details with all metadata (default: False).\npubdate_month : int | None\n    Optional month (1-12) to filter books by publication date month.\npubdate_day : int | None\n    Optional day (1-31) to filter books by publication date day.\nrequested_library_id : int | None\n    Optional explicit library ID to fetch books from.\n\nReturns\n-------\nBookListResponse\n    Paginated list of books.\n\nRaises\n------\nHTTPException\n    If no active library is configured (404), permission denied (403),\n    or requested library not accessible (403).",
         "operationId": "list_books_books_get",
         "parameters": [
           {
@@ -3038,6 +3270,24 @@
               "title": "Include"
             },
             "description": "Comma-separated list of optional includes (e.g., 'reading_summary')"
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional library ID to list books from a specific library",
+              "title": "Library Id"
+            },
+            "description": "Optional library ID to list books from a specific library"
           }
         ],
         "responses": {
@@ -3070,7 +3320,7 @@
           "books"
         ],
         "summary": "Get Book",
-        "description": "Get a book by ID.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nbook_id : int\n    Calibre book ID.\nbook_service : BookServiceDep\n    Book service instance.\npermission_helper : PermissionHelperDep\n    Permission helper instance.\nresponse_builder : ResponseBuilderDep\n    Response builder instance.\nfull : bool\n    If True, return full book details with all metadata (default: False).\n\nReturns\n-------\nBookRead\n    Book data.\n\nRaises\n------\nHTTPException\n    If book not found (404), no active library (404), or permission denied (403).",
+        "description": "Get a book by ID.\n\nWhen *requested_library_id* is supplied (via ``?library_id=``), the\nendpoint validates that the current user has access to that library\nand looks the book up there instead of in the user's active library.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\ncurrent_user : OptionalUserDep\n    Optionally-resolved authenticated user.\nbook_id : int\n    Calibre book ID.\nbook_service : BookServiceDep\n    Book service instance (active library).\npermission_helper : PermissionHelperDep\n    Permission helper instance.\nresponse_builder : ResponseBuilderDep\n    Response builder instance.\nlibrary_id : ActiveLibraryIdDep\n    Active library ID (resolved automatically).\nfull : bool\n    If True, return full book details with all metadata (default: False).\nrequested_library_id : int | None\n    Optional explicit library ID to fetch the book from.\n\nReturns\n-------\nBookRead\n    Book data.\n\nRaises\n------\nHTTPException\n    If book not found (404), no active library (404), permission denied (403),\n    or requested library not accessible (403).",
         "operationId": "get_book_books__book_id__get",
         "parameters": [
           {
@@ -3109,6 +3359,24 @@
               "title": "Include"
             },
             "description": "Comma-separated list of optional includes (e.g., 'reading_summary')"
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional library ID to fetch book from a specific library",
+              "title": "Library Id"
+            },
+            "description": "Optional library ID to fetch book from a specific library"
           }
         ],
         "responses": {
@@ -3150,6 +3418,24 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "requestBody": {
@@ -3201,6 +3487,24 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "requestBody": {
@@ -3247,6 +3551,24 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -3286,6 +3608,24 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "requestBody": {
@@ -3348,6 +3688,24 @@
               "type": "string",
               "title": "File Format"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -3398,6 +3756,24 @@
               "type": "string",
               "title": "Format"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -3724,6 +4100,24 @@
               "default": 20,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -3767,6 +4161,24 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "requestBody": {
@@ -3861,6 +4273,24 @@
               "type": "string",
               "title": "Q"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -3923,6 +4353,24 @@
               "default": 10,
               "title": "Limit"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -3968,6 +4416,24 @@
               "title": "Names"
             },
             "description": "Comma-separated list of tag names to lookup"
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -4000,7 +4466,7 @@
           "books"
         ],
         "summary": "Filter Books",
-        "description": "Filter books with multiple criteria using OR conditions.\n\nEach filter type uses OR conditions (e.g., multiple authors = OR).\nDifferent filter types are combined with AND conditions.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\nfilter_request : BookFilterRequest\n    Filter criteria.\npage : int\n    Page number (1-indexed, default: 1).\npage_size : int\n    Number of items per page (default: 20, max: 100).\nsort_by : str\n    Field to sort by: 'timestamp', 'pubdate', 'title', 'author_sort',\n    'series_index' (default: 'timestamp').\nsort_order : str\n    Sort order: 'asc' or 'desc' (default: 'desc').\nfull : bool\n    If True, return full book details with all metadata (default: False).\n\nReturns\n-------\nBookListResponse\n    Paginated list of filtered books.\n\nRaises\n------\nHTTPException\n    If no active library is configured (404) or permission denied (403).",
+        "description": "Filter books with multiple criteria using OR conditions.\n\nEach filter type uses OR conditions (e.g., multiple authors = OR).\nDifferent filter types are combined with AND conditions.\n\nWhen *requested_library_id* is supplied (via ``?library_id=``), the\nendpoint validates that the current user has access to that library\nand returns filtered books from it instead of the user's active library.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\nfilter_request : BookFilterRequest\n    Filter criteria.\npage : int\n    Page number (1-indexed, default: 1).\npage_size : int\n    Number of items per page (default: 20, max: 100).\nsort_by : str\n    Field to sort by: 'timestamp', 'pubdate', 'title', 'author_sort',\n    'series_index' (default: 'timestamp').\nsort_order : str\n    Sort order: 'asc' or 'desc' (default: 'desc').\nfull : bool\n    If True, return full book details with all metadata (default: False).\nrequested_library_id : int | None\n    Optional explicit library ID to filter books from.\n\nReturns\n-------\nBookListResponse\n    Paginated list of filtered books.\n\nRaises\n------\nHTTPException\n    If no active library is configured (404) or permission denied (403).",
         "operationId": "filter_books_books_filter_post",
         "parameters": [
           {
@@ -4070,6 +4536,24 @@
               "title": "Include"
             },
             "description": "Comma-separated list of optional includes (e.g., 'reading_summary')"
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional library ID to filter books from a specific library",
+              "title": "Library Id"
+            },
+            "description": "Optional library ID to filter books from a specific library"
           }
         ],
         "requestBody": {
@@ -4175,6 +4659,24 @@
               "default": false,
               "title": "Replace"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "requestBody": {
@@ -4237,6 +4739,24 @@
               "type": "string",
               "title": "File Format"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -4289,6 +4809,24 @@
               "type": "string",
               "title": "File Format"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -4314,7 +4852,7 @@
           "books"
         ],
         "summary": "Upload Books Batch",
-        "description": "Upload multiple book files to the active library (asynchronous).\n\nAccepts multiple book files, saves them temporarily, and creates a\nbackground task to add them to the Calibre database. Returns the task ID\nfor tracking.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nfiles : list[UploadFile]\n    List of book files to upload.\n\nReturns\n-------\nBookBatchUploadResponse\n    Response containing the task ID and total file count.\n\nRaises\n------\nHTTPException\n    If no active library is configured (404), files are invalid (400),\n    permission denied (403), or task runner unavailable (503).",
+        "description": "Upload multiple book files to the active library (asynchronous).\n\nAccepts multiple book files, saves them temporarily, and creates a\nbackground task to add them to the Calibre database. Returns the task ID\nfor tracking.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nlibrary_id : ActiveLibraryIdDep\n    Active library ID (resolved automatically).\nfiles : list[UploadFile]\n    List of book files to upload.\n\nReturns\n-------\nBookBatchUploadResponse\n    Response containing the task ID and total file count.\n\nRaises\n------\nHTTPException\n    If no active library is configured (404), files are invalid (400),\n    permission denied (403), or task runner unavailable (503).",
         "operationId": "upload_books_batch_books_upload_batch_post",
         "requestBody": {
           "content": {
@@ -4444,7 +4982,7 @@
           "comic"
         ],
         "summary": "List Comic Pages",
-        "description": "List all pages in a comic book archive.\n\nParameters\n----------\nbook_id : int\n    Book ID.\nfile_format : str\n    Comic format (CBZ, CBR, CB7, CBC).\nsession : Session\n    Database session.\ncurrent_user : User\n    Current authenticated user.\n\nReturns\n-------\nlist[dict]\n    List of page information dictionaries.\n\nRaises\n------\nHTTPException\n    If book not found, format not found, or permission denied.",
+        "description": "List all pages in a comic book archive.\n\nParameters\n----------\nbook_id : int\n    Book ID.\nfile_format : str\n    Comic format (CBZ, CBR, CB7, CBC).\nsession : Session\n    Database session.\ncurrent_user : User\n    Current authenticated user.\nlibrary_id : int | None\n    Optional library ID override.\n\nReturns\n-------\nlist[dict]\n    List of page information dictionaries.\n\nRaises\n------\nHTTPException\n    If book not found, format not found, or permission denied.",
         "operationId": "list_comic_pages_comic__book_id__pages_get",
         "parameters": [
           {
@@ -4478,6 +5016,24 @@
               "title": "Include Dimensions"
             },
             "description": "If true, compute and return image width/height for each page"
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -4515,7 +5071,7 @@
           "comic"
         ],
         "summary": "Get Comic Page",
-        "description": "Get a specific page image from a comic book archive.\n\nParameters\n----------\nbook_id : int\n    Book ID.\npage_number : int\n    Page number (1-based).\nfile_format : str\n    Comic format (CBZ, CBR, CB7, CBC).\nthumbnail : bool\n    Whether to return thumbnail.\nmax_width : int | None\n    Maximum width for thumbnail.\nsession : Session\n    Database session.\ncurrent_user : User\n    Current authenticated user.\n\nReturns\n-------\nResponse\n    Image response with appropriate content type.\n\nRaises\n------\nHTTPException\n    If book not found, format not found, page not found, or permission denied.",
+        "description": "Get a specific page image from a comic book archive.\n\nParameters\n----------\nbook_id : int\n    Book ID.\npage_number : int\n    Page number (1-based).\nfile_format : str\n    Comic format (CBZ, CBR, CB7, CBC).\nthumbnail : bool\n    Whether to return thumbnail.\nmax_width : int | None\n    Maximum width for thumbnail.\nsession : Session\n    Database session.\ncurrent_user : User\n    Current authenticated user.\nlibrary_id : int | None\n    Optional library ID override.\n\nReturns\n-------\nResponse\n    Image response with appropriate content type.\n\nRaises\n------\nHTTPException\n    If book not found, format not found, page not found, or permission denied.",
         "operationId": "get_comic_page_comic__book_id__pages__page_number__get",
         "parameters": [
           {
@@ -4576,6 +5132,24 @@
               "title": "Max Width"
             },
             "description": "Maximum width for thumbnail (pixels)"
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -4606,7 +5180,7 @@
           "comic"
         ],
         "summary": "Get Comic Page Thumbnail",
-        "description": "Get a thumbnail of a specific page.\n\nConvenience endpoint that calls get_comic_page with thumbnail=True.\n\nParameters\n----------\nbook_id : int\n    Book ID.\npage_number : int\n    Page number (1-based).\nfile_format : str\n    Comic format (CBZ, CBR, CB7, CBC).\nmax_width : int\n    Maximum width for thumbnail.\nsession : Session\n    Database session.\ncurrent_user : User\n    Current authenticated user.\n\nReturns\n-------\nResponse\n    Thumbnail image response.",
+        "description": "Get a thumbnail of a specific page.\n\nConvenience endpoint that calls get_comic_page with thumbnail=True.\n\nParameters\n----------\nbook_id : int\n    Book ID.\npage_number : int\n    Page number (1-based).\nfile_format : str\n    Comic format (CBZ, CBR, CB7, CBC).\nmax_width : int\n    Maximum width for thumbnail.\nsession : Session\n    Database session.\ncurrent_user : User\n    Current authenticated user.\nlibrary_id : int | None\n    Optional library ID override.\n\nReturns\n-------\nResponse\n    Thumbnail image response.",
         "operationId": "get_comic_page_thumbnail_comic__book_id__pages__page_number__thumbnail_get",
         "parameters": [
           {
@@ -4649,6 +5223,24 @@
               "title": "Max Width"
             },
             "description": "Maximum width for thumbnail (pixels)"
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -5411,17 +6003,47 @@
         "summary": "Import Pending Downloads",
         "description": "Trigger import of pending completed downloads.\n\nReturns\n-------\ndict[str, int]\n    Number of imported items.",
         "operationId": "import_pending_downloads_downloads_import_pending_post",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Target library for import (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Target library for import (defaults to active library)"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "object",
                   "additionalProperties": {
                     "type": "integer"
                   },
-                  "type": "object",
                   "title": "Response Import Pending Downloads Downloads Import Pending Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -5446,6 +6068,24 @@
               "type": "integer",
               "title": "Item Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Target library for import (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Target library for import (defaults to active library)"
           }
         ],
         "responses": {
@@ -6725,6 +7365,128 @@
         }
       }
     },
+    "/libraries/me": {
+      "get": {
+        "tags": [
+          "libraries"
+        ],
+        "summary": "List My Libraries",
+        "description": "List the current user's library assignments.\n\nReturns all libraries assigned to the authenticated user with their\nvisibility and active status.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Authenticated user.\n\nReturns\n-------\nlist[UserLibraryRead]\n    The user's library assignments.",
+        "operationId": "list_my_libraries_libraries_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserLibraryRead"
+                  },
+                  "type": "array",
+                  "title": "Response List My Libraries Libraries Me Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/libraries/me/{library_id}/active": {
+      "put": {
+        "tags": [
+          "libraries"
+        ],
+        "summary": "Set My Active Library",
+        "description": "Set the active library for the current user.\n\nParameters\n----------\nlibrary_id : int\n    Library to activate.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Authenticated user.\n\nReturns\n-------\nUserLibraryRead\n    The updated association.\n\nRaises\n------\nHTTPException\n    404 if the assignment does not exist.",
+        "operationId": "set_my_active_library_libraries_me__library_id__active_put",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Library Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserLibraryRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/libraries/me/{library_id}/visibility": {
+      "put": {
+        "tags": [
+          "libraries"
+        ],
+        "summary": "Set My Library Visibility",
+        "description": "Update visibility of a library for the current user.\n\nParameters\n----------\nlibrary_id : int\n    Library to update.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Authenticated user.\nis_visible : bool\n    Whether the library should be visible (default: True).\n\nReturns\n-------\nUserLibraryRead\n    The updated association.\n\nRaises\n------\nHTTPException\n    404 if the assignment does not exist.",
+        "operationId": "set_my_library_visibility_libraries_me__library_id__visibility_put",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Library Id"
+            }
+          },
+          {
+            "name": "is_visible",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Is Visible"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserLibraryRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/library-scanning/scan": {
       "post": {
         "tags": [
@@ -7838,9 +8600,39 @@
         "summary": "Feed Index",
         "description": "Return the root OPDS catalog feed with navigation links.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user.\n\nReturns\n-------\nResponse\n    OPDS XML feed.",
         "operationId": "feed_index_opds__get",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -7876,6 +8668,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -7926,6 +8736,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -7965,6 +8793,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -8047,6 +8893,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -8127,6 +8991,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -8154,9 +9036,39 @@
         "summary": "Feed Osd",
         "description": "OpenSearch description XML.\n\nReturns OpenSearch description document for OPDS search.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user.\n\nReturns\n-------\nResponse\n    OpenSearch description XML.",
         "operationId": "feed_osd_opds_osd_get",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -8201,6 +9113,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -8260,6 +9190,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -8310,6 +9258,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -8335,7 +9301,7 @@
           "opds"
         ],
         "summary": "Opds Download",
-        "description": "Download book file via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for download).\nbook_id : int\n    Book ID.\nbook_format : str\n    File format (e.g., 'EPUB', 'PDF').\n\nReturns\n-------\nResponse\n    Book file or error response.",
+        "description": "Download book file via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for download).\nbook_id : int\n    Book ID.\nbook_format : str\n    File format (e.g., 'EPUB', 'PDF').\nlibrary_id : int | None\n    Optional library ID override.\n\nReturns\n-------\nResponse\n    Book file or error response.",
         "operationId": "opds_download_opds_download__book_id___book_format__head",
         "parameters": [
           {
@@ -8355,6 +9321,24 @@
               "type": "string",
               "title": "Book Format"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -8378,7 +9362,7 @@
           "opds"
         ],
         "summary": "Opds Download",
-        "description": "Download book file via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for download).\nbook_id : int\n    Book ID.\nbook_format : str\n    File format (e.g., 'EPUB', 'PDF').\n\nReturns\n-------\nResponse\n    Book file or error response.",
+        "description": "Download book file via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for download).\nbook_id : int\n    Book ID.\nbook_format : str\n    File format (e.g., 'EPUB', 'PDF').\nlibrary_id : int | None\n    Optional library ID override.\n\nReturns\n-------\nResponse\n    Book file or error response.",
         "operationId": "opds_download_opds_download__book_id___book_format__head",
         "parameters": [
           {
@@ -8398,6 +9382,24 @@
               "type": "string",
               "title": "Book Format"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -8423,7 +9425,7 @@
           "opds"
         ],
         "summary": "Opds Cover",
-        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
+        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\nlibrary_id : int | None\n    Optional library ID override.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
         "operationId": "opds_cover_opds_thumb_240_240__book_id__head",
         "parameters": [
           {
@@ -8434,6 +9436,24 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -8457,7 +9477,7 @@
           "opds"
         ],
         "summary": "Opds Cover",
-        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
+        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\nlibrary_id : int | None\n    Optional library ID override.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
         "operationId": "opds_cover_opds_thumb_240_240__book_id__head",
         "parameters": [
           {
@@ -8468,6 +9488,24 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -8493,7 +9531,7 @@
           "opds"
         ],
         "summary": "Opds Cover",
-        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
+        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\nlibrary_id : int | None\n    Optional library ID override.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
         "operationId": "opds_cover_opds_cover_240_240__book_id__head",
         "parameters": [
           {
@@ -8504,6 +9542,24 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -8527,7 +9583,7 @@
           "opds"
         ],
         "summary": "Opds Cover",
-        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
+        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\nlibrary_id : int | None\n    Optional library ID override.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
         "operationId": "opds_cover_opds_cover_240_240__book_id__head",
         "parameters": [
           {
@@ -8538,6 +9594,24 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -8563,7 +9637,7 @@
           "opds"
         ],
         "summary": "Opds Cover",
-        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
+        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\nlibrary_id : int | None\n    Optional library ID override.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
         "operationId": "opds_cover_opds_cover_90_90__book_id__head",
         "parameters": [
           {
@@ -8574,6 +9648,24 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -8597,7 +9689,7 @@
           "opds"
         ],
         "summary": "Opds Cover",
-        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
+        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\nlibrary_id : int | None\n    Optional library ID override.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
         "operationId": "opds_cover_opds_cover_90_90__book_id__head",
         "parameters": [
           {
@@ -8608,6 +9700,24 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -8633,7 +9743,7 @@
           "opds"
         ],
         "summary": "Opds Cover",
-        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
+        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\nlibrary_id : int | None\n    Optional library ID override.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
         "operationId": "opds_cover_opds_cover__book_id__head",
         "parameters": [
           {
@@ -8644,6 +9754,24 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -8667,7 +9795,7 @@
           "opds"
         ],
         "summary": "Opds Cover",
-        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
+        "description": "Get book cover image via OPDS.\n\nParameters\n----------\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required for book access).\nbook_id : int\n    Book ID.\nlibrary_id : int | None\n    Optional library ID override.\n\nReturns\n-------\nResponse\n    Cover image file or 404 response.",
         "operationId": "opds_cover_opds_cover__book_id__head",
         "parameters": [
           {
@@ -8678,6 +9806,24 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library this book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library this book belongs to"
           }
         ],
         "responses": {
@@ -8743,6 +9889,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -8802,6 +9966,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -8861,6 +10043,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -8888,9 +10088,39 @@
         "summary": "Feed Publisher Index",
         "description": "Return publisher index feed.\n\nReturns list of publishers for browsing.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user.\noffset : int\n    Pagination offset.\npage_size : int\n    Number of items per page.\n\nReturns\n-------\nResponse\n    OPDS XML feed.",
         "operationId": "feed_publisher_index_opds_publisher_get",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -8935,6 +10165,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -8962,9 +10210,39 @@
         "summary": "Feed Category Index",
         "description": "Category/Tag index feed.\n\nReturns list of tags/categories for browsing.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user.\noffset : int\n    Pagination offset.\npage_size : int\n    Number of items per page.\n\nReturns\n-------\nResponse\n    OPDS XML feed.",
         "operationId": "feed_category_index_opds_category_get",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -8986,6 +10264,24 @@
               "type": "string",
               "title": "Letter"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -9045,6 +10341,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -9072,9 +10386,39 @@
         "summary": "Feed Series Index",
         "description": "Series index feed.\n\nReturns list of series for browsing.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user.\noffset : int\n    Pagination offset.\npage_size : int\n    Number of items per page.\n\nReturns\n-------\nResponse\n    OPDS XML feed.",
         "operationId": "feed_series_index_opds_series_get",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -9096,6 +10440,24 @@
               "type": "string",
               "title": "Letter"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -9155,6 +10517,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -9182,9 +10562,39 @@
         "summary": "Feed Rating Index",
         "description": "Rating index feed.\n\nReturns list of ratings for browsing.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user.\noffset : int\n    Pagination offset.\npage_size : int\n    Number of items per page.\n\nReturns\n-------\nResponse\n    OPDS XML feed.",
         "operationId": "feed_rating_index_opds_ratings_get",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -9229,6 +10639,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -9256,9 +10684,39 @@
         "summary": "Feed Format Index",
         "description": "Format index feed.\n\nReturns list of available formats for browsing.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user.\noffset : int\n    Pagination offset.\npage_size : int\n    Number of items per page.\n\nReturns\n-------\nResponse\n    OPDS XML feed.",
         "operationId": "feed_format_index_opds_formats_get",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -9303,6 +10761,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -9330,9 +10806,39 @@
         "summary": "Feed Language Index",
         "description": "Language index feed.\n\nReturns list of languages for browsing.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user.\noffset : int\n    Pagination offset.\npage_size : int\n    Number of items per page.\n\nReturns\n-------\nResponse\n    OPDS XML feed.",
         "operationId": "feed_language_index_opds_language_get",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -9377,6 +10883,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -9404,9 +10928,39 @@
         "summary": "Feed Shelf Index",
         "description": "Shelf index feed.\n\nReturns list of shelves for browsing.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user.\noffset : int\n    Pagination offset.\npage_size : int\n    Number of items per page.\n\nReturns\n-------\nResponse\n    OPDS XML feed.",
         "operationId": "feed_shelf_index_opds_shelfindex_get",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -9428,6 +10982,24 @@
               "type": "integer",
               "title": "Shelf Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -9478,6 +11050,24 @@
               "default": 50,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
           }
         ],
         "responses": {
@@ -9503,11 +11093,41 @@
           "opds"
         ],
         "summary": "Feed Read Books",
-        "description": "Read books feed.\n\nReturns books marked as read by the user.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required).\noffset : int\n    Pagination offset.\npage_size : int\n    Number of items per page.\n\nReturns\n-------\nResponse\n    OPDS XML feed.",
+        "description": "Read books feed.\n\nReturns books marked as read by the user.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required).\n\nReturns\n-------\nResponse\n    OPDS XML feed.",
         "operationId": "feed_read_books_opds_readbooks_get",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -9518,11 +11138,41 @@
           "opds"
         ],
         "summary": "Feed Unread Books",
-        "description": "Unread books feed.\n\nReturns books not yet read by the user.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required).\noffset : int\n    Pagination offset.\npage_size : int\n    Number of items per page.\n\nReturns\n-------\nResponse\n    OPDS XML feed.",
+        "description": "Unread books feed.\n\nReturns books not yet read by the user.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nsession : SessionDep\n    Database session.\nopds_user : User | None\n    Authenticated user (required).\n\nReturns\n-------\nResponse\n    OPDS XML feed.",
         "operationId": "feed_unread_books_opds_unreadbooks_get",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Library to browse (defaults to active library)",
+              "title": "Library Id"
+            },
+            "description": "Library to browse (defaults to active library)"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -10483,26 +12133,6 @@
       }
     },
     "/shelves": {
-      "get": {
-        "tags": [
-          "shelves"
-        ],
-        "summary": "List Shelves",
-        "description": "List shelves accessible to the current user.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nlibrary_id : ActiveLibraryIdDep\n    Active library ID dependency.\n\nReturns\n-------\nShelfListResponse\n    List of shelves with total count.\n\nRaises\n------\nHTTPException\n    If permission denied (403).",
-        "operationId": "list_shelves_shelves_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ShelfListResponse"
-                }
-              }
-            }
-          }
-        }
-      },
       "post": {
         "tags": [
           "shelves"
@@ -10511,14 +12141,14 @@
         "description": "Create a new shelf.\n\nParameters\n----------\nshelf_data : ShelfCreate\n    Shelf creation data.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nlibrary_id : ActiveLibraryIdDep\n    Active library ID dependency.\n\nReturns\n-------\nShelfRead\n    Created shelf data.\n\nRaises\n------\nHTTPException\n    If shelf name already exists or permission denied (403).",
         "operationId": "create_shelf_shelves_post",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ShelfCreate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -10542,6 +12172,56 @@
             }
           }
         }
+      },
+      "get": {
+        "tags": [
+          "shelves"
+        ],
+        "summary": "List Shelves",
+        "description": "List shelves accessible to the current user.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nvisible_library_ids : VisibleLibraryIdsDep\n    Library IDs visible to the current user.\nlibrary_id : int | None\n    Optional library ID to filter shelves by.\n\nReturns\n-------\nShelfListResponse\n    List of shelves with total count.\n\nRaises\n------\nHTTPException\n    If permission denied (403).",
+        "operationId": "list_shelves_shelves_get",
+        "parameters": [
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by a single library ID",
+              "title": "Library Id"
+            },
+            "description": "Filter by a single library ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShelfListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/shelves/{shelf_id}": {
@@ -10550,7 +12230,7 @@
           "shelves"
         ],
         "summary": "Get Shelf",
-        "description": "Get a shelf by ID.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nlibrary_id : ActiveLibraryIdDep\n    Active library ID dependency.\n\nReturns\n-------\nShelfRead\n    Shelf data.\n\nRaises\n------\nHTTPException\n    If shelf not found, user cannot view it, or permission denied (403).",
+        "description": "Get a shelf by ID.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nvisible_library_ids : VisibleLibraryIdsDep\n    Library IDs visible to the current user.\n\nReturns\n-------\nShelfRead\n    Shelf data.\n\nRaises\n------\nHTTPException\n    If shelf not found, user cannot view it, or permission denied (403).",
         "operationId": "get_shelf_shelves__shelf_id__get",
         "parameters": [
           {
@@ -10591,7 +12271,7 @@
           "shelves"
         ],
         "summary": "Update Shelf",
-        "description": "Update a shelf.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID to update.\nshelf_data : ShelfUpdate\n    Shelf update data.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nlibrary_id : ActiveLibraryIdDep\n    Active library ID dependency.\n\nReturns\n-------\nShelfRead\n    Updated shelf data.\n\nRaises\n------\nHTTPException\n    If shelf not found, permission denied, or name conflict.",
+        "description": "Update a shelf.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID to update.\nshelf_data : ShelfUpdate\n    Shelf update data.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nvisible_library_ids : VisibleLibraryIdsDep\n    Library IDs visible to the current user.\n\nReturns\n-------\nShelfRead\n    Updated shelf data.\n\nRaises\n------\nHTTPException\n    If shelf not found, permission denied, or name conflict.",
         "operationId": "update_shelf_shelves__shelf_id__patch",
         "parameters": [
           {
@@ -10642,7 +12322,7 @@
           "shelves"
         ],
         "summary": "Delete Shelf",
-        "description": "Delete a shelf.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID to delete.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nlibrary_id : ActiveLibraryIdDep\n    Active library ID dependency.\n\nRaises\n------\nHTTPException\n    If shelf not found or permission denied.",
+        "description": "Delete a shelf.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID to delete.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nvisible_library_ids : VisibleLibraryIdsDep\n    Library IDs visible to the current user.\n\nRaises\n------\nHTTPException\n    If shelf not found or permission denied.",
         "operationId": "delete_shelf_shelves__shelf_id__delete",
         "parameters": [
           {
@@ -10678,7 +12358,7 @@
           "shelves"
         ],
         "summary": "Add Book To Shelf",
-        "description": "Add a book to a shelf.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID.\nbook_id : int\n    Calibre book ID.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\n\nRaises\n------\nHTTPException\n    If shelf not found, permission denied, or book already in shelf.",
+        "description": "Add a book to a shelf.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID.\nbook_id : int\n    Calibre book ID.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nvisible_library_ids : VisibleLibraryIdsDep\n    Library IDs visible to the current user.\nlibrary_id : int\n    Library the book belongs to.\n\nRaises\n------\nHTTPException\n    If shelf not found, permission denied, or book already in shelf.",
         "operationId": "add_book_to_shelf_shelves__shelf_id__books__book_id__post",
         "parameters": [
           {
@@ -10698,6 +12378,17 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "Library the book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library the book belongs to"
           }
         ],
         "responses": {
@@ -10721,7 +12412,7 @@
           "shelves"
         ],
         "summary": "Remove Book From Shelf",
-        "description": "Remove a book from a shelf.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID.\nbook_id : int\n    Calibre book ID.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\n\nRaises\n------\nHTTPException\n    If shelf not found, permission denied, or book not in shelf.",
+        "description": "Remove a book from a shelf.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID.\nbook_id : int\n    Calibre book ID.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nvisible_library_ids : VisibleLibraryIdsDep\n    Library IDs visible to the current user.\nlibrary_id : int\n    Library the book belongs to.\n\nRaises\n------\nHTTPException\n    If shelf not found, permission denied, or book not in shelf.",
         "operationId": "remove_book_from_shelf_shelves__shelf_id__books__book_id__delete",
         "parameters": [
           {
@@ -10741,6 +12432,17 @@
               "type": "integer",
               "title": "Book Id"
             }
+          },
+          {
+            "name": "library_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "Library the book belongs to",
+              "title": "Library Id"
+            },
+            "description": "Library the book belongs to"
           }
         ],
         "responses": {
@@ -10766,7 +12468,7 @@
           "shelves"
         ],
         "summary": "Reorder Shelf Books",
-        "description": "Reorder books in a shelf.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID.\nreorder_data : ShelfReorderRequest\n    Book order mapping.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\n\nRaises\n------\nHTTPException\n    If shelf not found or permission denied.",
+        "description": "Reorder books in a shelf.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID.\nreorder_data : ShelfReorderRequest\n    Book order mapping.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nvisible_library_ids : VisibleLibraryIdsDep\n    Library IDs visible to the current user.\n\nRaises\n------\nHTTPException\n    If shelf not found or permission denied.",
         "operationId": "reorder_shelf_books_shelves__shelf_id__books_reorder_post",
         "parameters": [
           {
@@ -10812,7 +12514,7 @@
           "shelves"
         ],
         "summary": "Get Shelf Books",
-        "description": "List book IDs in a shelf with pagination and sorting.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\npage : int\n    Page number (1-indexed).\npage_size : int\n    Number of items per page.\nsort_by : str\n    Sort field: 'order', 'date_added', or 'book_id'.\nsort_order : str\n    Sort order: 'asc' or 'desc'.\n\nReturns\n-------\nlist[int]\n    List of book IDs in the shelf.\n\nRaises\n------\nHTTPException\n    If shelf not found or user cannot view it.",
+        "description": "List books in a shelf with pagination and sorting.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nmagic_shelf_service : MagicShelfServiceDep\n    Magic Shelf service dependency.\nvisible_library_ids : VisibleLibraryIdsDep\n    Library IDs visible to the current user.\npage : int\n    Page number (1-indexed).\npage_size : int\n    Number of items per page.\nsort_by : str\n    Sort field: 'order', 'date_added', 'book_id', or 'random'.\nsort_order : str\n    Sort order: 'asc' or 'desc'.\n\nReturns\n-------\nlist[ShelfBookRef]\n    List of book references in the shelf.\n\nRaises\n------\nHTTPException\n    If shelf not found or user cannot view it.",
         "operationId": "get_shelf_books_shelves__shelf_id__books_get",
         "parameters": [
           {
@@ -10857,11 +12559,11 @@
             "required": false,
             "schema": {
               "type": "string",
-              "description": "Sort field: 'order', 'date_added', 'book_id'",
+              "description": "Sort field: 'order', 'date_added', 'book_id', 'random'",
               "default": "order",
               "title": "Sort By"
             },
-            "description": "Sort field: 'order', 'date_added', 'book_id'"
+            "description": "Sort field: 'order', 'date_added', 'book_id', 'random'"
           },
           {
             "name": "sort_order",
@@ -10884,7 +12586,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "integer"
+                    "$ref": "#/components/schemas/ShelfBookRef"
                   },
                   "title": "Response Get Shelf Books Shelves  Shelf Id  Books Get"
                 }
@@ -10910,7 +12612,7 @@
           "shelves"
         ],
         "summary": "Upload Shelf Cover Picture",
-        "description": "Upload a shelf's cover picture.\n\nAccepts an image file and saves it to {data_directory}/shelves/{shelf_id}/{filename}.\nReplaces any existing cover picture.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nshelf_id : int\n    Shelf identifier.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nlibrary_id : ActiveLibraryIdDep\n    Active library ID dependency.\nfile : UploadFile\n    Image file to upload (JPEG, PNG, GIF, WebP, or SVG).\n\nReturns\n-------\nShelfRead\n    Updated shelf data.\n\nRaises\n------\nHTTPException\n    If shelf not found (404), permission denied (403), invalid file type (400),\n    or file save fails (500).",
+        "description": "Upload a shelf's cover picture.\n\nAccepts an image file and saves it to {data_directory}/shelves/{shelf_id}/{filename}.\nReplaces any existing cover picture.\n\nParameters\n----------\nshelf_id : int\n    Shelf identifier.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nvisible_library_ids : VisibleLibraryIdsDep\n    Library IDs visible to the current user.\nfile : UploadFile\n    Image file to upload (JPEG, PNG, GIF, WebP, or SVG).\n\nReturns\n-------\nShelfRead\n    Updated shelf data.\n\nRaises\n------\nHTTPException\n    If shelf not found (404), permission denied (403), invalid file type (400),\n    or file save fails (500).",
         "operationId": "upload_shelf_cover_picture_shelves__shelf_id__cover_picture_post",
         "parameters": [
           {
@@ -10961,7 +12663,7 @@
           "shelves"
         ],
         "summary": "Get Shelf Cover Picture",
-        "description": "Get a shelf's cover picture.\n\nServes the cover picture file if it exists. Public shelves can be viewed\nby anyone; private shelves can only be viewed by the owner.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nshelf_id : int\n    Shelf identifier.\nsession : SessionDep\n    Database session dependency.\nlibrary_id : ActiveLibraryIdDep\n    Active library ID dependency.\n\nReturns\n-------\nFileResponse | Response\n    Cover picture file or 404 if not found.",
+        "description": "Get a shelf's cover picture.\n\nServes the cover picture file if it exists. Public shelves can be viewed\nby anyone; private shelves can only be viewed by the owner.\n\nParameters\n----------\nrequest : Request\n    FastAPI request object.\nshelf_id : int\n    Shelf identifier.\nsession : SessionDep\n    Database session dependency.\nvisible_library_ids : VisibleLibraryIdsDep\n    Library IDs visible to the current user.\n\nReturns\n-------\nFileResponse | Response\n    Cover picture file or 404 if not found.",
         "operationId": "get_shelf_cover_picture_shelves__shelf_id__cover_picture_get",
         "parameters": [
           {
@@ -11000,7 +12702,7 @@
           "shelves"
         ],
         "summary": "Delete Shelf Cover Picture",
-        "description": "Delete a shelf's cover picture.\n\nRemoves the cover picture file and clears the shelf's cover_picture field.\n\nParameters\n----------\nshelf_id : int\n    Shelf identifier.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nlibrary_id : ActiveLibraryIdDep\n    Active library ID dependency.\n\nReturns\n-------\nShelfRead\n    Updated shelf data.\n\nRaises\n------\nHTTPException\n    If shelf not found (404) or permission denied (403).",
+        "description": "Delete a shelf's cover picture.\n\nRemoves the cover picture file and clears the shelf's cover_picture field.\n\nParameters\n----------\nshelf_id : int\n    Shelf identifier.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nvisible_library_ids : VisibleLibraryIdsDep\n    Library IDs visible to the current user.\n\nReturns\n-------\nShelfRead\n    Updated shelf data.\n\nRaises\n------\nHTTPException\n    If shelf not found (404) or permission denied (403).",
         "operationId": "delete_shelf_cover_picture_shelves__shelf_id__cover_picture_delete",
         "parameters": [
           {
@@ -11043,7 +12745,7 @@
           "shelves"
         ],
         "summary": "Import Read List",
-        "description": "Import a read list from a file into a shelf.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID to import into.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nlibrary_id : ActiveLibraryIdDep\n    Active library ID dependency.\nfile : UploadFile\n    Read list file to import (.cbl, etc.).\nimporter : str\n    Name of the importer to use (default: \"comicrack\").\nauto_match : bool\n    If True, automatically add matched books to shelf (default: False).\n\nReturns\n-------\nImportResultSchema\n    Import result with matched and unmatched books.\n\nRaises\n------\nHTTPException\n    If shelf not found, permission denied, or import fails.",
+        "description": "Import a read list from a file into a shelf.\n\nParameters\n----------\nshelf_id : int\n    Shelf ID to import into.\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nshelf_service : ShelfServiceDep\n    Shelf service dependency.\nvisible_library_ids : VisibleLibraryIdsDep\n    Library IDs visible to the current user.\nfile : UploadFile\n    Read list file to import (.cbl, etc.).\nimporter : str\n    Name of the importer to use (default: \"comicrack\").\nauto_match : bool\n    If True, automatically add matched books to shelf (default: False).\n\nReturns\n-------\nImportResultSchema\n    Import result with matched and unmatched books.\n\nRaises\n------\nHTTPException\n    If shelf not found, permission denied, or import fails.",
         "operationId": "import_read_list_shelves__shelf_id__import_post",
         "parameters": [
           {
@@ -11162,6 +12864,138 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TaskListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/count": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Count Tasks",
+        "description": "Count tasks matching optional filters.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nstatus : TaskStatus | None\n    Optional status filter.\ntask_type : TaskType | None\n    Optional task type filter.\n\nReturns\n-------\nTaskCountResponse\n    Count of matching tasks.\n\nRaises\n------\nHTTPException\n    If permission denied (403).",
+        "operationId": "count_tasks_tasks_count_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TaskStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "task_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TaskType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Task Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCountResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/bulk-cancel": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Bulk Cancel Tasks",
+        "description": "Cancel all tasks matching the given filters.\n\nOnly cancels tasks in PENDING or RUNNING state.\n\nParameters\n----------\nsession : SessionDep\n    Database session dependency.\ncurrent_user : CurrentUserDep\n    Current authenticated user.\nstatus : TaskStatus | None\n    Optional status filter (must be PENDING or RUNNING).\ntask_type : TaskType | None\n    Optional task type filter.\n\nReturns\n-------\nBulkCancelResponse\n    Number of tasks cancelled.\n\nRaises\n------\nHTTPException\n    If permission denied (403).",
+        "operationId": "bulk_cancel_tasks_tasks_bulk_cancel_post",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TaskStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "task_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TaskType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Task Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkCancelResponse"
                 }
               }
             }
@@ -13227,6 +15061,30 @@
             ],
             "title": "Tracking Id",
             "description": "ID of the tracked book record if this is a virtual book"
+          },
+          "library_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Library Id",
+            "description": "Library this book belongs to"
+          },
+          "library_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Library Name",
+            "description": "Name of the library this book belongs to"
           }
         },
         "type": "object",
@@ -13506,6 +15364,17 @@
             ],
             "title": "Series Index"
           },
+          "isbn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isbn"
+          },
           "tag_names": {
             "anyOf": [
               {
@@ -13645,7 +15514,7 @@
         },
         "type": "object",
         "title": "BookUpdate",
-        "description": "Book metadata update request.\n\nAttributes\n----------\ntitle : str | None\n    Book title to update.\npubdate : datetime | None\n    Publication date to update.\nauthor_names : list[str] | None\n    List of author names to set (replaces existing).\nseries_name : str | None\n    Series name to set (creates if doesn't exist).\nseries_id : int | None\n    Series ID to set (if provided, series_name is ignored).\nseries_index : float | None\n    Series index to update.\ntag_names : list[str] | None\n    List of tag names to set (replaces existing).\nidentifiers : list[dict[str, str]] | None\n    List of identifiers with 'type' and 'val' keys (replaces existing).\ndescription : str | None\n    Book description/comment to set.\npublisher_name : str | None\n    Publisher name to set (creates if doesn't exist).\npublisher_id : int | None\n    Publisher ID to set (if provided, publisher_name is ignored).\nlanguage_codes : list[str] | None\n    List of language codes to set (creates if doesn't exist). Replaces existing languages.\nlanguage_ids : list[int] | None\n    List of language IDs to set (if provided, language_codes is ignored). Replaces existing languages.\nrating_value : int | None\n    Rating value to set (creates if doesn't exist).\nrating_id : int | None\n    Rating ID to set (if provided, rating_value is ignored).\nauthor_sort : str | None\n    Author sort value to set.\ntitle_sort : str | None\n    Title sort value to set."
+        "description": "Book metadata update request.\n\nAttributes\n----------\ntitle : str | None\n    Book title to update.\npubdate : datetime | None\n    Publication date to update.\nauthor_names : list[str] | None\n    List of author names to set (replaces existing).\nseries_name : str | None\n    Series name to set (creates if doesn't exist).\nseries_id : int | None\n    Series ID to set (if provided, series_name is ignored).\nseries_index : float | None\n    Series index to update.\nisbn : str | None\n    ISBN identifier to set (first-class field).\ntag_names : list[str] | None\n    List of tag names to set (replaces existing).\nidentifiers : list[dict[str, str]] | None\n    List of identifiers with 'type' and 'val' keys (replaces existing).\ndescription : str | None\n    Book description/comment to set.\npublisher_name : str | None\n    Publisher name to set (creates if doesn't exist).\npublisher_id : int | None\n    Publisher ID to set (if provided, publisher_name is ignored).\nlanguage_codes : list[str] | None\n    List of language codes to set (creates if doesn't exist). Replaces existing languages.\nlanguage_ids : list[int] | None\n    List of language IDs to set (if provided, language_codes is ignored). Replaces existing languages.\nrating_value : int | None\n    Rating value to set (creates if doesn't exist).\nrating_id : int | None\n    Rating ID to set (if provided, rating_value is ignored).\nauthor_sort : str | None\n    Author sort value to set.\ntitle_sort : str | None\n    Title sort value to set."
       },
       "BookUploadResponse": {
         "properties": {
@@ -13678,6 +15547,25 @@
         "type": "object",
         "title": "BookUploadResponse",
         "description": "Response for book upload.\n\nAttributes\n----------\nbook_ids : list[int] | None\n    IDs of uploaded books. Single book upload returns [book_id], multi-book returns [book_id1, book_id2, ...].\ntask_id : int | None\n    ID of upload task (for asynchronous uploads)."
+      },
+      "BulkCancelResponse": {
+        "properties": {
+          "cancelled": {
+            "type": "integer",
+            "title": "Cancelled"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cancelled",
+          "message"
+        ],
+        "title": "BulkCancelResponse",
+        "description": "Response for bulk task cancellation.\n\nAttributes\n----------\ncancelled : int\n    Number of tasks cancelled.\nmessage : str\n    Status message."
       },
       "CoverFromUrlRequest": {
         "properties": {
@@ -17754,12 +19642,6 @@
             "title": "Auto Reconnect",
             "description": "Whether to automatically reconnect on errors",
             "default": true
-          },
-          "is_active": {
-            "type": "boolean",
-            "title": "Is Active",
-            "description": "Set as the active library",
-            "default": false
           }
         },
         "type": "object",
@@ -17859,10 +19741,6 @@
             "type": "string",
             "title": "Duplicate Handling"
           },
-          "is_active": {
-            "type": "boolean",
-            "title": "Is Active"
-          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -17887,7 +19765,6 @@
           "auto_convert_backup_originals",
           "epub_fixer_auto_fix_on_ingest",
           "duplicate_handling",
-          "is_active",
           "created_at",
           "updated_at"
         ],
@@ -18108,18 +19985,6 @@
             ],
             "title": "Duplicate Handling",
             "description": "Strategy for handling duplicate books during ingest: IGNORE, OVERWRITE, or CREATE_NEW"
-          },
-          "is_active": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Active",
-            "description": "Set as the active library"
           }
         },
         "type": "object",
@@ -20982,6 +22847,49 @@
         "title": "SettingsRead",
         "description": "Collection of user settings."
       },
+      "ShelfBookOrderItem": {
+        "properties": {
+          "book_id": {
+            "type": "integer",
+            "title": "Book Id"
+          },
+          "library_id": {
+            "type": "integer",
+            "title": "Library Id"
+          },
+          "order": {
+            "type": "integer",
+            "title": "Order"
+          }
+        },
+        "type": "object",
+        "required": [
+          "book_id",
+          "library_id",
+          "order"
+        ],
+        "title": "ShelfBookOrderItem",
+        "description": "A single book-order entry for reorder requests.\n\nAttributes\n----------\nbook_id : int\n    Calibre book ID.\nlibrary_id : int\n    Library the book belongs to.\norder : int\n    New display order value."
+      },
+      "ShelfBookRef": {
+        "properties": {
+          "book_id": {
+            "type": "integer",
+            "title": "Book Id"
+          },
+          "library_id": {
+            "type": "integer",
+            "title": "Library Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "book_id",
+          "library_id"
+        ],
+        "title": "ShelfBookRef",
+        "description": "Reference to a book within a shelf, including its library context.\n\nAttributes\n----------\nbook_id : int\n    Calibre book ID.\nlibrary_id : int\n    Library the book belongs to."
+      },
       "ShelfCreate": {
         "properties": {
           "name": {
@@ -21011,8 +22919,21 @@
           },
           "shelf_type": {
             "$ref": "#/components/schemas/ShelfTypeEnum",
-            "description": "Type of the shelf (SHELF or READ_LIST)",
+            "description": "Type of the shelf (SHELF, READ_LIST, or MAGIC_SHELF)",
             "default": "shelf"
+          },
+          "filter_rules": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter Rules",
+            "description": "Filter rules for Magic Shelves"
           }
         },
         "type": "object",
@@ -21091,6 +23012,19 @@
           "shelf_type": {
             "$ref": "#/components/schemas/ShelfTypeEnum"
           },
+          "filter_rules": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter Rules",
+            "description": "Filter rules for Magic Shelves"
+          },
           "read_list_metadata": {
             "anyOf": [
               {
@@ -21156,12 +23090,12 @@
       "ShelfReorderRequest": {
         "properties": {
           "book_orders": {
-            "additionalProperties": {
-              "type": "integer"
+            "items": {
+              "$ref": "#/components/schemas/ShelfBookOrderItem"
             },
-            "type": "object",
+            "type": "array",
             "title": "Book Orders",
-            "description": "Mapping of book_id to new order value"
+            "description": "List of book-order entries with book_id, library_id, and order"
           }
         },
         "type": "object",
@@ -21169,13 +23103,14 @@
           "book_orders"
         ],
         "title": "ShelfReorderRequest",
-        "description": "Request schema for reordering books in a shelf.\n\nAttributes\n----------\nbook_orders : dict[int, int]\n    Mapping of book_id to new order value."
+        "description": "Request schema for reordering books in a shelf.\n\nAttributes\n----------\nbook_orders : list[ShelfBookOrderItem]\n    List of book-order entries specifying the new order per (book_id, library_id)."
       },
       "ShelfTypeEnum": {
         "type": "string",
         "enum": [
           "shelf",
-          "read_list"
+          "read_list",
+          "magic_shelf"
         ],
         "title": "ShelfTypeEnum",
         "description": "Enumeration of shelf types."
@@ -21229,7 +23164,20 @@
                 "type": "null"
               }
             ],
-            "description": "Type of the shelf (SHELF or READ_LIST)"
+            "description": "Type of the shelf (SHELF, READ_LIST, or MAGIC_SHELF)"
+          },
+          "filter_rules": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter Rules",
+            "description": "New filter rules"
           }
         },
         "type": "object",
@@ -21287,6 +23235,20 @@
         ],
         "title": "TaskCancelResponse",
         "description": "Response for task cancellation.\n\nAttributes\n----------\nsuccess : bool\n    Whether cancellation was successful.\nmessage : str\n    Status message."
+      },
+      "TaskCountResponse": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "title": "TaskCountResponse",
+        "description": "Response for task count endpoint.\n\nAttributes\n----------\ncount : int\n    Number of tasks matching the filters."
       },
       "TaskListResponse": {
         "properties": {
@@ -22590,6 +24552,106 @@
         ],
         "title": "UserCreate",
         "description": "Payload to create a new user account."
+      },
+      "UserLibraryAssign": {
+        "properties": {
+          "library_id": {
+            "type": "integer",
+            "title": "Library Id",
+            "description": "Library to assign"
+          },
+          "is_visible": {
+            "type": "boolean",
+            "title": "Is Visible",
+            "description": "Whether the library is visible to the user",
+            "default": true
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "description": "Whether this is the user's active library for ingestion",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "library_id"
+        ],
+        "title": "UserLibraryAssign",
+        "description": "Payload to assign a library to a user."
+      },
+      "UserLibraryRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "library_id": {
+            "type": "integer",
+            "title": "Library Id"
+          },
+          "is_visible": {
+            "type": "boolean",
+            "title": "Is Visible"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "library_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Library Name",
+            "description": "Name of the associated library"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "library_id",
+          "is_visible",
+          "is_active",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "UserLibraryRead",
+        "description": "User-library association representation."
+      },
+      "UserLibraryVisibilityUpdate": {
+        "properties": {
+          "is_visible": {
+            "type": "boolean",
+            "title": "Is Visible",
+            "description": "Whether the library should be visible"
+          }
+        },
+        "type": "object",
+        "required": [
+          "is_visible"
+        ],
+        "title": "UserLibraryVisibilityUpdate",
+        "description": "Payload to update library visibility for a user."
       },
       "UserRead": {
         "properties": {
