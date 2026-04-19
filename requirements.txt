@@ -1709,9 +1709,9 @@ python-dotenv==1.2.1 \
     # via
     #   bookcard (pyproject.toml)
     #   uvicorn
-python-multipart==0.0.22 \
-    --hash=sha256:2b2cd894c83d21bf49d702499531c7bafd057d730c201782048f7945d82de155 \
-    --hash=sha256:7340bef99a7e0032613f56dc36027b959fd3b30a787ed62d310e951f7c3a3a58
+python-multipart==0.0.26 \
+    --hash=sha256:08fadc45918cd615e26846437f50c5d6d23304da32c341f289a617127b081f17 \
+    --hash=sha256:c0b169f8c4484c13b0dcf2ef0ec3a4adb255c4b7d18d8e420477d2b1dd03f185
     # via bookcard (pyproject.toml)
 python-xlib==0.33 ; sys_platform == 'linux' \
     --hash=sha256:55af7906a2c75ce6cb280a584776080602444f75815a7aff4d287bb2d7018b32 \
