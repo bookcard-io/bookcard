@@ -59,9 +59,17 @@ def _backfill_library_id(conn: sa.Connection, table_name: str) -> None:
     """Populate ``library_id`` from the user's active library assignment.
 
     Strategy:
-    1. Join through ``user_libraries`` on ``user_id`` where ``is_active = 1``.
+    1. Join through ``user_libraries`` on ``user_id`` where ``is_active`` is
+       TRUE.
     2. Fall back to the global ``libraries.is_active`` flag for any remaining
        NULL rows (users without a ``UserLibrary`` assignment).
+
+    Notes
+    -----
+    ``is_active`` is a ``BOOLEAN`` column.  PostgreSQL strictly forbids
+    ``boolean = integer`` comparisons, so the literal ``TRUE`` is used rather
+    than ``1``.  ``TRUE``/``FALSE`` are also understood by SQLite (>= 3.23),
+    keeping the migration dialect-portable.
     """
     # Step 1: per-user active library
     conn.execute(
@@ -71,7 +79,7 @@ def _backfill_library_id(conn: sa.Connection, table_name: str) -> None:
                 SELECT ul.library_id
                 FROM user_libraries ul
                 WHERE ul.user_id = {table_name}.user_id
-                  AND ul.is_active = 1
+                  AND ul.is_active = TRUE
                 LIMIT 1
             )
             WHERE library_id IS NULL
@@ -85,7 +93,7 @@ def _backfill_library_id(conn: sa.Connection, table_name: str) -> None:
             SET library_id = (
                 SELECT l.id
                 FROM libraries l
-                WHERE l.is_active = 1
+                WHERE l.is_active = TRUE
                 LIMIT 1
             )
             WHERE library_id IS NULL

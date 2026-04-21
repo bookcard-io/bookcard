@@ -27,6 +27,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision: str = "c4f8b2e1a367"
@@ -41,17 +42,50 @@ TABLES = [
     "epub_fix_runs",
 ]
 
-# Old FK constraint names (may vary per DB; use naming convention if known)
-OLD_FK_NAMES = {
-    "book_conversions": "fk_book_conversions_library_id_libraries",
-    "metadata_enforcement_operations": None,  # implicit FK, no named constraint
-    "tracked_books": "fk_tracked_books_library_id_libraries",
-    "epub_fix_runs": "fk_epub_fix_runs_library_id_libraries",
-}
+
+def _find_library_fk_name(conn: sa.Connection, table: str) -> str | None:
+    """Return the existing FK name on ``table.library_id`` → ``libraries.id``.
+
+    The name is looked up via the SQLAlchemy ``Inspector`` rather than
+    hard-coded, so the migration works regardless of which naming
+    convention (or none) produced the original constraint.  PostgreSQL
+    defaults to ``<table>_<column>_fkey`` while a project configured with
+    SQLAlchemy's recommended convention would yield
+    ``fk_<table>_<column>_<referred_table>`` — both resolve here.
+
+    Parameters
+    ----------
+    conn : sqlalchemy.Connection
+        Active migration connection.
+    table : str
+        Table whose ``library_id`` FK should be inspected.
+
+    Returns
+    -------
+    str | None
+        The constraint name, or ``None`` if no such FK exists or the
+        dialect reports it unnamed (e.g. some SQLite schemas).
+    """
+    insp = inspect(conn)
+    for fk in insp.get_foreign_keys(table):
+        if (
+            fk.get("constrained_columns") == ["library_id"]
+            and fk.get("referred_table") == "libraries"
+        ):
+            return fk.get("name")
+    return None
 
 
 def _backfill_nulls(conn: sa.Connection, table: str) -> None:
-    """Fill NULL library_id from the global active library, then first library."""
+    """Fill NULL ``library_id`` values from the active library, then any library.
+
+    Notes
+    -----
+    ``is_active`` is a ``BOOLEAN`` column.  PostgreSQL strictly forbids
+    ``boolean = integer`` comparisons, so the literal ``TRUE`` is used rather
+    than ``1``.  ``TRUE``/``FALSE`` are also understood by SQLite (>= 3.23),
+    keeping the migration dialect-portable.
+    """
     # Active library fallback
     conn.execute(
         sa.text(f"""
@@ -59,7 +93,7 @@ def _backfill_nulls(conn: sa.Connection, table: str) -> None:
             SET library_id = (
                 SELECT ul.library_id
                 FROM user_libraries ul
-                WHERE ul.is_active = 1
+                WHERE ul.is_active = TRUE
                 LIMIT 1
             )
             WHERE library_id IS NULL
@@ -71,7 +105,7 @@ def _backfill_nulls(conn: sa.Connection, table: str) -> None:
         sa.text(f"""
             UPDATE {table}
             SET library_id = (
-                SELECT l.id FROM libraries l WHERE l.is_active = 1 LIMIT 1
+                SELECT l.id FROM libraries l WHERE l.is_active = TRUE LIMIT 1
             )
             WHERE library_id IS NULL
         """)  # noqa: S608
@@ -100,29 +134,19 @@ def upgrade() -> None:
         # 2. Make NOT NULL
         op.alter_column(table, "library_id", existing_type=sa.Integer(), nullable=False)
 
-        # 3. Drop old FK (if named) and recreate with CASCADE
-        old_fk = OLD_FK_NAMES.get(table)
-        if old_fk:
-            with op.batch_alter_table(table) as batch_op:
+        # 3. Drop the existing library_id FK (whatever its name) and recreate
+        #    it with ON DELETE CASCADE under our canonical name.
+        old_fk = _find_library_fk_name(conn, table)
+        with op.batch_alter_table(table) as batch_op:
+            if old_fk:
                 batch_op.drop_constraint(old_fk, type_="foreignkey")
-                batch_op.create_foreign_key(
-                    f"fk_{table}_library_id",
-                    "libraries",
-                    ["library_id"],
-                    ["id"],
-                    ondelete="CASCADE",
-                )
-        else:
-            # For tables without a named constraint, use batch mode
-            # to recreate the FK correctly
-            with op.batch_alter_table(table) as batch_op:
-                batch_op.create_foreign_key(
-                    f"fk_{table}_library_id",
-                    "libraries",
-                    ["library_id"],
-                    ["id"],
-                    ondelete="CASCADE",
-                )
+            batch_op.create_foreign_key(
+                f"fk_{table}_library_id",
+                "libraries",
+                ["library_id"],
+                ["id"],
+                ondelete="CASCADE",
+            )
 
 
 def downgrade() -> None:
