@@ -38,7 +38,7 @@ dependencies = [
     "py7zr>=1.0.0",
     "rarfile>=4.2",
     "apscheduler>=3.11.2",
-    "urllib3>=2.6.3",
+    "urllib3>=2.7.0",
     "seleniumbase>=4.45.11",
     "emoji>=2.15.0",
 ]
