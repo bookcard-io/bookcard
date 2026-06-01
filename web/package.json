@@ -112,7 +112,7 @@
     "tailwindcss": "^4.1.16",
     "typescript": "^5.9.3",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^4.0.7",
+    "vitest": "^4.1.0",
     "vitest-browser-react": "^2.0.2"
   },
   "optionalDependencies": {
