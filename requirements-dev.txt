@@ -2402,9 +2402,9 @@ sqlmodel==0.0.31 \
     --hash=sha256:2d41a8a9ee05e40736e2f9db8ea28cbfe9b5d4e5a18dd139e80605025e0c516c \
     --hash=sha256:6d946d56cac4c2db296ba1541357cee2e795d68174e2043cd138b916794b1513
     # via bookcard (pyproject.toml)
-starlette==0.49.3 \
-    --hash=sha256:1c14546f299b5901a1ea0e34410575bc33bbd741377a10484a54445588d00284 \
-    --hash=sha256:b579b99715fdc2980cf88c8ec96d3bf1ce16f5a8051a7c2b84ef9b1cdecaea2f
+starlette==1.0.1 \
+    --hash=sha256:512399c5f1de7fac99c88572212ded9ddeddef2fb32afa82d724000e88b38f4f \
+    --hash=sha256:7c0e69b2ee1c848bd54669d908500117a3ee13de603a21427e5c6fc1adf98dcd
     # via fastapi
 tabcompleter==1.4.0 \
     --hash=sha256:7562a9938e62f8e7c3be612c3ac4e14c5ec4307b58ba9031c148260e866e8814 \
