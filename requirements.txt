@@ -1586,9 +1586,9 @@ pyotp==2.9.0 \
     --hash=sha256:346b6642e0dbdde3b4ff5a930b664ca82abfa116356ed48cc42c7d6590d36f63 \
     --hash=sha256:81c2e5865b8ac55e825b0358e496e1d9387c811e85bb40e71a3b29b288963612
     # via seleniumbase
-pypdf==6.10.2 \
-    --hash=sha256:7d09ce108eff6bf67465d461b6ef352dcb8d84f7a91befc02f904455c6eea11d \
-    --hash=sha256:aa53be9826655b51c96741e5d7983ca224d898ac0a77896e64636810517624aa
+pypdf==6.12.0 \
+    --hash=sha256:061f135db8934503ed301c2d4cfaccb12f0a2ef1db11c5d0768a72a5ab4097d8 \
+    --hash=sha256:a8e104ab950e655d0bcf5fa5e71317c06474bc707987335da44a210f73a8883b
     # via bookcard (pyproject.toml)
 pyperclip==1.11.0 ; sys_platform == 'linux' \
     --hash=sha256:244035963e4428530d9e3a6101a1ef97209c6825edab1567beac148ccc1db1b6 \
