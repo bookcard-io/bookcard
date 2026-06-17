@@ -49,7 +49,7 @@
     "@fontsource/opendyslexic": "^5.2.5",
     "@hookform/resolvers": "^5.2.2",
     "@next/bundle-analyzer": "^16.1.1",
-    "@sentry/nextjs": "^10.22.0",
+    "@sentry/nextjs": "^10.58.0",
     "@tanstack/react-query": "^5.90.9",
     "@tanstack/react-virtual": "^3.13.12",
     "clsx": "^2.1.1",
