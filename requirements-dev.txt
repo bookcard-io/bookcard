@@ -1626,7 +1626,7 @@ pybcj==1.0.7 \
     --hash=sha256:ebcce9b419fe5d3109150a1fab0fc93a64d5cd812ca44c5ddb7d4f7128ea369f \
     --hash=sha256:fc73ee1bc064d6f97dfd66051d3859b32e1b6a4cf89b077f5c8ef6c2dccb71af
     # via py7zr
-pycparser==2.23 ; (implementation_name != 'PyPy' and os_name != 'nt') or (implementation_name != 'PyPy' and platform_python_implementation == 'CPython') or (implementation_name != 'PyPy' and platform_python_implementation == 'PyPy') or (implementation_name != 'PyPy' and platform_python_implementation != 'CPython' and platform_python_implementation != 'PyPy') or (implementation_name != 'PyPy' and sys_platform != 'win32') \
+pycparser==2.23 ; implementation_name != 'PyPy' \
     --hash=sha256:78816d4f24add8f10a06d6f05b4d424ad9e96cfebf68a4ddc99c65c0720d00c2 \
     --hash=sha256:e5c6e8d3fbad53479cab09ac03729e0a9faf2bee3db8208a550daf5af81a5934
     # via cffi
