@@ -1929,9 +1929,9 @@ seleniumbase==4.45.11 \
     --hash=sha256:e926c0953ada514f82b5846c02ceb59429a985ef23cfb95c2f61ca92c53808af \
     --hash=sha256:f711751546e00fa22822c29d1384285aaa84adf7df70427100cc6a9257e70868
     # via bookcard (pyproject.toml)
-setuptools==80.9.0 \
-    --hash=sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922 \
-    --hash=sha256:f36b47402ecde768dbfafc46e8e4207b4360c654f1f3bb84475f0a28628fb19c
+setuptools==83.0.0 \
+    --hash=sha256:025bccbbf0fa05b6192bc64ae1e7b16e001fd6d6d4d5de03c97b1c1ade523bef \
+    --hash=sha256:29b23c360f22f414dc7336bb39178cc7bcbf6021ed2733cde173f09dba19abb3
     # via seleniumbase
 six==1.17.0 \
     --hash=sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274 \
